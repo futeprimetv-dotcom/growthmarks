@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Search, BookmarkCheck, AlertCircle, FileSpreadsheet, Globe, Database, ArrowLeft } from "lucide-react";
+import { Search, BookmarkCheck, AlertCircle, FileSpreadsheet, Globe, Database, ArrowLeft, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
@@ -554,16 +554,19 @@ export default function Prospeccao() {
               </SelectContent>
             </Select>
 
-            {selectedIds.length > 0 && (
-              <Button
-                variant="outline"
-                onClick={handleAddToMyBase}
-                disabled={addProspectFromCNPJ.isPending}
-              >
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleAddToMyBase}
+              disabled={selectedIds.length === 0 || addProspectFromCNPJ.isPending}
+            >
+              {addProspectFromCNPJ.isPending ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
                 <Database className="h-4 w-4 mr-2" />
-                Salvar na Minha Base
-              </Button>
-            )}
+              )}
+              Salvar na Minha Base
+            </Button>
 
             <ProspeccaoActions
               selectedCount={selectedIds.length}
