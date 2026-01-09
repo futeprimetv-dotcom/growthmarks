@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -39,9 +39,9 @@ export function LeadConvertDialog({ open, onOpenChange, lead }: LeadConvertDialo
   const updateLead = useUpdateLead();
   const createHistory = useCreateLeadHistory();
 
-  // Pre-fill form when lead changes
-  useState(() => {
-    if (lead) {
+  // Pre-fill form when lead changes or dialog opens
+  useEffect(() => {
+    if (lead && open) {
       setClientData({
         name: lead.company || lead.name,
         contact_name: lead.name,
@@ -51,17 +51,18 @@ export function LeadConvertDialog({ open, onOpenChange, lead }: LeadConvertDialo
         notes: lead.notes || "",
       });
     }
-  });
+  }, [lead, open]);
 
   const handleOpenChange = (newOpen: boolean) => {
-    if (newOpen && lead) {
+    if (!newOpen) {
+      // Reset form when closing
       setClientData({
-        name: lead.company || lead.name,
-        contact_name: lead.name,
-        contact_email: lead.email || "",
-        contact_phone: lead.phone || lead.whatsapp || "",
-        monthly_value: lead.estimated_value || 0,
-        notes: lead.notes || "",
+        name: "",
+        contact_name: "",
+        contact_email: "",
+        contact_phone: "",
+        monthly_value: 0,
+        notes: "",
       });
     }
     onOpenChange(newOpen);
