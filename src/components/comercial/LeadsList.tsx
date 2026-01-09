@@ -18,6 +18,7 @@ import { LeadFormDialog } from "./LeadFormDialog";
 import { LeadHistoryDialog } from "./LeadHistoryDialog";
 import { LeadImportDialog } from "./LeadImportDialog";
 import { LeadExportButton } from "./LeadExportButton";
+import { LeadConvertDialog } from "./LeadConvertDialog";
 import { 
   Search, Flame, Snowflake, ThermometerSun, Calendar, 
   Plus, Upload, History, Pencil, Trash2, UserPlus 
@@ -66,6 +67,7 @@ export function LeadsList() {
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [convertLead, setConvertLead] = useState<Lead | null>(null);
 
   const { data: leads, isLoading } = useLeads();
   const { data: teamMembers } = useTeamMembers();
@@ -244,6 +246,11 @@ export function LeadsList() {
                           <Button variant="ghost" size="icon" onClick={() => handleEdit(lead)} title="Editar">
                             <Pencil className="h-4 w-4" />
                           </Button>
+                          {lead.status !== 'fechamento' && lead.status !== 'perdido' && !lead.converted_to_client_id && (
+                            <Button variant="ghost" size="icon" onClick={() => setConvertLead(lead)} title="Converter para Cliente">
+                              <UserPlus className="h-4 w-4 text-green-500" />
+                            </Button>
+                          )}
                           <Button variant="ghost" size="icon" onClick={() => setDeleteId(lead.id)} title="Excluir">
                             <Trash2 className="h-4 w-4 text-destructive" />
                           </Button>
@@ -279,6 +286,12 @@ export function LeadsList() {
       <LeadImportDialog 
         open={importOpen} 
         onOpenChange={setImportOpen} 
+      />
+
+      <LeadConvertDialog
+        open={!!convertLead}
+        onOpenChange={(open) => !open && setConvertLead(null)}
+        lead={convertLead}
       />
 
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
