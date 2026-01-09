@@ -1,9 +1,10 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Target, CalendarDays, Megaphone, MessageSquare, Link2, CheckCircle, ExternalLink } from "lucide-react";
+import { Target, CalendarDays, Megaphone, MessageSquare, Link2, CheckCircle, ExternalLink, Send, Undo2, Loader2 } from "lucide-react";
 import { useClients } from "@/hooks/useClients";
 import { usePlanningContents, usePlanningCampaigns } from "@/hooks/usePlannings";
+import { useSendToProduction, useUndoSendToProduction } from "@/hooks/useSendToProduction";
 
 const statusConfig: Record<string, { label: string; color: string }> = {
   rascunho: { label: "Rascunho", color: "bg-muted" },
@@ -55,8 +56,29 @@ export function PlanningView({ planning, isPublic = false, onCopyLink }: Plannin
   const { data: contents = [] } = usePlanningContents(planning.id);
   const { data: campaigns = [] } = usePlanningCampaigns(planning.id);
   
+  const sendToProduction = useSendToProduction();
+  const undoSendToProduction = useUndoSendToProduction();
+  
   const client = clients.find(c => c.id === planning.client_id);
   const status = statusConfig[planning.status] || statusConfig.rascunho;
+
+  const handleSendToProduction = (content: typeof contents[0]) => {
+    sendToProduction.mutate({
+      content,
+      clientId: planning.client_id,
+      planningId: planning.id,
+    });
+  };
+
+  const handleUndoSendToProduction = (content: typeof contents[0]) => {
+    if (content.demand_id) {
+      undoSendToProduction.mutate({
+        contentId: content.id,
+        demandId: content.demand_id,
+        planningId: planning.id,
+      });
+    }
+  };
 
   // Group content by week
   const contentByWeek: Record<number, typeof contents> = {};
@@ -169,7 +191,53 @@ export function PlanningView({ planning, isPublic = false, onCopyLink }: Plannin
                             {date.toLocaleDateString('pt-BR', { weekday: 'short', day: 'numeric' })}
                           </p>
                         )}
-                        {item.send_to_production && (
+                        
+                        {/* Send to Production Actions */}
+                        {!isPublic && (
+                          <div className="mt-3 pt-2 border-t">
+                            {item.send_to_production ? (
+                              <div className="flex items-center justify-between">
+                                <Badge variant="secondary" className="text-xs bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300">
+                                  Na produção
+                                </Badge>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 text-xs text-muted-foreground hover:text-destructive"
+                                  onClick={() => handleUndoSendToProduction(item)}
+                                  disabled={undoSendToProduction.isPending}
+                                >
+                                  {undoSendToProduction.isPending ? (
+                                    <Loader2 className="h-3 w-3 animate-spin" />
+                                  ) : (
+                                    <>
+                                      <Undo2 className="h-3 w-3 mr-1" />
+                                      Desfazer
+                                    </>
+                                  )}
+                                </Button>
+                              </div>
+                            ) : (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="w-full h-7 text-xs"
+                                onClick={() => handleSendToProduction(item)}
+                                disabled={sendToProduction.isPending}
+                              >
+                                {sendToProduction.isPending ? (
+                                  <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                                ) : (
+                                  <Send className="h-3 w-3 mr-1" />
+                                )}
+                                Enviar p/ Produção
+                              </Button>
+                            )}
+                          </div>
+                        )}
+                        
+                        {/* Public view badge */}
+                        {isPublic && item.send_to_production && (
                           <Badge variant="secondary" className="mt-2 text-xs">
                             Enviado p/ produção
                           </Badge>
