@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Search, BookmarkCheck, AlertCircle, FileSpreadsheet, Globe, Database } from "lucide-react";
+import { Search, BookmarkCheck, AlertCircle, FileSpreadsheet, Globe, Database, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
@@ -21,6 +21,7 @@ import { CNPJSearchInput } from "@/components/prospeccao/CNPJSearchInput";
 import { CNPJResultCard } from "@/components/prospeccao/CNPJResultCard";
 import { CNPJBatchDialog } from "@/components/prospeccao/CNPJBatchDialog";
 import { RecentFiltersSelect, saveRecentProspeccaoFilters } from "@/components/prospeccao/RecentFiltersSelect";
+import { SearchResultsPanel } from "@/components/prospeccao/SearchResultsPanel";
 import { useProspects, useSendToLeadsBase, useAddProspectFromCNPJ, type ProspectFilters } from "@/hooks/useProspects";
 import { useSavedSearches } from "@/hooks/useSavedSearches";
 import { useCNPJLookupManual, type CNPJLookupResult } from "@/hooks/useCNPJLookup";
@@ -38,6 +39,7 @@ export default function Prospeccao() {
   const [sendCNPJToFunnelOpen, setSendCNPJToFunnelOpen] = useState(false);
   const [batchDialogOpen, setBatchDialogOpen] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
+  const [showResultsPanel, setShowResultsPanel] = useState(false);
   const [searchMode, setSearchMode] = useState<"api" | "database">("api");
   
   // API Search results
@@ -117,7 +119,7 @@ export default function Prospeccao() {
     setApiTotal(0);
     
     if (searchMode === "api") {
-      // Search via API (Casa dos Dados)
+      // Search via API (Firecrawl + BrasilAPI)
       try {
         const result = await companySearch.mutateAsync({
           filters,
@@ -127,6 +129,7 @@ export default function Prospeccao() {
         
         setApiResults(result.companies);
         setApiTotal(result.total);
+        setShowResultsPanel(true); // Show results panel after search
         
         if (result.error) {
           toast({
@@ -142,7 +145,7 @@ export default function Prospeccao() {
         } else {
           toast({
             title: "Busca concluída",
-            description: `${result.companies.length} empresa(s) encontrada(s) de ${result.total} total.`,
+            description: `${result.companies.length} empresa(s) encontrada(s).`,
           });
         }
       } catch (error) {
@@ -162,9 +165,14 @@ export default function Prospeccao() {
   const handleClearFilters = () => {
     setFilters({});
     setHasSearched(false);
+    setShowResultsPanel(false);
     setSelectedIds([]);
     setApiResults([]);
     setApiTotal(0);
+  };
+
+  const handleBackFromResults = () => {
+    setShowResultsPanel(false);
   };
 
   const handleLoadSavedSearch = (searchId: string) => {
@@ -434,6 +442,84 @@ export default function Prospeccao() {
   const isLoading = searchMode === "api" ? companySearch.isPending : dbLoading;
   const totalResults = searchMode === "api" ? apiTotal : prospects.length;
 
+  // If showing results panel (API search), render a clean view
+  if (showResultsPanel && searchMode === "api") {
+    return (
+      <div className="flex flex-col h-[calc(100vh-4rem)]">
+        {/* Results Header with Actions */}
+        <div className="px-6 py-3 border-b shrink-0 flex items-center justify-between bg-muted/30">
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" size="sm" onClick={handleBackFromResults}>
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Voltar aos filtros
+            </Button>
+            <Separator orientation="vertical" className="h-6" />
+            <div className="text-sm text-muted-foreground">
+              {selectedIds.length > 0 && (
+                <span className="font-medium text-foreground">
+                  {selectedIds.length} selecionado(s) •{" "}
+                </span>
+              )}
+              {apiResults.length} resultado(s) encontrado(s)
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <Select value={String(pageSize)} onValueChange={(v) => setPageSize(Number(v))}>
+              <SelectTrigger className="w-[130px]">
+                <SelectValue placeholder="Resultados" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="10">10</SelectItem>
+                <SelectItem value="25">25</SelectItem>
+                <SelectItem value="50">50</SelectItem>
+                <SelectItem value="100">100</SelectItem>
+              </SelectContent>
+            </Select>
+
+            {selectedIds.length > 0 && (
+              <Button
+                variant="outline"
+                onClick={handleAddToMyBase}
+                disabled={addProspectFromCNPJ.isPending}
+              >
+                <Database className="h-4 w-4 mr-2" />
+                Salvar na Minha Base
+              </Button>
+            )}
+
+            <ProspeccaoActions
+              selectedCount={selectedIds.length}
+              onSendToFunnel={() => setSendToFunnelOpen(true)}
+              onSendToLeadsBase={handleSendToLeadsBase}
+              onExport={handleExport}
+              isSendingToBase={sendToLeadsBase.isPending}
+            />
+          </div>
+        </div>
+
+        {/* Results Panel */}
+        <SearchResultsPanel
+          results={apiResults}
+          isLoading={companySearch.isPending}
+          selectedIds={selectedIds}
+          onSelectChange={setSelectedIds}
+          onBack={handleBackFromResults}
+          totalResults={apiTotal}
+        />
+
+        {/* Dialogs */}
+        <SendToFunnelDialog
+          open={sendToFunnelOpen}
+          onOpenChange={setSendToFunnelOpen}
+          selectedProspects={selectedIds}
+          onSuccess={() => setSelectedIds([])}
+        />
+      </div>
+    );
+  }
+
+  // Default view with filters
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)]">
       {/* Header */}
@@ -453,10 +539,9 @@ export default function Prospeccao() {
             <RecentFiltersSelect
               onApply={(recent) => {
                 setFilters(recent);
-                setHasSearched(true);
                 toast({
                   title: "Filtros recentes aplicados",
-                  description: "Você pode clicar em Buscar para atualizar os resultados.",
+                  description: "Clique em Buscar para ver os resultados.",
                 });
               }}
             />
@@ -541,7 +626,7 @@ export default function Prospeccao() {
           {searchMode === "api" ? (
             <span className="flex items-center gap-1">
               <Globe className="h-4 w-4" />
-              Busca empresas ativas diretamente na base de CNPJs do Brasil (API Casa dos Dados)
+              Busca empresas ativas via web scraping inteligente (Firecrawl + BrasilAPI)
             </span>
           ) : (
             <span className="flex items-center gap-1">
@@ -562,8 +647,8 @@ export default function Prospeccao() {
         />
       </div>
 
-      {/* Results Header */}
-      {hasSearched && (
+      {/* Results Header - Only for database mode */}
+      {hasSearched && searchMode === "database" && (
         <div className="px-6 py-3 border-b shrink-0 flex items-center justify-between bg-muted/30">
           <div className="text-sm text-muted-foreground">
             {selectedIds.length > 0 && (
@@ -572,9 +657,6 @@ export default function Prospeccao() {
               </span>
             )}{" "}
             {displayData.length} resultado(s) encontrado(s)
-            {searchMode === "api" && totalResults > displayData.length && (
-              <span className="text-muted-foreground"> de {totalResults} total</span>
-            )}
           </div>
 
           <div className="flex items-center gap-3">
@@ -589,17 +671,6 @@ export default function Prospeccao() {
                 <SelectItem value="100">100</SelectItem>
               </SelectContent>
             </Select>
-
-            {searchMode === "api" && selectedIds.length > 0 && (
-              <Button
-                variant="outline"
-                onClick={handleAddToMyBase}
-                disabled={addProspectFromCNPJ.isPending}
-              >
-                <Database className="h-4 w-4 mr-2" />
-                Salvar na Minha Base
-              </Button>
-            )}
 
             <ProspeccaoActions
               selectedCount={selectedIds.length}
@@ -624,13 +695,13 @@ export default function Prospeccao() {
               </Button>
             </AlertDescription>
           </Alert>
-        ) : !hasSearched ? (
+        ) : !hasSearched || searchMode === "api" ? (
           <div className="flex flex-col items-center justify-center py-20 text-center">
             <Search className="h-16 w-16 text-muted-foreground/30 mb-4" />
             <h3 className="text-lg font-semibold">Encontre empresas para prospectar</h3>
             <p className="text-muted-foreground mt-1 max-w-md">
               {searchMode === "api" 
-                ? "Utilize os filtros acima para buscar empresas ativas diretamente na base de CNPJs do Brasil."
+                ? "Utilize os filtros acima e clique em Buscar para encontrar empresas ativas."
                 : "Consulte um CNPJ específico ou utilize os filtros para encontrar empresas na sua base."}
             </p>
           </div>
