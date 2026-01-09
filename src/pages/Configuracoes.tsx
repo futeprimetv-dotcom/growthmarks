@@ -6,12 +6,11 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Building2, Package, Palette, Settings2, Bell, Plus, Edit2, Trash2 } from "lucide-react";
-import logo from "@/assets/logo-growth-marks.png";
 import { useAvailableServices, AvailableService } from "@/hooks/useAvailableServices";
-import { useTheme } from "@/hooks/useTheme";
 import { CRMSettingsSection } from "@/components/configuracoes/CRMSettingsSection";
 import { CompanySettingsSection } from "@/components/configuracoes/CompanySettingsSection";
 import { AdvancedSettingsSection } from "@/components/configuracoes/AdvancedSettingsSection";
+import { AppearanceSettingsSection } from "@/components/configuracoes/AppearanceSettingsSection";
 import {
   Dialog,
   DialogContent,
@@ -56,7 +55,6 @@ interface ServiceFormData {
 }
 
 export default function Configuracoes() {
-  const { theme, toggleTheme } = useTheme();
   const { services, isLoading, createService, updateService, deleteService } = useAvailableServices();
   
   const [isServiceFormOpen, setIsServiceFormOpen] = useState(false);
@@ -248,23 +246,7 @@ export default function Configuracoes() {
 
         {/* Aparência Tab */}
         <TabsContent value="aparencia" className="mt-6">
-          <Card className="p-6">
-            <div className="flex items-center gap-3 mb-6">
-              <Palette className="h-5 w-5 text-primary" />
-              <h2 className="text-lg font-semibold">Aparência</h2>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium">Modo Escuro</p>
-                <p className="text-sm text-muted-foreground">Usar tema escuro na interface</p>
-              </div>
-              <Switch 
-                checked={theme === "dark"} 
-                onCheckedChange={toggleTheme}
-              />
-            </div>
-          </Card>
+          <AppearanceSettingsSection />
         </TabsContent>
 
         {/* Avançado Tab */}
