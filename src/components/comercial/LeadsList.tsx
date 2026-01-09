@@ -19,9 +19,12 @@ import { LeadHistoryDialog } from "./LeadHistoryDialog";
 import { LeadImportDialog } from "./LeadImportDialog";
 import { LeadExportButton } from "./LeadExportButton";
 import { LeadConvertDialog } from "./LeadConvertDialog";
+import { LeadActivitiesDialog } from "./LeadActivitiesDialog";
+import { LeadScoreBadge } from "./LeadScoreBadge";
+import { WhatsAppButton } from "./WhatsAppButton";
 import { 
   Search, Flame, Snowflake, ThermometerSun, Calendar, 
-  Plus, Upload, History, Pencil, Trash2, UserPlus 
+  Plus, Upload, History, Pencil, Trash2, UserPlus, CheckSquare
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -64,11 +67,11 @@ export function LeadsList() {
   const [formOpen, setFormOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [activitiesOpen, setActivitiesOpen] = useState(false);
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [convertLead, setConvertLead] = useState<Lead | null>(null);
-
   const { data: leads, isLoading } = useLeads();
   const { data: teamMembers } = useTeamMembers();
   const deleteLead = useDeleteLead();
@@ -91,6 +94,11 @@ export function LeadsList() {
   const handleHistory = (lead: Lead) => {
     setSelectedLead(lead);
     setHistoryOpen(true);
+  };
+
+  const handleActivities = (lead: Lead) => {
+    setSelectedLead(lead);
+    setActivitiesOpen(true);
   };
 
   const handleDelete = async () => {
@@ -182,13 +190,14 @@ export function LeadsList() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Lead</TableHead>
+                  <TableHead className="text-center">Score</TableHead>
                   <TableHead>Serviço</TableHead>
                   <TableHead>Valor Est.</TableHead>
                   <TableHead>Origem</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Próxima Ação</TableHead>
                   <TableHead>Responsável</TableHead>
-                  <TableHead className="w-[120px]">Ações</TableHead>
+                  <TableHead className="w-[160px]">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -207,6 +216,9 @@ export function LeadsList() {
                             <p className="text-sm text-muted-foreground">{lead.company || "-"}</p>
                           </div>
                         </div>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <LeadScoreBadge lead={lead} size="sm" />
                       </TableCell>
                       <TableCell>
                         {lead.service_interest ? (
@@ -240,6 +252,14 @@ export function LeadsList() {
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-1">
+                          <WhatsAppButton 
+                            phone={lead.whatsapp || lead.phone} 
+                            leadId={lead.id}
+                            leadName={lead.name}
+                          />
+                          <Button variant="ghost" size="icon" onClick={() => handleActivities(lead)} title="Atividades">
+                            <CheckSquare className="h-4 w-4" />
+                          </Button>
                           <Button variant="ghost" size="icon" onClick={() => handleHistory(lead)} title="Histórico">
                             <History className="h-4 w-4" />
                           </Button>
@@ -292,6 +312,12 @@ export function LeadsList() {
         open={!!convertLead}
         onOpenChange={(open) => !open && setConvertLead(null)}
         lead={convertLead}
+      />
+
+      <LeadActivitiesDialog
+        open={activitiesOpen}
+        onOpenChange={setActivitiesOpen}
+        lead={selectedLead}
       />
 
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
