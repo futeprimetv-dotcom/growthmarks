@@ -18,6 +18,11 @@ import {
   Copy,
   Check,
   MessageCircle,
+  Search,
+  Loader2,
+  Instagram,
+  Linkedin,
+  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -25,6 +30,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
+import { toast } from "sonner";
 import {
   Collapsible,
   CollapsibleContent,
@@ -32,6 +38,7 @@ import {
 } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
 import type { CompanySearchResult } from "@/hooks/useCompanySearch";
+import { useEnrichCompany, type EnrichedData } from "@/hooks/useEnrichCompany";
 
 interface Props {
   results: CompanySearchResult[];
@@ -41,6 +48,9 @@ interface Props {
   onBack: () => void;
   totalResults: number;
 }
+
+// Store enriched data for each company
+const enrichedCache = new Map<string, EnrichedData>();
 
 function formatCNPJ(cnpj: string): string {
   if (!cnpj) return "-";
@@ -88,6 +98,12 @@ function CompanyCard({
 }) {
   const [expanded, setExpanded] = useState(false);
   const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [enrichedData, setEnrichedData] = useState<EnrichedData | null>(
+    enrichedCache.get(company.id || company.cnpj) || null
+  );
+  const [isEnriching, setIsEnriching] = useState(false);
+
+  const enrichMutation = useEnrichCompany();
 
   const handleCopy = async (text: string, field: string) => {
     await navigator.clipboard.writeText(text);
@@ -95,13 +111,54 @@ function CompanyCard({
     setTimeout(() => setCopiedField(null), 2000);
   };
 
+  const handleEnrich = async () => {
+    setIsEnriching(true);
+    try {
+      const data = await enrichMutation.mutateAsync({
+        cnpj: company.cnpj,
+        companyName: company.name || company.razao_social,
+        city: company.city,
+        state: company.state,
+      });
+      
+      setEnrichedData(data);
+      enrichedCache.set(company.id || company.cnpj, data);
+      setExpanded(true);
+      toast.success("Dados enriquecidos com sucesso!");
+    } catch (error) {
+      console.error("Enrich error:", error);
+      toast.error("Erro ao buscar detalhes. Tente novamente.");
+    } finally {
+      setIsEnriching(false);
+    }
+  };
+
   const isActive = company.situacao === "ATIVA";
+  
+  // Merge original data with enriched data
+  const allPhones = [...new Set([
+    ...(company.phones || []),
+    ...(enrichedData?.phones || [])
+  ])];
+  
+  const allEmails = [...new Set([
+    ...(company.emails || []),
+    ...(enrichedData?.emails || [])
+  ])];
+
+  const whatsappNumbers = enrichedData?.whatsapp || 
+    allPhones.filter(p => {
+      const clean = p.replace(/\D/g, "");
+      return clean.length === 11 && clean[2] === "9";
+    });
+
+  const hasContactInfo = allPhones.length > 0 || allEmails.length > 0;
 
   return (
     <Card className={cn(
       "transition-all duration-200",
       isSelected && "ring-2 ring-primary",
-      !isActive && "opacity-60"
+      !isActive && company.situacao !== "WEB" && "opacity-60"
     )}>
       <CardHeader className="pb-3">
         <div className="flex items-start gap-4">
@@ -113,8 +170,8 @@ function CompanyCard({
           
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <div className="flex items-center gap-2 mb-1">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 mb-1 flex-wrap">
                   <h3 className="font-semibold text-lg truncate">
                     {company.name}
                   </h3>
@@ -123,10 +180,21 @@ function CompanyCard({
                       <CheckCircle2 className="h-3 w-3 mr-1" />
                       Ativa
                     </Badge>
+                  ) : company.situacao === "WEB" ? (
+                    <Badge variant="outline" className="text-blue-600 border-blue-600 shrink-0">
+                      <Globe className="h-3 w-3 mr-1" />
+                      Web
+                    </Badge>
                   ) : (
                     <Badge variant="outline" className="text-destructive border-destructive shrink-0">
                       <XCircle className="h-3 w-3 mr-1" />
-                      {company.situacao}
+                      {company.situacao || "Desconhecida"}
+                    </Badge>
+                  )}
+                  {enrichedData && (
+                    <Badge className="bg-primary/10 text-primary border-primary shrink-0">
+                      <Sparkles className="h-3 w-3 mr-1" />
+                      Enriquecido
                     </Badge>
                   )}
                 </div>
@@ -136,6 +204,32 @@ function CompanyCard({
                   </p>
                 )}
               </div>
+
+              {/* Enrich Button */}
+              <Button
+                variant={enrichedData ? "outline" : "default"}
+                size="sm"
+                onClick={handleEnrich}
+                disabled={isEnriching}
+                className="shrink-0"
+              >
+                {isEnriching ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Buscando...
+                  </>
+                ) : enrichedData ? (
+                  <>
+                    <Search className="h-4 w-4 mr-2" />
+                    Atualizar
+                  </>
+                ) : (
+                  <>
+                    <Search className="h-4 w-4 mr-2" />
+                    Buscar Detalhes
+                  </>
+                )}
+              </Button>
             </div>
 
             {/* Key Info Grid */}
@@ -191,13 +285,13 @@ function CompanyCard({
             </div>
 
             {/* Contact Row */}
-            <div className="flex flex-wrap items-center gap-4 mt-4 pt-3 border-t">
+            <div className="flex flex-wrap items-center gap-3 mt-4 pt-3 border-t">
               {/* Emails */}
-              {company.emails && company.emails.length > 0 ? (
+              {allEmails.length > 0 ? (
                 <div className="flex items-center gap-2">
                   <Mail className="h-4 w-4 text-primary" />
                   <div className="flex flex-wrap gap-2">
-                    {company.emails.slice(0, 2).map((email, i) => (
+                    {allEmails.slice(0, 2).map((email, i) => (
                       <a
                         key={i}
                         href={`mailto:${email}`}
@@ -206,9 +300,9 @@ function CompanyCard({
                         {email}
                       </a>
                     ))}
-                    {company.emails.length > 2 && (
+                    {allEmails.length > 2 && (
                       <span className="text-xs text-muted-foreground">
-                        +{company.emails.length - 2}
+                        +{allEmails.length - 2}
                       </span>
                     )}
                   </div>
@@ -223,11 +317,11 @@ function CompanyCard({
               <Separator orientation="vertical" className="h-4" />
 
               {/* Phones */}
-              {company.phones && company.phones.length > 0 ? (
+              {allPhones.length > 0 ? (
                 <div className="flex items-center gap-2">
                   <Phone className="h-4 w-4 text-primary" />
                   <div className="flex flex-wrap items-center gap-2">
-                    {company.phones.slice(0, 2).map((phone, i) => (
+                    {allPhones.slice(0, 2).map((phone, i) => (
                       <a
                         key={i}
                         href={`tel:${phone.replace(/\D/g, "")}`}
@@ -236,9 +330,9 @@ function CompanyCard({
                         {formatPhone(phone)}
                       </a>
                     ))}
-                    {company.phones.length > 2 && (
+                    {allPhones.length > 2 && (
                       <span className="text-xs text-muted-foreground">
-                        +{company.phones.length - 2}
+                        +{allPhones.length - 2}
                       </span>
                     )}
                   </div>
@@ -251,11 +345,11 @@ function CompanyCard({
               )}
 
               {/* WhatsApp Button */}
-              {company.phones && company.phones.length > 0 && (
+              {whatsappNumbers.length > 0 && (
                 <>
                   <Separator orientation="vertical" className="h-4" />
                   <a
-                    href={`https://wa.me/55${company.phones[0].replace(/\D/g, "")}`}
+                    href={`https://wa.me/55${whatsappNumbers[0].replace(/\D/g, "")}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-green-600 hover:bg-green-700 text-white text-sm font-medium transition-colors"
@@ -265,7 +359,62 @@ function CompanyCard({
                   </a>
                 </>
               )}
+
+              {/* Instagram */}
+              {enrichedData?.instagram && enrichedData.instagram.length > 0 && (
+                <>
+                  <Separator orientation="vertical" className="h-4" />
+                  <a
+                    href={`https://instagram.com/${enrichedData.instagram[0]}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white text-sm font-medium transition-colors"
+                  >
+                    <Instagram className="h-4 w-4" />
+                    @{enrichedData.instagram[0]}
+                  </a>
+                </>
+              )}
+
+              {/* LinkedIn */}
+              {enrichedData?.linkedin && (
+                <>
+                  <Separator orientation="vertical" className="h-4" />
+                  <a
+                    href={enrichedData.linkedin}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium transition-colors"
+                  >
+                    <Linkedin className="h-4 w-4" />
+                    LinkedIn
+                  </a>
+                </>
+              )}
+
+              {/* Website */}
+              {(enrichedData?.website || company.website_url) && (
+                <>
+                  <Separator orientation="vertical" className="h-4" />
+                  <a
+                    href={enrichedData?.website || company.website_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-muted hover:bg-muted/80 text-sm font-medium transition-colors"
+                  >
+                    <Globe className="h-4 w-4" />
+                    Site
+                  </a>
+                </>
+              )}
             </div>
+
+            {/* Quick hint when no contact */}
+            {!hasContactInfo && !enrichedData && (
+              <p className="text-xs text-muted-foreground mt-2 italic">
+                💡 Clique em "Buscar Detalhes" para encontrar telefone, email e redes sociais
+              </p>
+            )}
           </div>
         </div>
       </CardHeader>
@@ -329,6 +478,27 @@ function CompanyCard({
                 </p>
                 <p className="text-sm">{formatDate(company.data_abertura)}</p>
               </div>
+
+              {/* All phones when enriched */}
+              {allPhones.length > 2 && (
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground font-medium uppercase flex items-center gap-1">
+                    <Phone className="h-3 w-3" />
+                    Todos os Telefones
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {allPhones.map((phone, i) => (
+                      <a
+                        key={i}
+                        href={`tel:${phone.replace(/\D/g, "")}`}
+                        className="text-sm text-primary hover:underline"
+                      >
+                        {formatPhone(phone)}
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Right Column */}
@@ -340,14 +510,15 @@ function CompanyCard({
                   Endereço Completo
                 </p>
                 <p className="text-sm">
-                  {[
-                    company.address,
-                    company.number,
-                    company.complement,
-                    company.neighborhood,
-                  ]
-                    .filter(Boolean)
-                    .join(", ") || "-"}
+                  {enrichedData?.address || 
+                    [
+                      company.address,
+                      company.number,
+                      company.complement,
+                      company.neighborhood,
+                    ]
+                      .filter(Boolean)
+                      .join(", ") || "-"}
                 </p>
                 <p className="text-sm text-muted-foreground">
                   {company.city}/{company.state}
@@ -355,18 +526,64 @@ function CompanyCard({
                 </p>
               </div>
 
+              {/* All Instagram handles */}
+              {enrichedData?.instagram && enrichedData.instagram.length > 1 && (
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground font-medium uppercase flex items-center gap-1">
+                    <Instagram className="h-3 w-3" />
+                    Instagram
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {enrichedData.instagram.map((handle, i) => (
+                      <a
+                        key={i}
+                        href={`https://instagram.com/${handle}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm text-primary hover:underline"
+                      >
+                        @{handle}
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* All emails when enriched */}
+              {allEmails.length > 2 && (
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground font-medium uppercase flex items-center gap-1">
+                    <Mail className="h-3 w-3" />
+                    Todos os Emails
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {allEmails.map((email, i) => (
+                      <a
+                        key={i}
+                        href={`mailto:${email}`}
+                        className="text-sm text-primary hover:underline"
+                      >
+                        {email}
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Website */}
-              {company.has_website && (
+              {(enrichedData?.website || company.website_url) && (
                 <div className="space-y-1">
                   <p className="text-xs text-muted-foreground font-medium uppercase flex items-center gap-1">
                     <Globe className="h-3 w-3" />
                     Website
                   </p>
                   <a
-                    href="#"
+                    href={enrichedData?.website || company.website_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="text-sm text-primary hover:underline flex items-center gap-1"
                   >
-                    Visitar site <ExternalLink className="h-3 w-3" />
+                    {enrichedData?.website || company.website_url} <ExternalLink className="h-3 w-3" />
                   </a>
                 </div>
               )}
@@ -451,6 +668,9 @@ export function SearchResultsPanel({
                 ? "Desmarcar todos"
                 : `Selecionar todos (${results.length})`}
             </Button>
+            <p className="text-sm text-muted-foreground">
+              💡 Use "Buscar Detalhes" para encontrar contatos das empresas
+            </p>
           </div>
           {results.map((company) => (
             <CompanyCard
