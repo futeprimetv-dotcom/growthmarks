@@ -1,6 +1,7 @@
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "./AppSidebar";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
+import { NotificationCenter } from "@/components/notifications/NotificationCenter";
 import { useTrackUserSession } from "@/hooks/useUserSessions";
 
 interface MainLayoutProps {
@@ -18,7 +19,10 @@ export function MainLayout({ children }: MainLayoutProps) {
         <main className="flex-1 flex flex-col">
           <header className="h-14 border-b border-border flex items-center justify-between px-4 bg-card">
             <SidebarTrigger className="mr-4" />
-            <ThemeToggle />
+            <div className="flex items-center gap-2">
+              <NotificationCenter />
+              <ThemeToggle />
+            </div>
           </header>
           <div className="flex-1 overflow-auto p-6">
             {children}
