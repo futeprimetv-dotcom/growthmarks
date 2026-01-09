@@ -30,6 +30,18 @@ export interface CompanySearchResult {
   enriched?: boolean;
 }
 
+export interface SearchDebugStats {
+  totalCNPJsFound: number;
+  cnpjsProcessed: number;
+  cacheHits: number;
+  skippedNoData: number;
+  skippedInactive: number;
+  skippedLocation: number;
+  companiesReturned: number;
+  apiErrors: { brasilapi: number; cnpjws: number };
+  processingTimeMs: number;
+}
+
 export interface CompanySearchResponse {
   companies: CompanySearchResult[];
   total: number;
@@ -37,6 +49,7 @@ export interface CompanySearchResponse {
   pageSize: number;
   source: string;
   error?: string;
+  debug?: SearchDebugStats;
 }
 
 export function useCompanySearch() {

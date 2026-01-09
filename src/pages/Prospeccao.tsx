@@ -26,6 +26,7 @@ import { SearchLoadingOverlay } from "@/components/prospeccao/SearchLoadingOverl
 import { SearchLimitSelector } from "@/components/prospeccao/SearchLimitSelector";
 import { SearchTemplates } from "@/components/prospeccao/SearchTemplates";
 import { SearchHistory } from "@/components/prospeccao/SearchHistory";
+import { SearchStatsPanel, type SearchDebugStats } from "@/components/prospeccao/SearchStatsPanel";
 import { ICPSettingsDialog } from "@/components/prospeccao/ICPSettingsDialog";
 import { ICPIndicator } from "@/components/prospeccao/ICPIndicator";
 import { useProspects, useSendToLeadsBase, useAddProspectFromCNPJ, type ProspectFilters } from "@/hooks/useProspects";
@@ -52,6 +53,7 @@ export default function Prospeccao() {
   // API Search results
   const [apiResults, setApiResults] = useState<CompanySearchResult[]>([]);
   const [apiTotal, setApiTotal] = useState(0);
+  const [searchStats, setSearchStats] = useState<SearchDebugStats | null>(null);
   
   // CNPJ Lookup State
   const [cnpjResult, setCnpjResult] = useState<CNPJLookupResult | null>(null);
@@ -146,6 +148,7 @@ export default function Prospeccao() {
     setHasSearched(true);
     setApiResults([]);
     setApiTotal(0);
+    setSearchStats(null);
     
     if (searchMode === "internet") {
       // Check cache first
@@ -173,6 +176,11 @@ export default function Prospeccao() {
         setApiTotal(result.total);
         setShowResultsPanel(true);
         
+        // Store debug stats
+        if (result.debug) {
+          setSearchStats(result.debug);
+        }
+        
         // Cache the results
         if (result.companies.length > 0) {
           addToCache(filters, result.companies, result.total);
@@ -190,9 +198,12 @@ export default function Prospeccao() {
             description: "Tente ajustar os filtros para encontrar empresas.",
           });
         } else {
+          const timeInfo = result.debug?.processingTimeMs 
+            ? ` em ${(result.debug.processingTimeMs / 1000).toFixed(1)}s`
+            : "";
           toast({
             title: "Busca concluída",
-            description: `${result.companies.length} empresa(s) encontrada(s).`,
+            description: `${result.companies.length} empresa(s) encontrada(s)${timeInfo}.`,
           });
         }
       } catch (error) {
@@ -578,6 +589,11 @@ export default function Prospeccao() {
               isSendingToBase={sendToLeadsBase.isPending}
             />
           </div>
+        </div>
+
+        {/* Search Stats Panel */}
+        <div className="px-6 pt-4">
+          <SearchStatsPanel stats={searchStats} isVisible={!companySearch.isPending && searchStats !== null} />
         </div>
 
         {/* Results Panel */}
