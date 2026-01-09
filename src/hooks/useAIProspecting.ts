@@ -114,6 +114,11 @@ export interface DigitalPresenceAnalysis {
     linkedin: string | null;
     tiktok: string | null;
   };
+  businessModel?: {
+    type: "B2B" | "B2C" | "B2B+B2C";
+    confidence: "alta" | "média" | "baixa";
+    reasoning: string;
+  };
   businessHours?: BusinessHours;
   googleRating?: GoogleRating;
   digitalMaturity: {

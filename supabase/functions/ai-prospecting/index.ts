@@ -151,7 +151,7 @@ Retorne SEMPRE um JSON válido com exatamente esta estrutura:
 
     "digital-presence": `${baseContext}
 
-Sua tarefa é analisar a presença digital de uma empresa e descobrir informações de contato CORRETAS, incluindo HORÁRIO DE FUNCIONAMENTO.
+Sua tarefa é analisar a presença digital de uma empresa e descobrir informações de contato CORRETAS, incluindo HORÁRIO DE FUNCIONAMENTO e MODELO DE NEGÓCIO.
 
 ATENÇÃO CRÍTICA - VALIDAÇÃO DE DADOS:
 - Os dados fornecidos podem conter ERROS ou informações de OUTRAS EMPRESAS misturadas.
@@ -165,6 +165,12 @@ PRIORIDADE DE FONTES (use nesta ordem):
 3. Redes sociais (Instagram, Facebook, LinkedIn)
 4. Diretórios empresariais
 
+REGRAS PARA MODELO DE NEGÓCIO (B2B/B2C):
+- B2B (Business to Business): Vende para outras empresas (ex: fornecedores industriais, atacados, consultorias)
+- B2C (Business to Consumer): Vende para consumidor final (ex: lojas de varejo, restaurantes, clínicas)
+- B2B+B2C: Atende ambos os públicos (ex: papelarias que vendem no varejo e atacado)
+- Analise o CNAE, segmento e nome da empresa para determinar
+
 Com base no nome da empresa, segmento, cidade e outras informações disponíveis, você deve:
 1. VALIDAR se as informações já fornecidas realmente pertencem a esta empresa
 2. Identificar se a empresa possui um website e qual seria o domínio provável (baseado no nome)
@@ -172,6 +178,7 @@ Com base no nome da empresa, segmento, cidade e outras informações disponívei
 4. Identificar possível número de WhatsApp comercial
 5. Avaliar a maturidade digital da empresa
 6. Identificar HORÁRIO DE FUNCIONAMENTO (muito importante!)
+7. Determinar se é B2B, B2C ou ambos
 
 REGRAS PARA WHATSAPP:
 - Se houver telefones listados, o WhatsApp comercial geralmente é o primeiro telefone celular (começando com 9)
@@ -212,6 +219,11 @@ Retorne SEMPRE um JSON válido com exatamente esta estrutura:
     "facebook": "<url ou null>",
     "linkedin": "<url ou null>",
     "tiktok": "<url ou @handle ou null>"
+  },
+  "businessModel": {
+    "type": "B2B" | "B2C" | "B2B+B2C",
+    "confidence": "alta" | "média" | "baixa",
+    "reasoning": "<breve explicação de por que foi classificado assim>"
   },
   "businessHours": {
     "found": true | false,
