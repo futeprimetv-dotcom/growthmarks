@@ -701,23 +701,49 @@ function CompanyCard({
 
             {/* Right Column */}
             <div className="space-y-4">
-              {/* Full Address */}
+              {/* Full Address - Clickable to Google Maps */}
               <div className="space-y-1">
                 <p className="text-xs text-muted-foreground font-medium uppercase flex items-center gap-1">
                   <MapPin className="h-3 w-3" />
                   Endereço Completo
                 </p>
-                <p className="text-sm">
-                  {enrichedData?.address || 
+                {(() => {
+                  const fullAddress = enrichedData?.address || 
                     [
                       company.address,
                       company.number,
                       company.complement,
                       company.neighborhood,
+                      company.city,
+                      company.state,
+                      company.zip_code
                     ]
                       .filter(Boolean)
-                      .join(", ") || "-"}
-                </p>
+                      .join(", ");
+                  
+                  const mapsUrl = fullAddress 
+                    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(fullAddress)}`
+                    : null;
+
+                  return mapsUrl ? (
+                    <a
+                      href={mapsUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm text-primary hover:underline flex items-center gap-1 group"
+                    >
+                      <span>
+                        {enrichedData?.address || 
+                          [company.address, company.number, company.complement, company.neighborhood]
+                            .filter(Boolean)
+                            .join(", ") || "-"}
+                      </span>
+                      <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </a>
+                  ) : (
+                    <p className="text-sm">-</p>
+                  );
+                })()}
                 <p className="text-sm text-muted-foreground">
                   {company.city}/{company.state}
                   {company.zip_code && ` - CEP: ${company.zip_code}`}
