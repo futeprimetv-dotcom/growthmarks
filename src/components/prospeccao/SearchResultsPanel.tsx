@@ -17,6 +17,7 @@ import {
   Users,
   Copy,
   Check,
+  MessageCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -225,7 +226,7 @@ function CompanyCard({
               {company.phones && company.phones.length > 0 ? (
                 <div className="flex items-center gap-2">
                   <Phone className="h-4 w-4 text-primary" />
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     {company.phones.slice(0, 2).map((phone, i) => (
                       <a
                         key={i}
@@ -247,6 +248,22 @@ function CompanyCard({
                   <Phone className="h-4 w-4" />
                   <span className="text-sm">Sem telefone</span>
                 </div>
+              )}
+
+              {/* WhatsApp Button */}
+              {company.phones && company.phones.length > 0 && (
+                <>
+                  <Separator orientation="vertical" className="h-4" />
+                  <a
+                    href={`https://wa.me/55${company.phones[0].replace(/\D/g, "")}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-green-600 hover:bg-green-700 text-white text-sm font-medium transition-colors"
+                  >
+                    <MessageCircle className="h-4 w-4" />
+                    WhatsApp
+                  </a>
+                </>
               )}
             </div>
           </div>
