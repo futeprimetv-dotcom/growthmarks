@@ -105,18 +105,46 @@ async function fallbackLookupCNPJ(cnpj: string): Promise<any | null> {
   }
 }
 
+// Debug statistics interface
+interface SearchStats {
+  totalCNPJsFound: number;
+  cnpjsProcessed: number;
+  skippedNoData: number;
+  skippedInactive: number;
+  skippedLocation: number;
+  companiesReturned: number;
+  apiErrors: { brasilapi: number; cnpjws: number };
+  processingTimeMs: number;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
+  const startTime = Date.now();
+  const stats: SearchStats = {
+    totalCNPJsFound: 0,
+    cnpjsProcessed: 0,
+    skippedNoData: 0,
+    skippedInactive: 0,
+    skippedLocation: 0,
+    companiesReturned: 0,
+    apiErrors: { brasilapi: 0, cnpjws: 0 },
+    processingTimeMs: 0,
+  };
+
   try {
     const filters: SearchFilters = await req.json();
-    console.log("Search filters:", filters);
+    console.log("═══════════════════════════════════════════════════════════");
+    console.log("🔍 NOVA BUSCA DE EMPRESAS");
+    console.log("═══════════════════════════════════════════════════════════");
+    console.log("📋 Filtros recebidos:", JSON.stringify(filters, null, 2));
 
     const FIRECRAWL_API_KEY = Deno.env.get("FIRECRAWL_API_KEY");
     
     if (!FIRECRAWL_API_KEY) {
+      console.log("❌ ERRO: Firecrawl API Key não configurada");
       return new Response(
         JSON.stringify({
           companies: [],
@@ -131,12 +159,13 @@ serve(async (req) => {
     }
 
     const searchQueries = buildSearchQueries(filters);
-    console.log("Search queries:", searchQueries);
+    console.log("🔎 Queries de busca:", searchQueries);
 
     // Run parallel searches
     const allCNPJs: Set<string> = new Set();
-    const searchPromises = searchQueries.map(async (query) => {
+    const searchPromises = searchQueries.map(async (query, index) => {
       try {
+        console.log(`  → Executando query ${index + 1}: "${query.substring(0, 50)}..."`);
         const response = await fetch("https://api.firecrawl.dev/v1/search", {
           method: "POST",
           headers: {
@@ -155,48 +184,79 @@ serve(async (req) => {
         if (response.ok) {
           const data = await response.json();
           const results = data.data || [];
+          console.log(`  ✓ Query ${index + 1}: ${results.length} resultados do Firecrawl`);
           
+          let cnpjsFromQuery = 0;
           for (const result of results) {
             const text = `${result.markdown || ""} ${result.title || ""} ${result.description || ""}`;
             const cnpjs = extractCNPJs(text);
             cnpjs.forEach(c => allCNPJs.add(c));
+            cnpjsFromQuery += cnpjs.length;
           }
+          console.log(`  ✓ Query ${index + 1}: ${cnpjsFromQuery} CNPJs extraídos`);
+        } else {
+          console.log(`  ✗ Query ${index + 1}: Firecrawl retornou status ${response.status}`);
         }
       } catch (e) {
-        console.error("Search error:", e);
+        console.error(`  ✗ Query ${index + 1} erro:`, e);
       }
     });
 
     await Promise.all(searchPromises);
-    console.log("Found CNPJs:", allCNPJs.size);
+    stats.totalCNPJsFound = allCNPJs.size;
+    console.log("───────────────────────────────────────────────────────────");
+    console.log(`📊 Total de CNPJs únicos encontrados: ${allCNPJs.size}`);
+
+    if (allCNPJs.size === 0) {
+      console.log("⚠️ Nenhum CNPJ encontrado nas buscas do Firecrawl");
+      console.log("   Possíveis causas:");
+      console.log("   - Termo de busca muito específico");
+      console.log("   - Cidade/segmento com poucos resultados indexados");
+      console.log("   - Limite de API do Firecrawl atingido");
+    }
 
     // Lookup CNPJs in parallel batches
     const pageSize = filters.pageSize || 10;
     const cnpjArray = [...allCNPJs].slice(0, pageSize * 3);
+    console.log(`🔄 Processando ${cnpjArray.length} CNPJs (limite: ${pageSize * 3})`);
     
     const companies: any[] = [];
     const batchSize = 5;
     
     for (let i = 0; i < cnpjArray.length && companies.length < pageSize; i += batchSize) {
       const batch = cnpjArray.slice(i, i + batchSize);
+      const batchNum = Math.floor(i / batchSize) + 1;
+      console.log(`  📦 Batch ${batchNum}: processando ${batch.length} CNPJs...`);
       
       const lookupPromises = batch.map(async (cnpj) => {
         let data = await quickLookupCNPJ(cnpj);
+        let source = "brasilapi";
         
         if (!data) {
+          stats.apiErrors.brasilapi++;
           await new Promise(r => setTimeout(r, 100));
           data = await fallbackLookupCNPJ(cnpj);
+          source = "cnpjws";
+          if (!data) {
+            stats.apiErrors.cnpjws++;
+          }
         }
         
-        return { cnpj, data };
+        return { cnpj, data, source };
       });
 
       const results = await Promise.all(lookupPromises);
       
-      for (const { cnpj, data } of results) {
+      for (const { cnpj, data, source } of results) {
+        stats.cnpjsProcessed++;
+        
         if (companies.length >= pageSize) break;
         
-        if (!data) continue;
+        if (!data) {
+          stats.skippedNoData++;
+          console.log(`    ✗ ${cnpj}: Sem dados (APIs não retornaram)`);
+          continue;
+        }
         
         // Check if active - handle various API response formats
         const situacao = String(data.situacao_cadastral || "").toLowerCase();
@@ -204,7 +264,8 @@ serve(async (req) => {
                          situacao === "02" || // CNPJ.ws code for active
                          situacao.includes("ativ");
         if (!isActive) {
-          console.log(`CNPJ ${cnpj} skipped - situacao: ${data.situacao_cadastral}`);
+          stats.skippedInactive++;
+          console.log(`    ✗ ${cnpj}: Inativo (situacao: "${data.situacao_cadastral}")`);
           continue;
         }
         
@@ -218,13 +279,16 @@ serve(async (req) => {
           filters.cities.some(c => dataMunicipio.includes(c.toUpperCase()) || c.toUpperCase().includes(dataMunicipio));
         
         if (!matchesState || !matchesCity) {
-          console.log(`CNPJ ${cnpj} skipped - location: ${data.municipio}/${data.uf}, expected: ${filters.cities}/${filters.states}`);
+          stats.skippedLocation++;
+          console.log(`    ✗ ${cnpj}: Local não corresponde (${data.municipio}/${data.uf} vs ${filters.cities?.join(",")}/${filters.states?.join(",")})`);
           continue;
         }
 
         // Get basic contact info
         const phones = [data.ddd_telefone_1, data.ddd_telefone_2].filter(Boolean);
         const emails = data.email ? [data.email.toLowerCase()] : [];
+
+        console.log(`    ✓ ${cnpj}: ${data.nome_fantasia || data.razao_social} (${source})`);
 
         companies.push({
           id: cnpj,
@@ -251,7 +315,6 @@ serve(async (req) => {
           situacao: data.situacao_cadastral || "ATIVA",
           capital_social: data.capital_social,
           data_abertura: data.data_inicio_atividade,
-          // Flag to indicate data can be enriched
           enriched: false,
         });
       }
@@ -262,7 +325,37 @@ serve(async (req) => {
       }
     }
 
-    console.log("Returning companies:", companies.length);
+    stats.companiesReturned = companies.length;
+    stats.processingTimeMs = Date.now() - startTime;
+
+    console.log("───────────────────────────────────────────────────────────");
+    console.log("📈 ESTATÍSTICAS DA BUSCA:");
+    console.log(`   • CNPJs encontrados (Firecrawl): ${stats.totalCNPJsFound}`);
+    console.log(`   • CNPJs processados: ${stats.cnpjsProcessed}`);
+    console.log(`   • Ignorados (sem dados): ${stats.skippedNoData}`);
+    console.log(`   • Ignorados (inativos): ${stats.skippedInactive}`);
+    console.log(`   • Ignorados (local errado): ${stats.skippedLocation}`);
+    console.log(`   • Empresas retornadas: ${stats.companiesReturned}`);
+    console.log(`   • Erros BrasilAPI: ${stats.apiErrors.brasilapi}`);
+    console.log(`   • Erros CNPJ.ws: ${stats.apiErrors.cnpjws}`);
+    console.log(`   • Tempo total: ${stats.processingTimeMs}ms`);
+    console.log("═══════════════════════════════════════════════════════════");
+
+    if (stats.companiesReturned === 0) {
+      console.log("⚠️ DIAGNÓSTICO: Nenhuma empresa retornada");
+      if (stats.totalCNPJsFound === 0) {
+        console.log("   → Problema: Firecrawl não encontrou CNPJs");
+        console.log("   → Solução: Verificar queries ou usar segmento mais amplo");
+      } else if (stats.skippedNoData === stats.cnpjsProcessed) {
+        console.log("   → Problema: APIs de CNPJ não retornaram dados");
+        console.log("   → Solução: Pode ser rate limit das APIs públicas");
+      } else if (stats.skippedInactive > 0) {
+        console.log(`   → ${stats.skippedInactive} empresas estavam inativas`);
+      } else if (stats.skippedLocation > 0) {
+        console.log(`   → ${stats.skippedLocation} empresas não corresponderam ao local`);
+        console.log("   → Solução: Firecrawl encontrou CNPJs de outras cidades");
+      }
+    }
 
     return new Response(
       JSON.stringify({
@@ -271,16 +364,20 @@ serve(async (req) => {
         page: filters.page || 1,
         pageSize,
         source: "firecrawl+cnpj",
+        debug: stats,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
-    console.error("Search error:", error);
+    stats.processingTimeMs = Date.now() - startTime;
+    console.error("❌ ERRO CRÍTICO:", error);
+    console.log("📈 Stats até o erro:", stats);
     return new Response(
       JSON.stringify({
         error: error instanceof Error ? error.message : "Erro interno",
         companies: [],
         total: 0,
+        debug: stats,
       }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
