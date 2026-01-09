@@ -35,6 +35,7 @@ import { useSavedSearches } from "@/hooks/useSavedSearches";
 import { useCNPJLookupManual, type CNPJLookupResult } from "@/hooks/useCNPJLookup";
 import { useCompanySearch, type CompanySearchResult } from "@/hooks/useCompanySearch";
 import { useSearchCache } from "@/hooks/useSearchCache";
+import { useBrowserNotification } from "@/hooks/useBrowserNotification";
 import { toast } from "@/hooks/use-toast";
 
 export default function Prospeccao() {
@@ -72,10 +73,21 @@ export default function Prospeccao() {
   // Search cache
   const { findCached, addToCache, getRecentSearches, clearCache } = useSearchCache();
   
+  // Browser notifications
+  const { permission, requestPermission, sendNotification } = useBrowserNotification();
+  
   const { data: savedSearches = [] } = useSavedSearches();
   const sendToLeadsBase = useSendToLeadsBase();
   const addProspectFromCNPJ = useAddProspectFromCNPJ();
   const { lookup } = useCNPJLookupManual();
+
+  // Request notification permission when minimizing search
+  const handleMinimizeSearch = async () => {
+    if (permission !== "granted") {
+      await requestPermission();
+    }
+    setIsSearchMinimized(true);
+  };
 
   // Sync filters with URL params - only on mount
   useEffect(() => {
@@ -151,6 +163,7 @@ export default function Prospeccao() {
     setApiResults([]);
     setApiTotal(0);
     setSearchStats(null);
+    const wasMinimized = isSearchMinimized;
     setIsSearchMinimized(false); // Reset minimization state for new search
     
     if (searchMode === "internet") {
@@ -208,6 +221,19 @@ export default function Prospeccao() {
             title: "Busca concluída",
             description: `${result.companies.length} empresa(s) encontrada(s)${timeInfo}.`,
           });
+          
+          // Send browser notification if search was running in background
+          if (isSearchMinimized || wasMinimized) {
+            sendNotification("🔍 Busca concluída!", {
+              body: `${result.companies.length} empresa(s) encontrada(s). Clique para ver os resultados.`,
+              tag: "search-complete",
+              requireInteraction: true,
+              onClick: () => {
+                setShowResultsPanel(true);
+                setIsSearchMinimized(false);
+              },
+            });
+          }
         }
       } catch (error) {
         console.error("Search error:", error);
@@ -541,7 +567,7 @@ export default function Prospeccao() {
           isVisible={companySearch.isPending && !isSearchMinimized} 
           filters={filters} 
           onCancel={handleCancelSearch}
-          onMinimize={() => setIsSearchMinimized(true)}
+          onMinimize={handleMinimizeSearch}
         />
         <div className="flex flex-col h-[calc(100vh-4rem)]">
         {/* Background Search Banner */}
@@ -641,7 +667,7 @@ export default function Prospeccao() {
         isVisible={companySearch.isPending && !isSearchMinimized} 
         filters={filters} 
         onCancel={handleCancelSearch}
-        onMinimize={() => setIsSearchMinimized(true)}
+        onMinimize={handleMinimizeSearch}
       />
       <div className="flex flex-col h-[calc(100vh-4rem)]">
       {/* Background Search Banner */}
