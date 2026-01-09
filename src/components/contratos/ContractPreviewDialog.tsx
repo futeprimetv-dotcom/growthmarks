@@ -26,6 +26,10 @@ interface ContractData {
   companyState: string;
   // Client (Contracted)
   clientName: string;
+  clientCnpj: string;
+  clientAddress: string;
+  clientCity: string;
+  clientState: string;
   clientContact: string;
   clientEmail: string;
   clientPhone: string;
@@ -80,6 +84,10 @@ export function ContractPreviewDialog({ open, onOpenChange, contract }: Contract
     companyCity: "",
     companyState: "",
     clientName: "",
+    clientCnpj: "",
+    clientAddress: "",
+    clientCity: "",
+    clientState: "",
     clientContact: "",
     clientEmail: "",
     clientPhone: "",
@@ -113,6 +121,10 @@ export function ContractPreviewDialog({ open, onOpenChange, contract }: Contract
         companyCity: companySettings.city || "",
         companyState: companySettings.state || "",
         clientName: contract.client?.name || "",
+        clientCnpj: (contract.client as any)?.cnpj || "",
+        clientAddress: (contract.client as any)?.address || "",
+        clientCity: (contract.client as any)?.city || "",
+        clientState: (contract.client as any)?.state || "",
         clientContact: contract.client?.contact_name || "",
         clientEmail: contract.client?.contact_email || "",
         clientPhone: contract.client?.contact_phone || "",
@@ -202,6 +214,9 @@ export function ContractPreviewDialog({ open, onOpenChange, contract }: Contract
               <div class="party-title">CONTRATANTE</div>
               <div class="party-info">
                 <strong>${contractData.clientName}</strong><br>
+                ${contractData.clientCnpj ? `CNPJ: ${contractData.clientCnpj}<br>` : ''}
+                ${contractData.clientAddress ? `${contractData.clientAddress}<br>` : ''}
+                ${contractData.clientCity && contractData.clientState ? `${contractData.clientCity} - ${contractData.clientState}<br>` : ''}
                 ${contractData.clientContact ? `Contato: ${contractData.clientContact}<br>` : ''}
                 ${contractData.clientEmail ? `Email: ${contractData.clientEmail}<br>` : ''}
                 ${contractData.clientPhone ? `Telefone: ${contractData.clientPhone}` : ''}
@@ -340,6 +355,35 @@ export function ContractPreviewDialog({ open, onOpenChange, contract }: Contract
                   />
                 </div>
                 <div className="space-y-2">
+                  <Label>CNPJ</Label>
+                  <Input
+                    value={contractData.clientCnpj}
+                    onChange={(e) => setContractData({ ...contractData, clientCnpj: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2 col-span-2">
+                  <Label>Endereço</Label>
+                  <Input
+                    value={contractData.clientAddress}
+                    onChange={(e) => setContractData({ ...contractData, clientAddress: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Cidade</Label>
+                  <Input
+                    value={contractData.clientCity}
+                    onChange={(e) => setContractData({ ...contractData, clientCity: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Estado</Label>
+                  <Input
+                    value={contractData.clientState}
+                    onChange={(e) => setContractData({ ...contractData, clientState: e.target.value })}
+                    maxLength={2}
+                  />
+                </div>
+                <div className="space-y-2">
                   <Label>Contato</Label>
                   <Input
                     value={contractData.clientContact}
@@ -347,17 +391,17 @@ export function ContractPreviewDialog({ open, onOpenChange, contract }: Contract
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Email</Label>
-                  <Input
-                    value={contractData.clientEmail}
-                    onChange={(e) => setContractData({ ...contractData, clientEmail: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-2">
                   <Label>Telefone</Label>
                   <Input
                     value={contractData.clientPhone}
                     onChange={(e) => setContractData({ ...contractData, clientPhone: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2 col-span-2">
+                  <Label>Email</Label>
+                  <Input
+                    value={contractData.clientEmail}
+                    onChange={(e) => setContractData({ ...contractData, clientEmail: e.target.value })}
                   />
                 </div>
               </div>
@@ -437,6 +481,9 @@ export function ContractPreviewDialog({ open, onOpenChange, contract }: Contract
                 <div className="p-4 bg-gray-50 rounded-lg">
                   <h3 className="font-bold mb-2">CONTRATANTE</h3>
                   <p className="font-semibold">{contractData.clientName}</p>
+                  {contractData.clientCnpj && <p className="text-sm">CNPJ: {contractData.clientCnpj}</p>}
+                  {contractData.clientAddress && <p className="text-sm">{contractData.clientAddress}</p>}
+                  {contractData.clientCity && <p className="text-sm">{contractData.clientCity} - {contractData.clientState}</p>}
                   {contractData.clientContact && <p className="text-sm">Contato: {contractData.clientContact}</p>}
                   {contractData.clientEmail && <p className="text-sm">Email: {contractData.clientEmail}</p>}
                   {contractData.clientPhone && <p className="text-sm">Tel: {contractData.clientPhone}</p>}
