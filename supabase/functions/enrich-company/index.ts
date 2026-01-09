@@ -215,6 +215,7 @@ serve(async (req) => {
       linkedin: "",
       address: "",
       cnpjData: null,
+      partners: [] as Array<{ name: string; role: string }>,
     };
 
     // Step 1: If we have CNPJ, lookup official data
@@ -249,6 +250,14 @@ serve(async (req) => {
           cnpjData.cep
         ].filter(Boolean);
         enrichedData.address = parts.join(", ");
+
+        // Extract partners (QSA - Quadro de Sócios e Administradores)
+        if (cnpjData.qsa && Array.isArray(cnpjData.qsa)) {
+          enrichedData.partners = cnpjData.qsa.map((socio: any) => ({
+            name: socio.nome_socio || socio.nome || "",
+            role: socio.qualificacao_socio || socio.qualificacao || socio.qual || "Sócio",
+          })).filter((p: any) => p.name);
+        }
       }
     }
 
