@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { mockProspects } from "@/data/mockProspects";
+import { mockProspects, type MockProspect } from "@/data/mockProspects";
 
 export interface Prospect {
   id: string;
@@ -51,7 +51,7 @@ export interface ProspectFilters {
   status?: string[];
 }
 
-export function useProspects(filters: ProspectFilters = {}) {
+export function useProspects(filters: ProspectFilters = {}, enabled: boolean = true) {
   return useQuery({
     queryKey: ["prospects", filters],
     queryFn: async () => {
@@ -115,38 +115,8 @@ export function useProspects(filters: ProspectFilters = {}) {
       }
 
       return filteredProspects;
-    }
-  });
-}
-
-export function useRevealProspectData() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (prospectId: string) => {
-      // Simulate API call - in production, this would call an edge function
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // Mock revealed data
-      const emails = ["contato@empresa.com.br", "comercial@empresa.com.br"];
-      const phones = ["(11) 99999-9999", "(11) 3333-3333"];
-      
-      return { emails, phones };
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["prospects"] });
-      toast({
-        title: "Dados revelados",
-        description: "Os dados de contato foram revelados com sucesso."
-      });
-    },
-    onError: () => {
-      toast({
-        title: "Erro",
-        description: "Não foi possível revelar os dados.",
-        variant: "destructive"
-      });
-    }
+    enabled
   });
 }
 
@@ -211,6 +181,49 @@ export function useSendProspectsToFunnel() {
       toast({
         title: "Erro",
         description: "Não foi possível enviar os prospectos para o funil.",
+        variant: "destructive"
+      });
+    }
+  });
+}
+
+export function useSendToLeadsBase() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (prospects: MockProspect[]) => {
+      for (const prospect of prospects) {
+        const { error } = await supabase.from("leads").insert({
+          name: prospect.name,
+          company: prospect.name,
+          email: prospect.emails?.[0] || null,
+          phone: prospect.phones?.[0] || null,
+          whatsapp: prospect.phones?.[0] || null,
+          city: prospect.city,
+          state: prospect.state,
+          segment: prospect.segment,
+          status: "novo",
+          temperature: "cold",
+          origin: "prospeccao",
+          tags: prospect.tags
+        });
+
+        if (error) throw error;
+      }
+
+      return { count: prospects.length };
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["leads"] });
+      toast({
+        title: "Leads criados",
+        description: `${data.count} lead(s) foram adicionados à base.`
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Erro",
+        description: "Não foi possível criar os leads.",
         variant: "destructive"
       });
     }

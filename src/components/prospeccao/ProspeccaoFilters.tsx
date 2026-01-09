@@ -1,9 +1,6 @@
-import { useState } from "react";
-import { Search, X, Save, Filter } from "lucide-react";
+import { Search, X, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import {
   Select,
@@ -12,42 +9,29 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
+import { Toggle } from "@/components/ui/toggle";
 import { segments, companySizes, brazilianStates } from "@/data/mockProspects";
 import type { ProspectFilters } from "@/hooks/useProspects";
 
 interface Props {
   filters: ProspectFilters;
   onFiltersChange: (filters: ProspectFilters) => void;
+  onSearch: () => void;
+  onClear: () => void;
   onSaveSearch: () => void;
-  resultsCount: number;
+  isLoading: boolean;
 }
 
-export function ProspeccaoFilters({ filters, onFiltersChange, onSaveSearch, resultsCount }: Props) {
-  const [isSegmentsOpen, setIsSegmentsOpen] = useState(true);
-  const [isStatesOpen, setIsStatesOpen] = useState(true);
-  const [isSizesOpen, setIsSizesOpen] = useState(false);
-
+export function ProspeccaoFilters({ 
+  filters, 
+  onFiltersChange, 
+  onSearch, 
+  onClear, 
+  onSaveSearch,
+  isLoading 
+}: Props) {
   const updateFilter = <K extends keyof ProspectFilters>(key: K, value: ProspectFilters[K]) => {
     onFiltersChange({ ...filters, [key]: value });
-  };
-
-  const toggleArrayFilter = (key: 'segments' | 'states' | 'companySizes', value: string) => {
-    const current = filters[key] || [];
-    const updated = current.includes(value)
-      ? current.filter(v => v !== value)
-      : [...current, value];
-    updateFilter(key, updated.length > 0 ? updated : undefined);
-  };
-
-  const clearFilters = () => {
-    onFiltersChange({});
   };
 
   const activeFiltersCount = [
@@ -61,154 +45,135 @@ export function ProspeccaoFilters({ filters, onFiltersChange, onSaveSearch, resu
   ].filter(Boolean).length;
 
   return (
-    <div className="w-80 border-r bg-card flex flex-col h-full">
-      <div className="p-4 border-b">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <Filter className="h-5 w-5 text-muted-foreground" />
-            <h3 className="font-semibold">Filtros</h3>
-            {activeFiltersCount > 0 && (
-              <Badge variant="secondary">{activeFiltersCount}</Badge>
-            )}
-          </div>
-          <Button variant="ghost" size="sm" onClick={clearFilters}>
-            <X className="h-4 w-4 mr-1" />
-            Limpar
-          </Button>
-        </div>
-
-        <div className="relative">
+    <div className="space-y-3">
+      {/* First Row: Search + Dropdowns */}
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="relative flex-1 min-w-[250px] max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="CNPJ ou nome da empresa"
+            placeholder="Buscar por nome ou CNPJ..."
             className="pl-9"
             value={filters.search || ""}
             onChange={(e) => updateFilter("search", e.target.value || undefined)}
+            onKeyDown={(e) => e.key === "Enter" && onSearch()}
           />
         </div>
+
+        <Select
+          value={filters.segments?.[0] || ""}
+          onValueChange={(value) => updateFilter("segments", value ? [value] : undefined)}
+        >
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Segmento" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="">Todos os segmentos</SelectItem>
+            {segments.slice(0, 20).map((segment) => (
+              <SelectItem key={segment} value={segment}>
+                {segment}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Select
+          value={filters.states?.[0] || ""}
+          onValueChange={(value) => updateFilter("states", value ? [value] : undefined)}
+        >
+          <SelectTrigger className="w-[140px]">
+            <SelectValue placeholder="UF" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="">Todos os estados</SelectItem>
+            {brazilianStates.map((state) => (
+              <SelectItem key={state.value} value={state.value}>
+                {state.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Select
+          value={filters.companySizes?.[0] || ""}
+          onValueChange={(value) => updateFilter("companySizes", value ? [value] : undefined)}
+        >
+          <SelectTrigger className="w-[140px]">
+            <SelectValue placeholder="Porte" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="">Todos os portes</SelectItem>
+            {companySizes.map((size) => (
+              <SelectItem key={size.value} value={size.value}>
+                {size.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
-      <ScrollArea className="flex-1">
-        <div className="p-4 space-y-4">
-          {/* Segmentos */}
-          <Collapsible open={isSegmentsOpen} onOpenChange={setIsSegmentsOpen}>
-            <CollapsibleTrigger className="flex items-center justify-between w-full py-2">
-              <Label className="cursor-pointer">Segmento de mercado</Label>
-              <Badge variant="outline">{filters.segments?.length || 0}</Badge>
-            </CollapsibleTrigger>
-            <CollapsibleContent>
-              <div className="mt-2 space-y-2 max-h-48 overflow-y-auto">
-                {segments.slice(0, 15).map((segment) => (
-                  <div key={segment} className="flex items-center space-x-2">
-                    <Checkbox
-                      id={`segment-${segment}`}
-                      checked={filters.segments?.includes(segment) || false}
-                      onCheckedChange={() => toggleArrayFilter("segments", segment)}
-                    />
-                    <label
-                      htmlFor={`segment-${segment}`}
-                      className="text-sm cursor-pointer"
-                    >
-                      {segment}
-                    </label>
-                  </div>
-                ))}
-              </div>
-            </CollapsibleContent>
-          </Collapsible>
-
-          {/* Estados */}
-          <Collapsible open={isStatesOpen} onOpenChange={setIsStatesOpen}>
-            <CollapsibleTrigger className="flex items-center justify-between w-full py-2">
-              <Label className="cursor-pointer">Localização (UF)</Label>
-              <Badge variant="outline">{filters.states?.length || 0}</Badge>
-            </CollapsibleTrigger>
-            <CollapsibleContent>
-              <div className="mt-2 space-y-2 max-h-48 overflow-y-auto">
-                {brazilianStates.map((state) => (
-                  <div key={state.value} className="flex items-center space-x-2">
-                    <Checkbox
-                      id={`state-${state.value}`}
-                      checked={filters.states?.includes(state.value) || false}
-                      onCheckedChange={() => toggleArrayFilter("states", state.value)}
-                    />
-                    <label
-                      htmlFor={`state-${state.value}`}
-                      className="text-sm cursor-pointer"
-                    >
-                      {state.label}
-                    </label>
-                  </div>
-                ))}
-              </div>
-            </CollapsibleContent>
-          </Collapsible>
-
-          {/* Porte */}
-          <Collapsible open={isSizesOpen} onOpenChange={setIsSizesOpen}>
-            <CollapsibleTrigger className="flex items-center justify-between w-full py-2">
-              <Label className="cursor-pointer">Porte da empresa</Label>
-              <Badge variant="outline">{filters.companySizes?.length || 0}</Badge>
-            </CollapsibleTrigger>
-            <CollapsibleContent>
-              <div className="mt-2 space-y-2">
-                {companySizes.map((size) => (
-                  <div key={size.value} className="flex items-center space-x-2">
-                    <Checkbox
-                      id={`size-${size.value}`}
-                      checked={filters.companySizes?.includes(size.value) || false}
-                      onCheckedChange={() => toggleArrayFilter("companySizes", size.value)}
-                    />
-                    <label
-                      htmlFor={`size-${size.value}`}
-                      className="text-sm cursor-pointer"
-                    >
-                      {size.label}
-                    </label>
-                  </div>
-                ))}
-              </div>
-            </CollapsibleContent>
-          </Collapsible>
-
-          {/* Toggles */}
-          <div className="space-y-4 pt-4 border-t">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="has-website">Possui site</Label>
-              <Switch
-                id="has-website"
-                checked={filters.hasWebsite || false}
-                onCheckedChange={(checked) => updateFilter("hasWebsite", checked || undefined)}
-              />
-            </div>
-            <div className="flex items-center justify-between">
-              <Label htmlFor="has-phone">Possui telefone</Label>
-              <Switch
-                id="has-phone"
-                checked={filters.hasPhone || false}
-                onCheckedChange={(checked) => updateFilter("hasPhone", checked || undefined)}
-              />
-            </div>
-            <div className="flex items-center justify-between">
-              <Label htmlFor="has-email">Possui email</Label>
-              <Switch
-                id="has-email"
-                checked={filters.hasEmail || false}
-                onCheckedChange={(checked) => updateFilter("hasEmail", checked || undefined)}
-              />
-            </div>
-          </div>
+      {/* Second Row: Toggles + Buttons */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <Toggle
+            pressed={filters.hasWebsite || false}
+            onPressedChange={(pressed) => updateFilter("hasWebsite", pressed || undefined)}
+            variant="outline"
+            size="sm"
+          >
+            Possui site
+          </Toggle>
+          <Toggle
+            pressed={filters.hasPhone || false}
+            onPressedChange={(pressed) => updateFilter("hasPhone", pressed || undefined)}
+            variant="outline"
+            size="sm"
+          >
+            Possui telefone
+          </Toggle>
+          <Toggle
+            pressed={filters.hasEmail || false}
+            onPressedChange={(pressed) => updateFilter("hasEmail", pressed || undefined)}
+            variant="outline"
+            size="sm"
+          >
+            Possui email
+          </Toggle>
+          
+          {activeFiltersCount > 0 && (
+            <Badge variant="secondary" className="ml-2">
+              {activeFiltersCount} filtro(s)
+            </Badge>
+          )}
         </div>
-      </ScrollArea>
 
-      <div className="p-4 border-t space-y-2">
-        <div className="text-sm text-muted-foreground text-center">
-          {resultsCount} resultado(s) encontrado(s)
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onClear}
+            disabled={activeFiltersCount === 0}
+          >
+            <X className="h-4 w-4 mr-1" />
+            Limpar
+          </Button>
+          
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onSaveSearch}
+          >
+            <Save className="h-4 w-4 mr-1" />
+            Salvar pesquisa
+          </Button>
+
+          <Button
+            onClick={onSearch}
+            disabled={isLoading}
+          >
+            <Search className="h-4 w-4 mr-2" />
+            Buscar
+          </Button>
         </div>
-        <Button onClick={onSaveSearch} variant="outline" className="w-full">
-          <Save className="h-4 w-4 mr-2" />
-          Salvar pesquisa
-        </Button>
       </div>
     </div>
   );

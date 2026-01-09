@@ -15,8 +15,8 @@ import { ProspeccaoTable } from "@/components/prospeccao/ProspeccaoTable";
 import { ProspeccaoActions } from "@/components/prospeccao/ProspeccaoActions";
 import { SaveSearchDialog } from "@/components/prospeccao/SaveSearchDialog";
 import { SendToFunnelDialog } from "@/components/prospeccao/SendToFunnelDialog";
-import { useProspects, type ProspectFilters } from "@/hooks/useProspects";
-import { useSavedSearches, useDeleteSavedSearch } from "@/hooks/useSavedSearches";
+import { useProspects, useSendToLeadsBase, type ProspectFilters } from "@/hooks/useProspects";
+import { useSavedSearches } from "@/hooks/useSavedSearches";
 import { toast } from "@/hooks/use-toast";
 
 export default function Prospeccao() {
@@ -26,10 +26,11 @@ export default function Prospeccao() {
   const [page, setPage] = useState(1);
   const [saveSearchOpen, setSaveSearchOpen] = useState(false);
   const [sendToFunnelOpen, setSendToFunnelOpen] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
 
-  const { data: prospects = [], isLoading, isError, refetch } = useProspects(filters);
+  const { data: prospects = [], isLoading, isError, refetch } = useProspects(filters, hasSearched);
   const { data: savedSearches = [] } = useSavedSearches();
-  const deleteSavedSearch = useDeleteSavedSearch();
+  const sendToLeadsBase = useSendToLeadsBase();
 
   // Sync filters with URL params
   useEffect(() => {
@@ -52,9 +53,14 @@ export default function Prospeccao() {
     if (searchParams.get("hasEmail") === "true") urlFilters.hasEmail = true;
 
     setFilters(urlFilters);
+    
+    // Auto-search if URL has filters
+    if (Object.keys(urlFilters).length > 0) {
+      setHasSearched(true);
+    }
   }, []);
 
-  // Update URL when filters change
+  // Update URL when filters change (but don't reset hasSearched)
   useEffect(() => {
     const params = new URLSearchParams();
     
@@ -71,10 +77,22 @@ export default function Prospeccao() {
     setSelectedIds([]);
   }, [filters, setSearchParams]);
 
+  const handleSearch = () => {
+    setHasSearched(true);
+    refetch();
+  };
+
+  const handleClearFilters = () => {
+    setFilters({});
+    setHasSearched(false);
+    setSelectedIds([]);
+  };
+
   const handleLoadSavedSearch = (searchId: string) => {
     const search = savedSearches.find(s => s.id === searchId);
     if (search) {
       setFilters(search.filters);
+      setHasSearched(true);
       toast({
         title: "Pesquisa carregada",
         description: `Filtros da pesquisa "${search.name}" aplicados.`
@@ -86,17 +104,19 @@ export default function Prospeccao() {
     const selectedProspects = prospects.filter(p => selectedIds.includes(p.id));
     
     // Create CSV content
-    const headers = ["Nome", "CNPJ", "Segmento", "Cidade", "Estado", "Status"];
+    const headers = ["Nome", "CNPJ", "Segmento", "Cidade", "Estado", "Emails", "Telefones", "Status"];
     const rows = selectedProspects.map(p => [
       p.name,
       p.cnpj || "",
       p.segment,
       p.city,
       p.state,
+      p.emails?.join("; ") || "",
+      p.phones?.join("; ") || "",
       p.status
     ]);
     
-    const csv = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
+    const csv = [headers.join(","), ...rows.map(r => r.map(cell => `"${cell}"`).join(","))].join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -110,94 +130,109 @@ export default function Prospeccao() {
     });
   };
 
-  const handleAddToList = () => {
-    toast({
-      title: "Em desenvolvimento",
-      description: "Esta funcionalidade será implementada em breve."
+  const handleSendToLeadsBase = () => {
+    const selectedProspects = prospects.filter(p => selectedIds.includes(p.id));
+    sendToLeadsBase.mutate(selectedProspects, {
+      onSuccess: () => {
+        setSelectedIds([]);
+      }
     });
   };
 
   return (
-    <div className="h-[calc(100vh-4rem)] flex">
-      <ProspeccaoFilters
-        filters={filters}
-        onFiltersChange={setFilters}
-        onSaveSearch={() => setSaveSearchOpen(true)}
-        resultsCount={prospects.length}
-      />
-
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Header */}
-        <div className="p-6 border-b">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h1 className="text-2xl font-bold flex items-center gap-2">
-                <Search className="h-6 w-6" />
-                Prospecção
-              </h1>
-              <p className="text-muted-foreground">
-                Encontre empresas para prospectar e envie para seu funil de vendas
-              </p>
-            </div>
-            
-            {savedSearches.length > 0 && (
-              <Select onValueChange={handleLoadSavedSearch}>
-                <SelectTrigger className="w-[220px]">
-                  <BookmarkCheck className="h-4 w-4 mr-2" />
-                  <SelectValue placeholder="Pesquisas salvas" />
-                </SelectTrigger>
-                <SelectContent>
-                  {savedSearches.map((search) => (
-                    <SelectItem key={search.id} value={search.id}>
-                      {search.name} ({search.results_count})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
+    <div className="flex flex-col h-[calc(100vh-4rem)]">
+      {/* Header */}
+      <div className="p-6 border-b shrink-0">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h1 className="text-2xl font-bold flex items-center gap-2">
+              <Search className="h-6 w-6" />
+              Prospecção
+            </h1>
+            <p className="text-muted-foreground">
+              Encontre empresas para prospectar e envie para sua base de leads
+            </p>
           </div>
-
-          <div className="flex items-center justify-between">
-            <div className="text-sm text-muted-foreground">
-              {selectedIds.length > 0 && (
-                <span className="font-medium text-foreground">
-                  {selectedIds.length} selecionado(s) • 
-                </span>
-              )}{" "}
-              {prospects.length} resultado(s) encontrado(s)
-            </div>
-            <ProspeccaoActions
-              selectedCount={selectedIds.length}
-              onSendToFunnel={() => setSendToFunnelOpen(true)}
-              onAddToList={handleAddToList}
-              onExport={handleExport}
-            />
-          </div>
-        </div>
-
-        {/* Content */}
-        <div className="flex-1 overflow-auto p-6">
-          {isError ? (
-            <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>
-                Erro ao carregar os prospectos.{" "}
-                <Button variant="link" className="p-0 h-auto" onClick={() => refetch()}>
-                  Tentar novamente
-                </Button>
-              </AlertDescription>
-            </Alert>
-          ) : (
-            <ProspeccaoTable
-              prospects={prospects}
-              isLoading={isLoading}
-              selectedIds={selectedIds}
-              onSelectChange={setSelectedIds}
-              page={page}
-              onPageChange={setPage}
-            />
+          
+          {savedSearches.length > 0 && (
+            <Select onValueChange={handleLoadSavedSearch}>
+              <SelectTrigger className="w-[220px]">
+                <BookmarkCheck className="h-4 w-4 mr-2" />
+                <SelectValue placeholder="Pesquisas salvas" />
+              </SelectTrigger>
+              <SelectContent>
+                {savedSearches.map((search) => (
+                  <SelectItem key={search.id} value={search.id}>
+                    {search.name} ({search.results_count})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           )}
         </div>
+
+        {/* Filters - Horizontal Bar */}
+        <ProspeccaoFilters
+          filters={filters}
+          onFiltersChange={setFilters}
+          onSearch={handleSearch}
+          onClear={handleClearFilters}
+          onSaveSearch={() => setSaveSearchOpen(true)}
+          isLoading={isLoading}
+        />
+      </div>
+
+      {/* Results Header */}
+      {hasSearched && (
+        <div className="px-6 py-3 border-b shrink-0 flex items-center justify-between bg-muted/30">
+          <div className="text-sm text-muted-foreground">
+            {selectedIds.length > 0 && (
+              <span className="font-medium text-foreground">
+                {selectedIds.length} selecionado(s) • 
+              </span>
+            )}{" "}
+            {prospects.length} resultado(s) encontrado(s)
+          </div>
+          <ProspeccaoActions
+            selectedCount={selectedIds.length}
+            onSendToFunnel={() => setSendToFunnelOpen(true)}
+            onSendToLeadsBase={handleSendToLeadsBase}
+            onExport={handleExport}
+            isSendingToBase={sendToLeadsBase.isPending}
+          />
+        </div>
+      )}
+
+      {/* Content */}
+      <div className="flex-1 overflow-auto p-6">
+        {isError ? (
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              Erro ao carregar os prospectos.{" "}
+              <Button variant="link" className="p-0 h-auto" onClick={() => refetch()}>
+                Tentar novamente
+              </Button>
+            </AlertDescription>
+          </Alert>
+        ) : !hasSearched ? (
+          <div className="flex flex-col items-center justify-center py-20 text-center">
+            <Search className="h-16 w-16 text-muted-foreground/30 mb-4" />
+            <h3 className="text-lg font-semibold">Encontre empresas para prospectar</h3>
+            <p className="text-muted-foreground mt-1 max-w-md">
+              Utilize os filtros acima e clique em "Buscar" para encontrar empresas que correspondem ao seu perfil de cliente ideal.
+            </p>
+          </div>
+        ) : (
+          <ProspeccaoTable
+            prospects={prospects}
+            isLoading={isLoading}
+            selectedIds={selectedIds}
+            onSelectChange={setSelectedIds}
+            page={page}
+            onPageChange={setPage}
+          />
+        )}
       </div>
 
       <SaveSearchDialog
