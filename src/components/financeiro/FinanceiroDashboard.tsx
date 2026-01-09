@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { 
   TrendingUp, 
@@ -8,11 +9,13 @@ import {
   Wallet,
   AlertTriangle,
   CheckCircle2,
-  Clock
+  Clock,
+  FileDown
 } from "lucide-react";
 import { Receivable } from "@/hooks/useReceivables";
 import { Payable } from "@/hooks/usePayables";
 import { differenceInDays } from "date-fns";
+import { generateDREReport } from "@/lib/generateDREReport";
 
 interface FinanceiroDashboardProps {
   receivables: Receivable[];
@@ -27,6 +30,15 @@ export function FinanceiroDashboard({
   selectedMonth,
   selectedYear 
 }: FinanceiroDashboardProps) {
+  const handleDownloadDRE = () => {
+    generateDREReport({
+      receivables,
+      payables,
+      month: selectedMonth,
+      year: selectedYear,
+      companyName: "Growth Marks",
+    });
+  };
   const metrics = useMemo(() => {
     const now = new Date();
     
@@ -86,6 +98,14 @@ export function FinanceiroDashboard({
 
   return (
     <div className="space-y-6">
+      {/* Header with Download Button */}
+      <div className="flex justify-end">
+        <Button onClick={handleDownloadDRE} variant="outline" className="gap-2">
+          <FileDown className="h-4 w-4" />
+          Baixar DRE (PDF)
+        </Button>
+      </div>
+
       {/* Main KPIs */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
