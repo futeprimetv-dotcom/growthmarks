@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Tables, TablesInsert, TablesUpdate, Enums } from "@/integrations/supabase/types";
 import { toast } from "sonner";
+import { logDemandActivity } from "@/lib/activityLogger";
 
 export type Demand = Tables<"demands">;
 export type DemandInsert = TablesInsert<"demands">;
@@ -54,10 +55,19 @@ export function useCreateDemand() {
         .single();
       
       if (error) throw error;
+
+      // Log activity
+      await logDemandActivity("create", data.id, data.title, {
+        status: demand.status,
+        priority: demand.priority,
+        client_id: demand.client_id,
+      });
+
       return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["demands"] });
+      queryClient.invalidateQueries({ queryKey: ["activity-logs"] });
       toast.success("Demanda criada com sucesso!");
     },
     onError: (error) => {
@@ -79,10 +89,15 @@ export function useUpdateDemand() {
         .single();
       
       if (error) throw error;
+
+      // Log activity
+      await logDemandActivity("update", data.id, data.title, { updates });
+
       return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["demands"] });
+      queryClient.invalidateQueries({ queryKey: ["activity-logs"] });
       toast.success("Demanda atualizada com sucesso!");
     },
     onError: (error) => {
@@ -95,16 +110,20 @@ export function useDeleteDemand() {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: async (id: string) => {
+    mutationFn: async ({ id, title }: { id: string; title: string }) => {
       const { error } = await supabase
         .from("demands")
         .delete()
         .eq("id", id);
       
       if (error) throw error;
+
+      // Log activity
+      await logDemandActivity("delete", id, title);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["demands"] });
+      queryClient.invalidateQueries({ queryKey: ["activity-logs"] });
       toast.success("Demanda excluída com sucesso!");
     },
     onError: (error) => {

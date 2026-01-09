@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
 import { toast } from "sonner";
+import { logContractActivity } from "@/lib/activityLogger";
 
 export type Contract = Tables<"contracts">;
 export type ContractInsert = TablesInsert<"contracts">;
@@ -81,14 +82,27 @@ export function useCreateContract() {
       const { data, error } = await supabase
         .from("contracts")
         .insert(contract)
-        .select()
+        .select(`
+          *,
+          client:clients(name)
+        `)
         .single();
 
       if (error) throw error;
+
+      // Log activity
+      const clientName = (data as any).client?.name || "Cliente";
+      await logContractActivity("create", data.id, `${contract.type} - ${clientName}`, {
+        value: contract.value,
+        type: contract.type,
+        client_id: contract.client_id,
+      });
+
       return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["contracts"] });
+      queryClient.invalidateQueries({ queryKey: ["activity-logs"] });
       toast.success("Contrato criado com sucesso!");
     },
     onError: (error) => {
@@ -107,14 +121,23 @@ export function useUpdateContract() {
         .from("contracts")
         .update(updates)
         .eq("id", id)
-        .select()
+        .select(`
+          *,
+          client:clients(name)
+        `)
         .single();
 
       if (error) throw error;
+
+      // Log activity
+      const clientName = (data as any).client?.name || "Cliente";
+      await logContractActivity("update", data.id, `${data.type} - ${clientName}`, { updates });
+
       return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["contracts"] });
+      queryClient.invalidateQueries({ queryKey: ["activity-logs"] });
       toast.success("Contrato atualizado com sucesso!");
     },
     onError: (error) => {
@@ -128,16 +151,20 @@ export function useDeleteContract() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (id: string) => {
+    mutationFn: async ({ id, name }: { id: string; name: string }) => {
       const { error } = await supabase
         .from("contracts")
         .update({ is_archived: true })
         .eq("id", id);
 
       if (error) throw error;
+
+      // Log activity
+      await logContractActivity("archive", id, name);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["contracts"] });
+      queryClient.invalidateQueries({ queryKey: ["activity-logs"] });
       toast.success("Contrato arquivado com sucesso!");
     },
     onError: (error) => {

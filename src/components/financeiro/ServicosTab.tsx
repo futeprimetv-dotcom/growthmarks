@@ -47,7 +47,7 @@ export function ServicosTab() {
 
   const handleDeleteConfirm = () => {
     if (serviceToDelete) {
-      deleteService.mutate(serviceToDelete.id);
+      deleteService.mutate({ id: serviceToDelete.id, name: serviceToDelete.name });
       setDeleteDialogOpen(false);
       setServiceToDelete(null);
     }

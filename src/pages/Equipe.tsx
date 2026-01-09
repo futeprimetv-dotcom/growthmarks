@@ -93,7 +93,7 @@ export default function Equipe() {
 
   const handleDeleteConfirm = () => {
     if (memberToDelete) {
-      deleteMember.mutate(memberToDelete.id);
+      deleteMember.mutate({ id: memberToDelete.id, name: memberToDelete.name });
       setDeleteDialogOpen(false);
       setMemberToDelete(null);
     }

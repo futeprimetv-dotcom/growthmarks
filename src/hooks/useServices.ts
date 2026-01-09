@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
 import { toast } from "sonner";
+import { logServiceActivity } from "@/lib/activityLogger";
 
 export type Service = Tables<"services">;
 export type ServiceInsert = TablesInsert<"services">;
@@ -34,10 +35,18 @@ export function useCreateService() {
         .single();
       
       if (error) throw error;
+
+      // Log activity
+      await logServiceActivity("create", data.id, data.name, {
+        monthly_value: service.monthly_value,
+        client_id: service.client_id,
+      });
+
       return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["services"] });
+      queryClient.invalidateQueries({ queryKey: ["activity-logs"] });
       toast.success("Serviço criado com sucesso!");
     },
     onError: (error) => {
@@ -59,10 +68,15 @@ export function useUpdateService() {
         .single();
       
       if (error) throw error;
+
+      // Log activity
+      await logServiceActivity("update", data.id, data.name, { updates: service });
+
       return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["services"] });
+      queryClient.invalidateQueries({ queryKey: ["activity-logs"] });
       toast.success("Serviço atualizado com sucesso!");
     },
     onError: (error) => {
@@ -75,16 +89,20 @@ export function useDeleteService() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (id: string) => {
+    mutationFn: async ({ id, name }: { id: string; name: string }) => {
       const { error } = await supabase
         .from("services")
         .delete()
         .eq("id", id);
       
       if (error) throw error;
+
+      // Log activity
+      await logServiceActivity("delete", id, name);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["services"] });
+      queryClient.invalidateQueries({ queryKey: ["activity-logs"] });
       toast.success("Serviço excluído com sucesso!");
     },
     onError: (error) => {

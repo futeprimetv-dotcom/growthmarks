@@ -70,7 +70,7 @@ export function LeadsList() {
   const [activitiesOpen, setActivitiesOpen] = useState(false);
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
-  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [leadToDelete, setLeadToDelete] = useState<{ id: string; name: string } | null>(null);
   const [convertLead, setConvertLead] = useState<Lead | null>(null);
   const { data: leads, isLoading } = useLeads();
   const { data: teamMembers } = useTeamMembers();
@@ -102,9 +102,9 @@ export function LeadsList() {
   };
 
   const handleDelete = async () => {
-    if (deleteId) {
-      await deleteLead.mutateAsync(deleteId);
-      setDeleteId(null);
+    if (leadToDelete) {
+      await deleteLead.mutateAsync(leadToDelete);
+      setLeadToDelete(null);
     }
   };
 
@@ -271,7 +271,7 @@ export function LeadsList() {
                               <UserPlus className="h-4 w-4 text-green-500" />
                             </Button>
                           )}
-                          <Button variant="ghost" size="icon" onClick={() => setDeleteId(lead.id)} title="Excluir">
+                          <Button variant="ghost" size="icon" onClick={() => setLeadToDelete({ id: lead.id, name: lead.name })} title="Excluir">
                             <Trash2 className="h-4 w-4 text-destructive" />
                           </Button>
                         </div>
@@ -320,7 +320,7 @@ export function LeadsList() {
         lead={selectedLead}
       />
 
-      <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
+      <AlertDialog open={!!leadToDelete} onOpenChange={() => setLeadToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir lead?</AlertDialogTitle>

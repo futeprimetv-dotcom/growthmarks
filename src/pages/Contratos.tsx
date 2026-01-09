@@ -27,7 +27,7 @@ export default function Contratos() {
   const [signatureOpen, setSignatureOpen] = useState(false);
   const [selectedContract, setSelectedContract] = useState<ContractWithClient | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [contractToDelete, setContractToDelete] = useState<string | null>(null);
+  const [contractToDelete, setContractToDelete] = useState<{ id: string; name: string } | null>(null);
 
   const toggleExpand = (id: string) => {
     setExpandedId(expandedId === id ? null : id);
@@ -45,9 +45,10 @@ export default function Contratos() {
     setPreviewOpen(true);
   };
 
-  const handleDelete = (id: string, e: React.MouseEvent) => {
+  const handleDelete = (contract: ContractWithClient, e: React.MouseEvent) => {
     e.stopPropagation();
-    setContractToDelete(id);
+    const clientName = contract.client?.name || "Cliente";
+    setContractToDelete({ id: contract.id, name: `${contract.type} - ${clientName}` });
     setDeleteDialogOpen(true);
   };
 
@@ -297,7 +298,7 @@ export default function Contratos() {
                             variant="outline" 
                             size="sm"
                             className="text-destructive hover:text-destructive"
-                            onClick={(e) => handleDelete(contract.id, e)}
+                            onClick={(e) => handleDelete(contract, e)}
                           >
                             <Trash2 className="h-4 w-4 mr-2" />
                             Arquivar

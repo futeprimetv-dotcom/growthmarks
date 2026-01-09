@@ -75,7 +75,7 @@ export function ProdutosTab() {
 
   const handleDeleteConfirm = () => {
     if (productToDelete) {
-      deleteProduct.mutate(productToDelete.id);
+      deleteProduct.mutate({ id: productToDelete.id, name: productToDelete.name });
       setDeleteDialogOpen(false);
       setProductToDelete(null);
     }
