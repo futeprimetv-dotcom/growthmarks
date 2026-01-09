@@ -1408,7 +1408,7 @@ export type Database = {
         | "em_execucao"
         | "concluido"
       priority: "low" | "medium" | "high" | "urgent"
-      user_role_type: "gestao" | "producao" | "cliente"
+      user_role_type: "gestao" | "producao" | "cliente" | "vendedor"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1569,7 +1569,7 @@ export const Constants = {
         "concluido",
       ],
       priority: ["low", "medium", "high", "urgent"],
-      user_role_type: ["gestao", "producao", "cliente"],
+      user_role_type: ["gestao", "producao", "cliente", "vendedor"],
     },
   },
 } as const
