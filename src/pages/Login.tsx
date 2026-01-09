@@ -1,13 +1,23 @@
 import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Checkbox } from '@/components/ui/checkbox';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { Loader2, TrendingUp } from 'lucide-react';
+import { Loader2, TrendingUp, ArrowLeft } from 'lucide-react';
 import { z } from 'zod';
 
 const loginSchema = z.object({
@@ -29,6 +39,7 @@ const Login = () => {
   const { signIn, signUp } = useAuth();
   
   const [isLoading, setIsLoading] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
   const [loginData, setLoginData] = useState({ email: '', password: '' });
   const [signupData, setSignupData] = useState({ 
     email: '', 
@@ -36,6 +47,11 @@ const Login = () => {
     confirmPassword: '', 
     fullName: '' 
   });
+  
+  // Forgot password state
+  const [forgotPasswordOpen, setForgotPasswordOpen] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [isSendingReset, setIsSendingReset] = useState(false);
 
   const from = location.state?.from?.pathname || '/';
 
@@ -49,7 +65,7 @@ const Login = () => {
     }
 
     setIsLoading(true);
-    const { error } = await signIn(loginData.email, loginData.password);
+    const { error } = await signIn(loginData.email, loginData.password, rememberMe);
     setIsLoading(false);
 
     if (error) {
@@ -82,6 +98,32 @@ const Login = () => {
     } else {
       toast.success('Conta criada com sucesso! Você já está logado.');
       navigate(from, { replace: true });
+    }
+  };
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!forgotEmail || !z.string().email().safeParse(forgotEmail).success) {
+      toast.error('Por favor, insira um email válido');
+      return;
+    }
+
+    setIsSendingReset(true);
+    
+    const { error } = await supabase.auth.resetPasswordForEmail(forgotEmail, {
+      redirectTo: `${window.location.origin}/login?reset=true`,
+    });
+
+    setIsSendingReset(false);
+
+    if (error) {
+      toast.error('Erro ao enviar email de recuperação. Tente novamente.');
+      console.error('Reset password error:', error);
+    } else {
+      toast.success('Email de recuperação enviado! Verifique sua caixa de entrada.');
+      setForgotPasswordOpen(false);
+      setForgotEmail('');
     }
   };
 
@@ -138,6 +180,77 @@ const Login = () => {
                       disabled={isLoading}
                     />
                   </div>
+                  
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <Checkbox 
+                        id="remember-me" 
+                        checked={rememberMe}
+                        onCheckedChange={(checked) => setRememberMe(checked as boolean)}
+                        disabled={isLoading}
+                      />
+                      <Label 
+                        htmlFor="remember-me" 
+                        className="text-sm font-normal cursor-pointer"
+                      >
+                        Manter conectado
+                      </Label>
+                    </div>
+                    
+                    <Dialog open={forgotPasswordOpen} onOpenChange={setForgotPasswordOpen}>
+                      <DialogTrigger asChild>
+                        <Button 
+                          type="button" 
+                          variant="link" 
+                          className="px-0 text-sm h-auto font-normal"
+                        >
+                          Esqueci minha senha
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="sm:max-w-md">
+                        <DialogHeader>
+                          <DialogTitle>Recuperar Senha</DialogTitle>
+                          <DialogDescription>
+                            Digite seu email e enviaremos um link para redefinir sua senha.
+                          </DialogDescription>
+                        </DialogHeader>
+                        <form onSubmit={handleForgotPassword} className="space-y-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="forgot-email">Email</Label>
+                            <Input
+                              id="forgot-email"
+                              type="email"
+                              placeholder="seu@email.com"
+                              value={forgotEmail}
+                              onChange={(e) => setForgotEmail(e.target.value)}
+                              disabled={isSendingReset}
+                            />
+                          </div>
+                          <div className="flex gap-2 justify-end">
+                            <Button 
+                              type="button" 
+                              variant="outline" 
+                              onClick={() => setForgotPasswordOpen(false)}
+                              disabled={isSendingReset}
+                            >
+                              Cancelar
+                            </Button>
+                            <Button type="submit" disabled={isSendingReset}>
+                              {isSendingReset ? (
+                                <>
+                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                  Enviando...
+                                </>
+                              ) : (
+                                'Enviar Email'
+                              )}
+                            </Button>
+                          </div>
+                        </form>
+                      </DialogContent>
+                    </Dialog>
+                  </div>
+                  
                   <Button type="submit" className="w-full" disabled={isLoading}>
                     {isLoading ? (
                       <>

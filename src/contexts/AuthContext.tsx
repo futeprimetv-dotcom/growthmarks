@@ -6,7 +6,7 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
-  signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
+  signIn: (email: string, password: string, rememberMe?: boolean) => Promise<{ error: Error | null }>;
   signUp: (email: string, password: string, fullName: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
 }
@@ -46,11 +46,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => subscription.unsubscribe();
   }, []);
 
-  const signIn = async (email: string, password: string) => {
+  const signIn = async (email: string, password: string, rememberMe: boolean = true) => {
+    // Configure session persistence based on rememberMe
+    // When rememberMe is false, session will be cleared when browser closes
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
+    
+    // If not remembering, store a flag to clear session on browser close
+    if (!rememberMe && !error) {
+      sessionStorage.setItem('session_temporary', 'true');
+    } else {
+      sessionStorage.removeItem('session_temporary');
+    }
+    
     return { error: error as Error | null };
   };
 
@@ -69,8 +79,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signOut = async () => {
+    sessionStorage.removeItem('session_temporary');
     await supabase.auth.signOut();
   };
+
+  // Handle temporary session (clear on browser close)
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (sessionStorage.getItem('session_temporary') === 'true') {
+        // This will be checked on next load
+        localStorage.setItem('clear_session_on_load', 'true');
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    
+    // Check if we need to clear session from previous temporary login
+    if (localStorage.getItem('clear_session_on_load') === 'true') {
+      localStorage.removeItem('clear_session_on_load');
+      supabase.auth.signOut();
+    }
+
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, []);
 
   return (
     <AuthContext.Provider value={{ user, session, loading, signIn, signUp, signOut }}>
