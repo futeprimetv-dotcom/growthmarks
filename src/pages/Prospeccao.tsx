@@ -23,6 +23,7 @@ import { CNPJBatchDialog } from "@/components/prospeccao/CNPJBatchDialog";
 import { RecentFiltersSelect, saveRecentProspeccaoFilters } from "@/components/prospeccao/RecentFiltersSelect";
 import { SearchResultsPanel } from "@/components/prospeccao/SearchResultsPanel";
 import { SearchLoadingOverlay } from "@/components/prospeccao/SearchLoadingOverlay";
+import { StreamingSearchOverlay } from "@/components/prospeccao/StreamingSearchOverlay";
 import { SearchLimitSelector } from "@/components/prospeccao/SearchLimitSelector";
 import { SearchTemplates } from "@/components/prospeccao/SearchTemplates";
 import { SearchHistory } from "@/components/prospeccao/SearchHistory";
@@ -34,6 +35,7 @@ import { useProspects, useSendToLeadsBase, useAddProspectFromCNPJ, type Prospect
 import { useSavedSearches } from "@/hooks/useSavedSearches";
 import { useCNPJLookupManual, type CNPJLookupResult } from "@/hooks/useCNPJLookup";
 import { useCompanySearch, type CompanySearchResult } from "@/hooks/useCompanySearch";
+import { useStreamingSearch } from "@/hooks/useStreamingSearch";
 import { useSearchCache } from "@/hooks/useSearchCache";
 import { useBrowserNotification } from "@/hooks/useBrowserNotification";
 import { useNotifications } from "@/contexts/NotificationContext";
@@ -69,7 +71,10 @@ export default function Prospeccao() {
   // Database query (for "Minha Base")
   const { data: prospects = [], isLoading: dbLoading, isError, refetch } = useProspects(filters, hasSearched && searchMode === "database");
   
-  // API search mutation
+  // Streaming search (progressive loading)
+  const streamingSearch = useStreamingSearch();
+  
+  // Fallback API search mutation (for background search)
   const companySearch = useCompanySearch();
   
   // Search cache
@@ -193,8 +198,7 @@ export default function Prospeccao() {
     setApiResults([]);
     setApiTotal(0);
     setSearchStats(null);
-    const wasMinimized = isSearchMinimized;
-    setIsSearchMinimized(false); // Reset minimization state for new search
+    setIsSearchMinimized(false);
     
     if (searchMode === "internet") {
       // Check cache first
@@ -210,82 +214,46 @@ export default function Prospeccao() {
         return;
       }
 
-      // Search via API (Firecrawl + BrasilAPI)
-      try {
-        const result = await companySearch.mutateAsync({
-          filters,
-          page: 1,
-          pageSize,
-        });
-        
-        setApiResults(result.companies);
-        setApiTotal(result.total);
-        setShowResultsPanel(true);
-        
-        // Store debug stats
-        if (result.debug) {
-          setSearchStats(result.debug);
-        }
-        
-        // Cache the results
-        if (result.companies.length > 0) {
-          addToCache(filters, result.companies, result.total);
-        }
-        
-        if (result.error) {
-          toast({
-            title: "Aviso",
-            description: result.error,
-            variant: "destructive",
-          });
-        } else if (result.companies.length === 0) {
-          toast({
-            title: "Nenhum resultado",
-            description: "Tente ajustar os filtros para encontrar empresas.",
-          });
-        } else {
-          const timeInfo = result.debug?.processingTimeMs 
-            ? ` em ${(result.debug.processingTimeMs / 1000).toFixed(1)}s`
-            : "";
-          toast({
-            title: "Busca concluída",
-            description: `${result.companies.length} empresa(s) encontrada(s)${timeInfo}.`,
-          });
-          
-          // Send browser notification if search was running in background
-          if (isSearchMinimized || wasMinimized) {
-            // Browser notification
-            sendNotification("🔍 Busca concluída!", {
-              body: `${result.companies.length} empresa(s) encontrada(s). Clique para ver os resultados.`,
-              tag: "search-complete",
-              requireInteraction: true,
-              onClick: () => {
-                setShowResultsPanel(true);
-                setIsSearchMinimized(false);
-              },
-            });
-            
-            // App notification
-            addNotification({
-              type: "search",
-              title: "Busca concluída",
-              message: `${result.companies.length} empresa(s) encontrada(s)${timeInfo}. Clique para ver os resultados.`,
-              link: "/prospeccao",
-            });
-          }
-        }
-      } catch (error) {
-        console.error("Search error:", error);
-        toast({
-          title: "Erro na busca",
-          description: error instanceof Error ? error.message : "Erro ao buscar empresas",
-          variant: "destructive",
-        });
-      }
+      // Use streaming search for progressive loading
+      streamingSearch.startSearch(filters, pageSize);
     } else {
       // Search in database
       refetch();
     }
+  };
+
+  // Watch streaming search for completion
+  useEffect(() => {
+    if (!streamingSearch.isSearching && streamingSearch.companies.length > 0) {
+      setApiResults(streamingSearch.companies);
+      setApiTotal(streamingSearch.stats?.totalCNPJsFound || streamingSearch.companies.length);
+      setShowResultsPanel(true);
+      
+      if (streamingSearch.stats) {
+        setSearchStats(streamingSearch.stats);
+      }
+      
+      // Cache the results
+      if (streamingSearch.companies.length > 0) {
+        addToCache(filters, streamingSearch.companies, streamingSearch.stats?.totalCNPJsFound || streamingSearch.companies.length);
+      }
+      
+      const timeInfo = streamingSearch.stats?.processingTimeMs 
+        ? ` em ${(streamingSearch.stats.processingTimeMs / 1000).toFixed(1)}s`
+        : "";
+      
+      toast({
+        title: "Busca concluída",
+        description: `${streamingSearch.companies.length} empresa(s) encontrada(s)${timeInfo}.`,
+      });
+    }
+  }, [streamingSearch.isSearching, streamingSearch.companies, streamingSearch.stats]);
+
+  // Handle viewing results during streaming
+  const handleViewStreamingResults = () => {
+    setApiResults(streamingSearch.companies);
+    setApiTotal(streamingSearch.progress.total);
+    setShowResultsPanel(true);
   };
 
   // Apply cached search from history
@@ -311,6 +279,7 @@ export default function Prospeccao() {
   };
 
   const handleCancelSearch = () => {
+    streamingSearch.cancelSearch();
     companySearch.cancel();
     toast({
       title: "Busca cancelada",
@@ -702,16 +671,19 @@ export default function Prospeccao() {
   // Default view with filters
   return (
     <>
-      <SearchLoadingOverlay 
-        isVisible={companySearch.isPending && !isSearchMinimized} 
-        filters={filters} 
+      <StreamingSearchOverlay 
+        isVisible={streamingSearch.isSearching && !isSearchMinimized} 
+        filters={filters}
+        companies={streamingSearch.companies}
+        progress={streamingSearch.progress}
         onCancel={handleCancelSearch}
         onMinimize={handleMinimizeToBackground}
+        onViewResults={handleViewStreamingResults}
       />
       <div className="flex flex-col h-[calc(100vh-4rem)]">
       {/* Background Search Banner */}
       <BackgroundSearchBanner
-        isVisible={companySearch.isPending && isSearchMinimized}
+        isVisible={streamingSearch.isSearching && isSearchMinimized}
         filters={filters}
         onRestore={() => setIsSearchMinimized(false)}
         onCancel={handleCancelSearch}

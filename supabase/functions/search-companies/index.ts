@@ -17,6 +17,7 @@ interface SearchFilters {
   hasWebsite?: boolean;
   page?: number;
   pageSize?: number;
+  streaming?: boolean; // New option for progressive loading
 }
 
 // State name to abbreviation mapping
@@ -134,7 +135,7 @@ function extractCNPJs(text: string): string[] {
 async function quickLookupCNPJ(cnpj: string): Promise<any | null> {
   try {
     const response = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cnpj}`, {
-      signal: AbortSignal.timeout(3000) // Reduced to 3 seconds
+      signal: AbortSignal.timeout(3000)
     });
     if (!response.ok) return null;
     const data = await response.json();
@@ -152,7 +153,7 @@ async function fallbackLookupCNPJ(cnpj: string): Promise<any | null> {
   try {
     const response = await fetch(`https://publica.cnpj.ws/cnpj/${cnpj}`, {
       headers: { "Accept": "application/json" },
-      signal: AbortSignal.timeout(3000) // Reduced to 3 seconds
+      signal: AbortSignal.timeout(3000)
     });
     if (!response.ok) return null;
     const data = await response.json();
@@ -248,6 +249,152 @@ async function saveToCacheBatch(supabase: any, entries: { cnpj: string; data: an
   }
 }
 
+// Convert data to company format
+function formatCompany(cnpj: string, data: any, filters: SearchFilters): any {
+  const phones = [data.ddd_telefone_1, data.ddd_telefone_2].filter(Boolean);
+  const emails = data.email ? [data.email.toLowerCase()] : [];
+  const cnaeDesc = data.cnae_fiscal_descricao || "";
+  const derivedSegment = cnaeDesc || filters.segments?.[0] || "";
+
+  return {
+    id: cnpj,
+    cnpj: cnpj.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5"),
+    name: data.nome_fantasia || data.razao_social,
+    razao_social: data.razao_social,
+    segment: derivedSegment,
+    cnae_code: data.cnae_fiscal?.toString() || "",
+    cnae_description: data.cnae_fiscal_descricao || "",
+    company_size: data.porte || "",
+    city: data.municipio,
+    state: data.uf,
+    neighborhood: data.bairro || "",
+    zip_code: data.cep || "",
+    address: data.logradouro || "",
+    number: data.numero || "",
+    complement: data.complemento || "",
+    has_phone: phones.length > 0,
+    has_email: emails.length > 0,
+    has_website: false,
+    website_url: "",
+    phones: phones.map(p => String(p).replace(/\D/g, "")),
+    emails,
+    situacao: data.situacao_cadastral || "ATIVA",
+    capital_social: data.capital_social,
+    data_abertura: data.data_inicio_atividade,
+    enriched: false,
+  };
+}
+
+// Process a single CNPJ and return company if valid
+async function processCNPJ(
+  cnpj: string, 
+  filters: SearchFilters, 
+  supabase: any,
+  stats: SearchStats
+): Promise<{ company: any | null; cacheEntry: { cnpj: string; data: any; situacao: string; source: string } | null }> {
+  // Check cache first
+  if (supabase) {
+    const cached = await getCachedCNPJ(supabase, cnpj);
+    if (cached) {
+      stats.cacheHits++;
+      
+      // Check if active
+      const situacao = String(cached.situacao_cadastral || "").toLowerCase();
+      const isActive = situacao === "ativa" || situacao === "02" || situacao.includes("ativ");
+      
+      if (!isActive) {
+        stats.skippedInactive++;
+        return { company: null, cacheEntry: null };
+      }
+      
+      // Apply location filters
+      const dataUF = cached.uf?.toUpperCase();
+      const dataMunicipio = (cached.municipio || "").toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      
+      const matchesState = !filters.states?.length || 
+        filters.states.some(s => s.toUpperCase() === dataUF);
+      
+      const matchesCity = !filters.cities?.length || 
+        filters.cities.some(c => {
+          const normalizedFilter = c.toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+          return dataMunicipio.includes(normalizedFilter) || normalizedFilter.includes(dataMunicipio);
+        });
+      
+      if (!matchesState || !matchesCity) {
+        stats.skippedLocation++;
+        return { company: null, cacheEntry: null };
+      }
+      
+      return { company: formatCompany(cnpj, cached, filters), cacheEntry: null };
+    }
+  }
+  
+  // Try both APIs in parallel
+  const [brasilResult, cnpjwsResult] = await Promise.allSettled([
+    quickLookupCNPJ(cnpj),
+    new Promise<any>(async (resolve) => {
+      await new Promise(r => setTimeout(r, 100));
+      resolve(await fallbackLookupCNPJ(cnpj));
+    })
+  ]);
+  
+  let data = null;
+  let source = "";
+  
+  if (brasilResult.status === "fulfilled" && brasilResult.value) {
+    data = brasilResult.value;
+    source = "brasilapi";
+  } else if (cnpjwsResult.status === "fulfilled" && cnpjwsResult.value) {
+    data = cnpjwsResult.value;
+    source = "cnpjws";
+  } else {
+    if (brasilResult.status === "rejected" || !brasilResult.value) stats.apiErrors.brasilapi++;
+    if (cnpjwsResult.status === "rejected" || !cnpjwsResult.value) stats.apiErrors.cnpjws++;
+  }
+  
+  if (!data) {
+    stats.skippedNoData++;
+    return { company: null, cacheEntry: null };
+  }
+  
+  // Check if active
+  const situacao = String(data.situacao_cadastral || "").toLowerCase();
+  const isActive = situacao === "ativa" || situacao === "02" || situacao.includes("ativ");
+  
+  // Create cache entry for any result
+  const cacheEntry = {
+    cnpj,
+    data,
+    situacao: data.situacao_cadastral || "",
+    source
+  };
+  
+  if (!isActive) {
+    stats.skippedInactive++;
+    return { company: null, cacheEntry };
+  }
+  
+  // Apply location filters
+  const dataUF = data.uf?.toUpperCase();
+  const dataMunicipio = (data.municipio || "").toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  
+  const matchesState = !filters.states?.length || 
+    filters.states.some(s => s.toUpperCase() === dataUF);
+  
+  const matchesCity = !filters.cities?.length || 
+    filters.cities.some(c => {
+      const normalizedFilter = c.toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      return dataMunicipio.includes(normalizedFilter) || normalizedFilter.includes(dataMunicipio);
+    });
+  
+  if (!matchesState || !matchesCity) {
+    stats.skippedLocation++;
+    return { company: null, cacheEntry };
+  }
+  
+  return { company: formatCompany(cnpj, data, filters), cacheEntry };
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -268,8 +415,10 @@ serve(async (req) => {
 
   try {
     const filters: SearchFilters = await req.json();
+    const isStreaming = filters.streaming === true;
+    
     console.log("═══════════════════════════════════════════════════════════");
-    console.log("🔍 NOVA BUSCA DE EMPRESAS (OTIMIZADA)");
+    console.log(`🔍 NOVA BUSCA DE EMPRESAS (${isStreaming ? 'STREAMING' : 'NORMAL'})`);
     console.log("═══════════════════════════════════════════════════════════");
     console.log("📋 Filtros:", JSON.stringify(filters, null, 2));
 
@@ -300,7 +449,7 @@ serve(async (req) => {
     const searchQueries = buildSearchQueries(filters);
     console.log("🔎 Queries otimizadas:", searchQueries);
 
-    // Run ALL searches in parallel (no sequential waiting)
+    // Collect all CNPJs from search
     const allCNPJs: Set<string> = new Set();
     const searchPromises = searchQueries.map(async (query, index) => {
       try {
@@ -312,7 +461,7 @@ serve(async (req) => {
           },
           body: JSON.stringify({
             query,
-            limit: 25, // Increased from 20
+            limit: 25,
             lang: "pt-BR",
             country: "BR",
             scrapeOptions: { formats: ["markdown"] },
@@ -353,55 +502,130 @@ serve(async (req) => {
       );
     }
 
-    // Process CNPJs with cache-first approach
     const pageSize = filters.pageSize || 10;
-    const cnpjArray = [...allCNPJs].slice(0, Math.min(pageSize * 15, 300)); // Process more CNPJs
-    console.log(`🔄 Processando ${cnpjArray.length} CNPJs...`);
+    const cnpjArray = [...allCNPJs].slice(0, Math.min(pageSize * 15, 300));
+
+    // ==================== STREAMING MODE ====================
+    if (isStreaming) {
+      console.log("🌊 Iniciando modo streaming...");
+      
+      const encoder = new TextEncoder();
+      const cacheEntriesToSave: { cnpj: string; data: any; situacao: string; source: string }[] = [];
+      
+      const stream = new ReadableStream({
+        async start(controller) {
+          let companiesFound = 0;
+          const seenCNPJs = new Set<string>();
+          
+          // Send initial stats
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ 
+            type: "init", 
+            totalCNPJs: allCNPJs.size,
+            processing: cnpjArray.length 
+          })}\n\n`));
+          
+          // Process in small batches for faster initial results
+          const batchSize = 5;
+          
+          for (let i = 0; i < cnpjArray.length && companiesFound < pageSize; i += batchSize) {
+            const batch = cnpjArray.slice(i, i + batchSize);
+            
+            const batchPromises = batch.map(async (cnpj) => {
+              if (seenCNPJs.has(cnpj)) return null;
+              seenCNPJs.add(cnpj);
+              stats.cnpjsProcessed++;
+              
+              const result = await processCNPJ(cnpj, filters, supabase, stats);
+              
+              if (result.cacheEntry) {
+                cacheEntriesToSave.push(result.cacheEntry);
+              }
+              
+              return result.company;
+            });
+            
+            const results = await Promise.allSettled(batchPromises);
+            
+            for (const result of results) {
+              if (result.status === "fulfilled" && result.value && companiesFound < pageSize) {
+                companiesFound++;
+                stats.companiesReturned++;
+                
+                // Send company immediately
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ 
+                  type: "company", 
+                  company: result.value,
+                  progress: {
+                    found: companiesFound,
+                    processed: stats.cnpjsProcessed,
+                    total: cnpjArray.length
+                  }
+                })}\n\n`));
+              }
+            }
+            
+            // Send progress update
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ 
+              type: "progress", 
+              processed: stats.cnpjsProcessed,
+              total: cnpjArray.length,
+              found: companiesFound
+            })}\n\n`));
+          }
+          
+          // Save cache entries
+          if (supabase && cacheEntriesToSave.length > 0) {
+            saveToCacheBatch(supabase, cacheEntriesToSave).then(() => {
+              console.log(`💾 ${cacheEntriesToSave.length} CNPJs salvos no cache`);
+            });
+          }
+          
+          stats.processingTimeMs = Date.now() - startTime;
+          
+          // Send final stats
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ 
+            type: "complete",
+            stats,
+            total: allCNPJs.size
+          })}\n\n`));
+          
+          console.log("───────────────────────────────────────────────────────────");
+          console.log("📈 ESTATÍSTICAS (STREAMING):");
+          console.log(`   • CNPJs encontrados: ${stats.totalCNPJsFound}`);
+          console.log(`   • CNPJs processados: ${stats.cnpjsProcessed}`);
+          console.log(`   • Cache hits: ${stats.cacheHits}`);
+          console.log(`   • Retornadas: ${stats.companiesReturned}`);
+          console.log(`   • Tempo: ${stats.processingTimeMs}ms`);
+          console.log("═══════════════════════════════════════════════════════════");
+          
+          controller.close();
+        }
+      });
+      
+      return new Response(stream, {
+        headers: {
+          ...corsHeaders,
+          "Content-Type": "text/event-stream",
+          "Cache-Control": "no-cache",
+          "Connection": "keep-alive",
+        },
+      });
+    }
+    
+    // ==================== NORMAL MODE (unchanged) ====================
+    console.log(`🔄 Processando ${cnpjArray.length} CNPJs (modo normal)...`);
     
     const companies: any[] = [];
     const cacheEntriesToSave: { cnpj: string; data: any; situacao: string; source: string }[] = [];
     
-    // AGGRESSIVE PARALLEL PROCESSING - batch size increased to 15
     const batchSize = 15;
     
     for (let i = 0; i < cnpjArray.length && companies.length < pageSize; i += batchSize) {
       const batch = cnpjArray.slice(i, i + batchSize);
       
-      // Process entire batch in parallel using Promise.allSettled (doesn't fail on errors)
       const lookupPromises = batch.map(async (cnpj) => {
-        // Check cache first
-        if (supabase) {
-          const cached = await getCachedCNPJ(supabase, cnpj);
-          if (cached) {
-            stats.cacheHits++;
-            return { cnpj, data: cached, source: "cache", fromCache: true };
-          }
-        }
-        
-        // Try both APIs in parallel, use first successful response
-        const [brasilResult, cnpjwsResult] = await Promise.allSettled([
-          quickLookupCNPJ(cnpj),
-          new Promise<any>(async (resolve) => {
-            await new Promise(r => setTimeout(r, 100)); // Slight delay for fallback
-            resolve(await fallbackLookupCNPJ(cnpj));
-          })
-        ]);
-        
-        let data = null;
-        let source = "";
-        
-        if (brasilResult.status === "fulfilled" && brasilResult.value) {
-          data = brasilResult.value;
-          source = "brasilapi";
-        } else if (cnpjwsResult.status === "fulfilled" && cnpjwsResult.value) {
-          data = cnpjwsResult.value;
-          source = "cnpjws";
-        } else {
-          if (brasilResult.status === "rejected" || !brasilResult.value) stats.apiErrors.brasilapi++;
-          if (cnpjwsResult.status === "rejected" || !cnpjwsResult.value) stats.apiErrors.cnpjws++;
-        }
-        
-        return { cnpj, data, source, fromCache: false };
+        stats.cnpjsProcessed++;
+        return processCNPJ(cnpj, filters, supabase, stats);
       });
 
       const results = await Promise.allSettled(lookupPromises);
@@ -409,93 +633,19 @@ serve(async (req) => {
       for (const result of results) {
         if (result.status !== "fulfilled") continue;
         
-        const { cnpj, data, source, fromCache } = result.value;
-        stats.cnpjsProcessed++;
+        const { company, cacheEntry } = result.value;
         
-        if (companies.length >= pageSize) break;
-        
-        if (!data) {
-          stats.skippedNoData++;
-          continue;
+        if (cacheEntry) {
+          cacheEntriesToSave.push(cacheEntry);
         }
         
-        // Check if active
-        const situacao = String(data.situacao_cadastral || "").toLowerCase();
-        const isActive = situacao === "ativa" || situacao === "02" || situacao.includes("ativ");
-        
-        // Save to cache (even inactive ones for faster future filtering)
-        if (!fromCache && source) {
-          cacheEntriesToSave.push({
-            cnpj,
-            data,
-            situacao: data.situacao_cadastral || "",
-            source
-          });
+        if (company && companies.length < pageSize) {
+          companies.push(company);
         }
-        
-        if (!isActive) {
-          stats.skippedInactive++;
-          continue;
-        }
-        
-        // Apply location filters
-        const dataUF = data.uf?.toUpperCase();
-        const dataMunicipio = (data.municipio || "").toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-        
-        const matchesState = !filters.states?.length || 
-          filters.states.some(s => s.toUpperCase() === dataUF);
-        
-        const matchesCity = !filters.cities?.length || 
-          filters.cities.some(c => {
-            const normalizedFilter = c.toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-            return dataMunicipio.includes(normalizedFilter) || normalizedFilter.includes(dataMunicipio);
-          });
-        
-        if (!matchesState || !matchesCity) {
-          stats.skippedLocation++;
-          continue;
-        }
-
-        const phones = [data.ddd_telefone_1, data.ddd_telefone_2].filter(Boolean);
-        const emails = data.email ? [data.email.toLowerCase()] : [];
-
-        // Use CNAE description as segment instead of filter segment
-        const cnaeDesc = data.cnae_fiscal_descricao || "";
-        const derivedSegment = cnaeDesc || filters.segments?.[0] || "";
-
-        companies.push({
-          id: cnpj,
-          cnpj: cnpj.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5"),
-          name: data.nome_fantasia || data.razao_social,
-          razao_social: data.razao_social,
-          segment: derivedSegment,
-          cnae_code: data.cnae_fiscal?.toString() || "",
-          cnae_description: data.cnae_fiscal_descricao || "",
-          company_size: data.porte || "",
-          city: data.municipio,
-          state: data.uf,
-          neighborhood: data.bairro || "",
-          zip_code: data.cep || "",
-          address: data.logradouro || "",
-          number: data.numero || "",
-          complement: data.complemento || "",
-          has_phone: phones.length > 0,
-          has_email: emails.length > 0,
-          has_website: false,
-          website_url: "",
-          phones: phones.map(p => String(p).replace(/\D/g, "")),
-          emails,
-          situacao: data.situacao_cadastral || "ATIVA",
-          capital_social: data.capital_social,
-          data_abertura: data.data_inicio_atividade,
-          enriched: false,
-        });
       }
-      
-      // NO DELAY between batches - maximum speed
     }
 
-    // Save cache entries in background (fire and forget)
+    // Save cache entries in background
     if (supabase && cacheEntriesToSave.length > 0) {
       saveToCacheBatch(supabase, cacheEntriesToSave).then(() => {
         console.log(`💾 ${cacheEntriesToSave.length} CNPJs salvos no cache`);
