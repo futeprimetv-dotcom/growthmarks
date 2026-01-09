@@ -38,8 +38,17 @@ const STATUS_LABELS: Record<string, string> = {
   perdido: 'Perdido',
 };
 
-export function ComercialMetrics() {
-  const { data: leads = [], isLoading } = useLeads();
+interface ComercialMetricsProps {
+  funnelId?: string | null;
+}
+
+export function ComercialMetrics({ funnelId }: ComercialMetricsProps) {
+  const { data: allLeads = [], isLoading } = useLeads();
+  
+  // Filter by funnel
+  const leads = funnelId 
+    ? allLeads.filter((l: any) => l.funnel_id === funnelId)
+    : allLeads;
 
   const metrics = useMemo(() => {
     const totalLeads = leads.length;

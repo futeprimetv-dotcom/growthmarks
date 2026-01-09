@@ -13,11 +13,20 @@ const funnelStages = [
   { key: "fechamento", label: "Fechamento", color: "bg-green-500" },
 ];
 
-export function SalesFunnel() {
-  const { data: leads, isLoading } = useLeads();
+interface SalesFunnelProps {
+  funnelId?: string | null;
+}
+
+export function SalesFunnel({ funnelId }: SalesFunnelProps) {
+  const { data: allLeads, isLoading } = useLeads();
   
   const funnelData = useMemo(() => {
-    if (!leads) return [];
+    if (!allLeads) return [];
+    
+    // Filter by funnel
+    const leads = funnelId 
+      ? allLeads.filter((l: any) => l.funnel_id === funnelId)
+      : allLeads;
     
     const activeLeads = leads.filter(l => l.status !== "perdido" && !l.is_archived);
     
@@ -41,7 +50,7 @@ export function SalesFunnel() {
         conversionRate,
       };
     });
-  }, [leads]);
+  }, [allLeads, funnelId]);
 
   const totalLeads = funnelData.reduce((sum, stage) => sum + stage.count, 0);
   const maxCount = Math.max(...funnelData.map(s => s.count), 1);
