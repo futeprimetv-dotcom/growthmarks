@@ -1675,10 +1675,13 @@ export type Database = {
       }
       team_members: {
         Row: {
+          approved_at: string | null
+          approved_by: string | null
           avatar: string | null
           created_at: string
           email: string
           id: string
+          is_approved: boolean | null
           is_archived: boolean | null
           name: string
           role: string
@@ -1686,10 +1689,13 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
           avatar?: string | null
           created_at?: string
           email: string
           id?: string
+          is_approved?: boolean | null
           is_archived?: boolean | null
           name: string
           role: string
@@ -1697,10 +1703,13 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          approved_at?: string | null
+          approved_by?: string | null
           avatar?: string | null
           created_at?: string
           email?: string
           id?: string
+          is_approved?: boolean | null
           is_archived?: boolean | null
           name?: string
           role?: string
@@ -1780,6 +1789,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      approve_user: {
+        Args: {
+          p_role: string
+          p_role_type: Database["public"]["Enums"]["user_role_type"]
+          p_team_member_id: string
+        }
+        Returns: boolean
+      }
       cleanup_expired_cnpj_cache: { Args: never; Returns: number }
       has_role: {
         Args: {
@@ -1798,6 +1815,8 @@ export type Database = {
       is_authenticated: { Args: never; Returns: boolean }
       is_gestao: { Args: never; Returns: boolean }
       is_producao: { Args: never; Returns: boolean }
+      is_user_approved: { Args: { p_user_id: string }; Returns: boolean }
+      reject_user: { Args: { p_team_member_id: string }; Returns: boolean }
       touch_cnpj_cache: { Args: { p_cnpj: string }; Returns: undefined }
     }
     Enums: {
