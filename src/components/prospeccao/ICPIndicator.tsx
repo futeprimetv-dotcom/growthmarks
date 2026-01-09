@@ -2,7 +2,8 @@ import { Target, CheckCircle2, AlertCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useICPSettings, DEFAULT_ICP } from "@/hooks/useICPSettings";
+import { useICPSettings } from "@/hooks/useICPSettings";
+import { DEFAULT_ICP, isICPCustomized } from "@/config/icp";
 
 export function ICPIndicator() {
   const { data: icpConfig, isLoading, isError } = useICPSettings();
@@ -21,13 +22,7 @@ export function ICPIndicator() {
   }
 
   // Check if ICP is customized (different from default)
-  const isCustomized = icpConfig && (
-    JSON.stringify(icpConfig.targetSegments?.sort()) !== JSON.stringify(DEFAULT_ICP.targetSegments.sort()) ||
-    JSON.stringify(icpConfig.targetStates?.sort()) !== JSON.stringify(DEFAULT_ICP.targetStates.sort()) ||
-    JSON.stringify(icpConfig.preferredSizes?.sort()) !== JSON.stringify(DEFAULT_ICP.preferredSizes.sort()) ||
-    icpConfig.minTicket !== DEFAULT_ICP.minTicket ||
-    icpConfig.toneOfVoice !== DEFAULT_ICP.toneOfVoice
-  );
+  const isCustomized = isICPCustomized(icpConfig);
 
   const segmentCount = icpConfig?.targetSegments?.length || 0;
   const stateCount = icpConfig?.targetStates?.length || 0;
