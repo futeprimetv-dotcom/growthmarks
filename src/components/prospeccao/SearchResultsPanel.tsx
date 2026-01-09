@@ -641,6 +641,12 @@ export function SearchResultsPanel({
   onBack,
   totalResults,
 }: Props) {
+  const [batchEnriching, setBatchEnriching] = useState(false);
+  const [batchProgress, setBatchProgress] = useState({ current: 0, total: 0 });
+  const [enrichedResults, setEnrichedResults] = useState<Map<string, EnrichedData>>(new Map());
+  
+  const enrichMutation = useEnrichCompany();
+
   const toggleSelect = (id: string) => {
     if (selectedIds.includes(id)) {
       onSelectChange(selectedIds.filter((i) => i !== id));
@@ -654,6 +660,59 @@ export function SearchResultsPanel({
       onSelectChange([]);
     } else {
       onSelectChange(results.map((c) => c.id || c.cnpj));
+    }
+  };
+
+  const handleBatchEnrich = async () => {
+    const selectedCompanies = results.filter(c => 
+      selectedIds.includes(c.id || c.cnpj)
+    );
+    
+    if (selectedCompanies.length === 0) {
+      toast.error("Selecione pelo menos uma empresa para enriquecer");
+      return;
+    }
+
+    setBatchEnriching(true);
+    setBatchProgress({ current: 0, total: selectedCompanies.length });
+    
+    let successCount = 0;
+    let errorCount = 0;
+
+    for (let i = 0; i < selectedCompanies.length; i++) {
+      const company = selectedCompanies[i];
+      setBatchProgress({ current: i + 1, total: selectedCompanies.length });
+      
+      try {
+        const data = await enrichMutation.mutateAsync({
+          cnpj: company.cnpj,
+          companyName: company.name || company.razao_social,
+          city: company.city,
+          state: company.state,
+        });
+        
+        const key = company.id || company.cnpj;
+        enrichedCache.set(key, data);
+        setEnrichedResults(prev => new Map(prev).set(key, data));
+        successCount++;
+      } catch (error) {
+        console.error(`Error enriching ${company.name}:`, error);
+        errorCount++;
+      }
+      
+      // Small delay between requests to avoid rate limiting
+      if (i < selectedCompanies.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+    }
+
+    setBatchEnriching(false);
+    
+    if (successCount > 0) {
+      toast.success(`${successCount} empresa(s) enriquecida(s) com sucesso!`);
+    }
+    if (errorCount > 0) {
+      toast.error(`${errorCount} empresa(s) falharam ao enriquecer`);
     }
   };
 
@@ -674,16 +733,58 @@ export function SearchResultsPanel({
         </div>
       ) : (
         <div className="space-y-4">
-          <div className="flex items-center justify-between pb-2">
-            <Button variant="outline" size="sm" onClick={toggleSelectAll}>
-              {selectedIds.length === results.length
-                ? "Desmarcar todos"
-                : `Selecionar todos (${results.length})`}
-            </Button>
+          <div className="flex items-center justify-between gap-4 pb-2 flex-wrap">
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={toggleSelectAll}>
+                {selectedIds.length === results.length
+                  ? "Desmarcar todos"
+                  : `Selecionar todos (${results.length})`}
+              </Button>
+              
+              {selectedIds.length > 0 && (
+                <Button 
+                  size="sm" 
+                  onClick={handleBatchEnrich}
+                  disabled={batchEnriching}
+                  className="bg-primary"
+                >
+                  {batchEnriching ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Enriquecendo {batchProgress.current}/{batchProgress.total}...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="h-4 w-4 mr-2" />
+                      Enriquecer Selecionados ({selectedIds.length})
+                    </>
+                  )}
+                </Button>
+              )}
+            </div>
+            
             <p className="text-sm text-muted-foreground">
-              💡 Use "Buscar Detalhes" para encontrar contatos das empresas
+              💡 Selecione empresas e clique em "Enriquecer" para buscar contatos em lote
             </p>
           </div>
+          
+          {batchEnriching && (
+            <div className="bg-muted/50 rounded-lg p-4 flex items-center gap-4">
+              <Loader2 className="h-5 w-5 animate-spin text-primary" />
+              <div className="flex-1">
+                <p className="text-sm font-medium">
+                  Enriquecendo empresas... ({batchProgress.current}/{batchProgress.total})
+                </p>
+                <div className="w-full bg-muted rounded-full h-2 mt-2">
+                  <div 
+                    className="bg-primary h-2 rounded-full transition-all duration-300"
+                    style={{ width: `${(batchProgress.current / batchProgress.total) * 100}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+          
           {results.map((company) => (
             <CompanyCard
               key={company.id || company.cnpj}
