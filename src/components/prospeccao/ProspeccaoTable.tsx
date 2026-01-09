@@ -1,4 +1,3 @@
-import { useState } from "react";
 import {
   Globe,
   Instagram,
@@ -24,7 +23,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ProspectStatusBadge } from "./ProspectStatusBadge";
-import { RevealDataButton } from "./RevealDataButton";
 import type { MockProspect } from "@/data/mockProspects";
 
 interface Props {
@@ -100,7 +98,6 @@ export function ProspeccaoTable({
                 />
               </TableHead>
               <TableHead className="min-w-[250px]">Empresa</TableHead>
-              <TableHead>Ações</TableHead>
               <TableHead>Emails</TableHead>
               <TableHead>Telefones</TableHead>
               <TableHead>CNPJ</TableHead>
@@ -171,37 +168,41 @@ export function ProspeccaoTable({
                   </div>
                 </TableCell>
                 <TableCell>
-                  <RevealDataButton
-                    prospectId={prospect.id}
-                    emailsCount={prospect.emails_count}
-                    phonesCount={prospect.phones_count}
-                    isRevealed={prospect.data_revealed}
-                    emails={prospect.emails}
-                    phones={prospect.phones}
-                  />
-                </TableCell>
-                <TableCell>
-                  {prospect.data_revealed ? (
-                    <div className="flex items-center gap-1 text-sm">
-                      <Mail className="h-3.5 w-3.5 text-muted-foreground" />
-                      {prospect.emails_count}
+                  {prospect.emails && prospect.emails.length > 0 ? (
+                    <div className="space-y-1">
+                      {prospect.emails.slice(0, 2).map((email, i) => (
+                        <div key={i} className="flex items-center gap-1 text-sm">
+                          <Mail className="h-3 w-3 text-muted-foreground shrink-0" />
+                          <span className="truncate max-w-[180px]">{email}</span>
+                        </div>
+                      ))}
+                      {prospect.emails.length > 2 && (
+                        <span className="text-xs text-muted-foreground">
+                          +{prospect.emails.length - 2} mais
+                        </span>
+                      )}
                     </div>
                   ) : (
-                    <span className="text-sm text-muted-foreground">
-                      ({prospect.emails_count}) para revelar
-                    </span>
+                    <span className="text-sm text-muted-foreground">-</span>
                   )}
                 </TableCell>
                 <TableCell>
-                  {prospect.data_revealed ? (
-                    <div className="flex items-center gap-1 text-sm">
-                      <Phone className="h-3.5 w-3.5 text-muted-foreground" />
-                      {prospect.phones_count}
+                  {prospect.phones && prospect.phones.length > 0 ? (
+                    <div className="space-y-1">
+                      {prospect.phones.slice(0, 2).map((phone, i) => (
+                        <div key={i} className="flex items-center gap-1 text-sm">
+                          <Phone className="h-3 w-3 text-muted-foreground shrink-0" />
+                          <span>{phone}</span>
+                        </div>
+                      ))}
+                      {prospect.phones.length > 2 && (
+                        <span className="text-xs text-muted-foreground">
+                          +{prospect.phones.length - 2} mais
+                        </span>
+                      )}
                     </div>
                   ) : (
-                    <span className="text-sm text-muted-foreground">
-                      ({prospect.phones_count}) para revelar
-                    </span>
+                    <span className="text-sm text-muted-foreground">-</span>
                   )}
                 </TableCell>
                 <TableCell>
@@ -237,32 +238,34 @@ export function ProspeccaoTable({
       </div>
 
       {/* Pagination */}
-      <div className="flex items-center justify-between">
-        <div className="text-sm text-muted-foreground">
-          Mostrando {((page - 1) * pageSize) + 1} a {Math.min(page * pageSize, prospects.length)} de {prospects.length}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between">
+          <div className="text-sm text-muted-foreground">
+            Mostrando {((page - 1) * pageSize) + 1} a {Math.min(page * pageSize, prospects.length)} de {prospects.length}
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onPageChange(page - 1)}
+              disabled={page === 1}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <span className="text-sm">
+              Página {page} de {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onPageChange(page + 1)}
+              disabled={page === totalPages}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onPageChange(page - 1)}
-            disabled={page === 1}
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <span className="text-sm">
-            Página {page} de {totalPages}
-          </span>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onPageChange(page + 1)}
-            disabled={page === totalPages}
-          >
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
+      )}
     </div>
   );
 }

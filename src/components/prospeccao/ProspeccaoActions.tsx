@@ -1,35 +1,23 @@
-import { Download, List, Send } from "lucide-react";
+import { Download, Send, UserPlus, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { useSalesFunnels } from "@/hooks/useSalesFunnels";
 
 interface Props {
   selectedCount: number;
   onSendToFunnel: () => void;
-  onAddToList: () => void;
+  onSendToLeadsBase: () => void;
   onExport: () => void;
+  isSendingToBase?: boolean;
 }
 
-export function ProspeccaoActions({ selectedCount, onSendToFunnel, onAddToList, onExport }: Props) {
-  const { data: funnels } = useSalesFunnels();
-
+export function ProspeccaoActions({ 
+  selectedCount, 
+  onSendToFunnel, 
+  onSendToLeadsBase, 
+  onExport,
+  isSendingToBase 
+}: Props) {
   return (
     <div className="flex items-center gap-2">
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={onAddToList}
-        disabled={selectedCount === 0}
-      >
-        <List className="h-4 w-4 mr-2" />
-        Adicionar à Lista
-      </Button>
-
       <Button
         variant="outline"
         size="sm"
@@ -41,12 +29,26 @@ export function ProspeccaoActions({ selectedCount, onSendToFunnel, onAddToList, 
       </Button>
 
       <Button
+        variant="outline"
         size="sm"
         onClick={onSendToFunnel}
         disabled={selectedCount === 0}
       >
         <Send className="h-4 w-4 mr-2" />
         Enviar para Funil
+      </Button>
+
+      <Button
+        size="sm"
+        onClick={onSendToLeadsBase}
+        disabled={selectedCount === 0 || isSendingToBase}
+      >
+        {isSendingToBase ? (
+          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+        ) : (
+          <UserPlus className="h-4 w-4 mr-2" />
+        )}
+        Enviar para Base de Leads
       </Button>
     </div>
   );
