@@ -11,6 +11,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { TeamMember, TeamMemberInsert, useCreateTeamMember, useUpdateTeamMember } from "@/hooks/useTeamMembers";
+import { supabase } from "@/integrations/supabase/client";
+import { useQuery } from "@tanstack/react-query";
+import { RoleType } from "@/hooks/useUserRole";
 
 interface TeamMemberFormDialogProps {
   open: boolean;
@@ -29,7 +32,15 @@ const ROLES_PRESETS = [
   "Produtor(a) de Conteúdo",
   "Atendimento",
   "Financeiro",
+  "Vendedor(a)",
   "Outro",
+];
+
+const ACCESS_LEVELS: { value: RoleType; label: string; description: string }[] = [
+  { value: 'gestao', label: 'Gestão', description: 'Acesso completo a todas as áreas' },
+  { value: 'producao', label: 'Produção', description: 'Acesso à produção, sem financeiro' },
+  { value: 'vendedor', label: 'Vendedor', description: 'Acesso comercial, contratos e clientes' },
+  { value: 'cliente', label: 'Cliente', description: 'Acesso limitado aos planejamentos' },
 ];
 
 export function TeamMemberFormDialog({ open, onOpenChange, member }: TeamMemberFormDialogProps) {
@@ -41,9 +52,55 @@ export function TeamMemberFormDialog({ open, onOpenChange, member }: TeamMemberF
   });
   const [customRole, setCustomRole] = useState("");
   const [selectedPresetRole, setSelectedPresetRole] = useState<string>("");
+  const [selectedUserId, setSelectedUserId] = useState<string>("");
+  const [selectedAccessLevel, setSelectedAccessLevel] = useState<RoleType>("producao");
 
   const createMember = useCreateTeamMember();
   const updateMember = useUpdateTeamMember();
+
+  // Fetch profiles (users) that are not yet linked to a team member
+  const { data: availableUsers } = useQuery({
+    queryKey: ['available-users-for-team'],
+    queryFn: async () => {
+      const { data: profiles, error } = await supabase
+        .from('profiles')
+        .select('*');
+      
+      if (error) throw error;
+      
+      // Get all team members with user_id
+      const { data: teamMembers } = await supabase
+        .from('team_members')
+        .select('user_id')
+        .not('user_id', 'is', null);
+      
+      const linkedUserIds = teamMembers?.map(tm => tm.user_id) || [];
+      
+      // Filter out users already linked (except if editing same member)
+      return profiles.filter(p => 
+        !linkedUserIds.includes(p.user_id) || 
+        (member && member.user_id === p.user_id)
+      );
+    },
+    enabled: open,
+  });
+
+  // Fetch current user role if member has user_id
+  const { data: memberUserRole } = useQuery({
+    queryKey: ['member-user-role', member?.user_id],
+    queryFn: async () => {
+      if (!member?.user_id) return null;
+      const { data, error } = await supabase
+        .from('user_roles')
+        .select('role_type')
+        .eq('user_id', member.user_id)
+        .single();
+      
+      if (error) return null;
+      return data?.role_type as RoleType | null;
+    },
+    enabled: !!member?.user_id && open,
+  });
 
   useEffect(() => {
     if (member) {
@@ -52,6 +109,7 @@ export function TeamMemberFormDialog({ open, onOpenChange, member }: TeamMemberF
         email: member.email,
         role: member.role,
         avatar: member.avatar || "",
+        user_id: member.user_id || undefined,
       });
       // Check if role is in presets
       const isPreset = ROLES_PRESETS.includes(member.role);
@@ -62,6 +120,10 @@ export function TeamMemberFormDialog({ open, onOpenChange, member }: TeamMemberF
         setSelectedPresetRole("Outro");
         setCustomRole(member.role);
       }
+      setSelectedUserId(member.user_id || "none");
+      if (memberUserRole) {
+        setSelectedAccessLevel(memberUserRole);
+      }
     } else {
       setFormData({
         name: "",
@@ -71,8 +133,10 @@ export function TeamMemberFormDialog({ open, onOpenChange, member }: TeamMemberF
       });
       setSelectedPresetRole("");
       setCustomRole("");
+      setSelectedUserId("");
+      setSelectedAccessLevel("producao");
     }
-  }, [member, open]);
+  }, [member, open, memberUserRole]);
 
   const handleRoleChange = (value: string) => {
     setSelectedPresetRole(value);
@@ -89,21 +153,68 @@ export function TeamMemberFormDialog({ open, onOpenChange, member }: TeamMemberF
     setFormData({ ...formData, role: value });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleUserSelect = (value: string) => {
+    setSelectedUserId(value);
+    if (value && value !== "none") {
+      const selectedUser = availableUsers?.find(u => u.user_id === value);
+      if (selectedUser && !formData.name) {
+        setFormData(prev => ({
+          ...prev,
+          name: selectedUser.full_name,
+          email: selectedUser.email,
+          user_id: value,
+        }));
+      } else {
+        setFormData(prev => ({ ...prev, user_id: value }));
+      }
+    } else {
+      setFormData(prev => ({ ...prev, user_id: undefined }));
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!formData.name || !formData.email || !formData.role) {
       return;
     }
 
+    const dataToSave = {
+      ...formData,
+      user_id: selectedUserId && selectedUserId !== "none" ? selectedUserId : null,
+    };
+
+    // Update user role if user is linked
+    if (selectedUserId && selectedUserId !== "none") {
+      // Check if role exists
+      const { data: existingRole } = await supabase
+        .from('user_roles')
+        .select('id')
+        .eq('user_id', selectedUserId)
+        .single();
+
+      if (existingRole) {
+        // Update existing role
+        await supabase
+          .from('user_roles')
+          .update({ role_type: selectedAccessLevel })
+          .eq('user_id', selectedUserId);
+      } else {
+        // Insert new role
+        await supabase
+          .from('user_roles')
+          .insert({ user_id: selectedUserId, role: 'user', role_type: selectedAccessLevel });
+      }
+    }
+
     if (member) {
       updateMember.mutate(
-        { id: member.id, ...formData },
+        { id: member.id, ...dataToSave },
         { onSuccess: () => onOpenChange(false) }
       );
     } else {
       createMember.mutate(
-        formData as TeamMemberInsert,
+        dataToSave as TeamMemberInsert,
         { onSuccess: () => onOpenChange(false) }
       );
     }
@@ -179,6 +290,49 @@ export function TeamMemberFormDialog({ open, onOpenChange, member }: TeamMemberF
               placeholder="https://exemplo.com/avatar.jpg"
             />
           </div>
+
+          {/* Link to user account */}
+          <div className="space-y-2">
+            <Label>Vincular a Usuário</Label>
+            <Select value={selectedUserId} onValueChange={handleUserSelect}>
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione um usuário (opcional)" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Nenhum usuário vinculado</SelectItem>
+                {availableUsers?.map((user) => (
+                  <SelectItem key={user.user_id} value={user.user_id}>
+                    {user.full_name} ({user.email})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Vincule este membro a uma conta de usuário para permitir login
+            </p>
+          </div>
+
+          {/* Access Level - only show if user is linked */}
+          {selectedUserId && selectedUserId !== "none" && (
+            <div className="space-y-2">
+              <Label>Nível de Acesso</Label>
+              <Select value={selectedAccessLevel} onValueChange={(v) => setSelectedAccessLevel(v as RoleType)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione o nível" />
+                </SelectTrigger>
+                <SelectContent>
+                  {ACCESS_LEVELS.map((level) => (
+                    <SelectItem key={level.value} value={level.value}>
+                      <div className="flex flex-col">
+                        <span>{level.label}</span>
+                        <span className="text-xs text-muted-foreground">{level.description}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           <div className="flex justify-end gap-2 pt-4">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>

@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 
-export type AppRole = 'admin' | 'user' | 'gestao' | 'producao' | 'cliente';
-export type RoleType = 'gestao' | 'producao' | 'cliente';
+export type AppRole = 'admin' | 'user' | 'gestao' | 'producao' | 'cliente' | 'vendedor';
+export type RoleType = 'gestao' | 'producao' | 'cliente' | 'vendedor';
 
 interface UseUserRoleResult {
   role: AppRole | null;
@@ -12,6 +12,7 @@ interface UseUserRoleResult {
   isGestao: boolean;
   isProducao: boolean;
   isCliente: boolean;
+  isVendedor: boolean;
   canViewDashboard: boolean;
   canViewFinanceiro: boolean;
   canViewComercial: boolean;
@@ -75,6 +76,7 @@ export const useUserRole = (): UseUserRoleResult => {
   const isGestao = effectiveRoleType === 'gestao' || role === 'admin';
   const isProducao = effectiveRoleType === 'producao' || role === 'user';
   const isCliente = effectiveRoleType === 'cliente';
+  const isVendedor = effectiveRoleType === 'vendedor';
 
   return {
     role,
@@ -83,14 +85,15 @@ export const useUserRole = (): UseUserRoleResult => {
     isGestao,
     isProducao: isProducao && !isGestao,
     isCliente,
+    isVendedor,
     // Permissions
-    canViewDashboard: isGestao,
+    canViewDashboard: isGestao || isVendedor,
     canViewFinanceiro: isGestao,
-    canViewComercial: isGestao,
-    canViewContratos: isGestao,
+    canViewComercial: isGestao || isVendedor,
+    canViewContratos: isGestao || isVendedor,
     canViewMetas: isGestao,
     canViewEquipe: isGestao,
-    canViewClientes: isGestao || isProducao,
+    canViewClientes: isGestao || isProducao || isVendedor,
     canViewPlanejamentos: isGestao || isProducao || isCliente,
     canViewProducao: isGestao || isProducao,
     canViewArquivados: isGestao,

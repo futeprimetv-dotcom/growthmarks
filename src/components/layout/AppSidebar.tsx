@@ -35,7 +35,7 @@ interface MenuItem {
   title: string;
   url: string;
   icon: React.ComponentType<{ className?: string }>;
-  permission?: 'gestao' | 'producao' | 'cliente' | 'all';
+  permission?: 'gestao' | 'producao' | 'cliente' | 'vendedor' | 'all';
 }
 
 interface MenuSection {
@@ -47,14 +47,14 @@ const menuSections: MenuSection[] = [
   {
     label: "Vendas",
     items: [
-      { title: "Dashboard", url: "/", icon: LayoutDashboard, permission: 'gestao' },
-      { title: "Comercial", url: "/comercial", icon: Target, permission: 'gestao' },
+      { title: "Dashboard", url: "/", icon: LayoutDashboard, permission: 'vendedor' },
+      { title: "Comercial", url: "/comercial", icon: Target, permission: 'vendedor' },
     ]
   },
   {
     label: "Operação",
     items: [
-      { title: "Clientes", url: "/clientes", icon: Users, permission: 'producao' },
+      { title: "Clientes", url: "/clientes", icon: Users, permission: 'vendedor' },
       { title: "Planejamentos", url: "/planejamentos", icon: CalendarDays, permission: 'all' },
       { title: "Produção", url: "/producao", icon: Kanban, permission: 'producao' },
     ]
@@ -62,7 +62,7 @@ const menuSections: MenuSection[] = [
   {
     label: "Financeiro",
     items: [
-      { title: "Contratos", url: "/contratos", icon: FileText, permission: 'gestao' },
+      { title: "Contratos", url: "/contratos", icon: FileText, permission: 'vendedor' },
       { title: "Financeiro", url: "/financeiro", icon: DollarSign, permission: 'gestao' },
     ]
   },
@@ -86,13 +86,14 @@ export function AppSidebar() {
   const location = useLocation();
   const { state } = useSidebar();
   const { user, signOut } = useAuth();
-  const { isGestao, isProducao, isCliente, loading: roleLoading } = useUserRole();
+  const { isGestao, isProducao, isCliente, isVendedor, loading: roleLoading } = useUserRole();
   const isCollapsed = state === "collapsed";
 
   const canViewItem = (permission?: string) => {
     if (roleLoading) return true; // Show all during loading
     if (!permission || permission === 'all') return true;
     if (permission === 'gestao') return isGestao;
+    if (permission === 'vendedor') return isGestao || isVendedor;
     if (permission === 'producao') return isGestao || isProducao;
     if (permission === 'cliente') return isGestao || isProducao || isCliente;
     return false;
@@ -161,7 +162,7 @@ export function AppSidebar() {
                   {user.email}
                 </span>
                 <span className="text-xs text-muted-foreground">
-                  {isGestao ? 'Gestão' : isProducao ? 'Produção' : isCliente ? 'Cliente' : 'Usuário'}
+                  {isGestao ? 'Gestão' : isVendedor ? 'Vendedor' : isProducao ? 'Produção' : isCliente ? 'Cliente' : 'Usuário'}
                 </span>
               </div>
             </div>
