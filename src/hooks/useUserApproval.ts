@@ -92,14 +92,13 @@ export function useUserApprovalStatus(userId: string | undefined) {
     queryFn: async () => {
       if (!userId) return null;
 
-      const { data, error } = await supabase
-        .from("team_members")
-        .select("is_approved")
-        .eq("user_id", userId)
-        .maybeSingle();
+      // Use a backend function to avoid transient RLS/session timing issues
+      const { data, error } = await supabase.rpc("is_user_approved", {
+        p_user_id: userId,
+      });
 
       if (error) throw error;
-      return data?.is_approved ?? false;
+      return data ?? false;
     },
     enabled: !!userId,
   });
