@@ -13,9 +13,14 @@ import { useTeamMembers } from "@/hooks/useTeamMembers";
 
 const clientSchema = z.object({
   name: z.string().min(1, "Nome é obrigatório").max(100),
+  cnpj: z.string().max(20).optional(),
   contact_name: z.string().max(100).optional(),
   contact_email: z.string().email("Email inválido").optional().or(z.literal("")),
   contact_phone: z.string().max(20).optional(),
+  address: z.string().max(200).optional(),
+  city: z.string().max(100).optional(),
+  state: z.string().max(2).optional(),
+  zip_code: z.string().max(10).optional(),
   plan: z.string().max(100).optional(),
   monthly_value: z.coerce.number().min(0).optional(),
   status: z.string().default("active"),
@@ -43,9 +48,14 @@ export function ClientFormDialog({ open, onOpenChange, client }: ClientFormDialo
     resolver: zodResolver(clientSchema),
     defaultValues: {
       name: "",
+      cnpj: "",
       contact_name: "",
       contact_email: "",
       contact_phone: "",
+      address: "",
+      city: "",
+      state: "",
+      zip_code: "",
       plan: "",
       monthly_value: 0,
       status: "active",
@@ -61,9 +71,14 @@ export function ClientFormDialog({ open, onOpenChange, client }: ClientFormDialo
     if (client) {
       form.reset({
         name: client.name,
+        cnpj: (client as any).cnpj || "",
         contact_name: client.contact_name || "",
         contact_email: client.contact_email || "",
         contact_phone: client.contact_phone || "",
+        address: (client as any).address || "",
+        city: (client as any).city || "",
+        state: (client as any).state || "",
+        zip_code: (client as any).zip_code || "",
         plan: client.plan || "",
         monthly_value: client.monthly_value || 0,
         status: client.status || "active",
@@ -76,9 +91,14 @@ export function ClientFormDialog({ open, onOpenChange, client }: ClientFormDialo
     } else {
       form.reset({
         name: "",
+        cnpj: "",
         contact_name: "",
         contact_email: "",
         contact_phone: "",
+        address: "",
+        city: "",
+        state: "",
+        zip_code: "",
         plan: "",
         monthly_value: 0,
         status: "active",
@@ -94,9 +114,14 @@ export function ClientFormDialog({ open, onOpenChange, client }: ClientFormDialo
   const onSubmit = async (values: ClientFormValues) => {
     const payload = {
       name: values.name,
+      cnpj: values.cnpj || null,
       contact_name: values.contact_name || null,
       contact_email: values.contact_email || null,
       contact_phone: values.contact_phone || null,
+      address: values.address || null,
+      city: values.city || null,
+      state: values.state || null,
+      zip_code: values.zip_code || null,
       plan: values.plan || null,
       monthly_value: values.monthly_value || 0,
       status: values.status,
@@ -131,10 +156,24 @@ export function ClientFormDialog({ open, onOpenChange, client }: ClientFormDialo
                 control={form.control}
                 name="name"
                 render={({ field }) => (
-                  <FormItem className="col-span-2">
+                  <FormItem>
                     <FormLabel>Nome da Empresa *</FormLabel>
                     <FormControl>
                       <Input placeholder="Nome da empresa" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="cnpj"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>CNPJ</FormLabel>
+                    <FormControl>
+                      <Input placeholder="00.000.000/0001-00" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -183,6 +222,66 @@ export function ClientFormDialog({ open, onOpenChange, client }: ClientFormDialo
                 )}
               />
 
+              {/* Address Section */}
+              <FormField
+                control={form.control}
+                name="address"
+                render={({ field }) => (
+                  <FormItem className="col-span-2">
+                    <FormLabel>Endereço</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Rua, número, complemento" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="city"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Cidade</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Cidade" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="state"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Estado</FormLabel>
+                      <FormControl>
+                        <Input placeholder="UF" maxLength={2} {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="zip_code"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>CEP</FormLabel>
+                      <FormControl>
+                        <Input placeholder="00000-000" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              {/* Plan Section */}
               <FormField
                 control={form.control}
                 name="plan"

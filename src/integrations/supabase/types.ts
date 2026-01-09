@@ -136,8 +136,11 @@ export type Database = {
       }
       clients: {
         Row: {
+          address: string | null
+          city: string | null
           client_temp_password: string | null
           client_user_id: string | null
+          cnpj: string | null
           contact_email: string | null
           contact_name: string | null
           contact_phone: string | null
@@ -152,12 +155,17 @@ export type Database = {
           notes: string | null
           plan: string | null
           responsible_id: string | null
+          state: string | null
           status: string | null
           updated_at: string
+          zip_code: string | null
         }
         Insert: {
+          address?: string | null
+          city?: string | null
           client_temp_password?: string | null
           client_user_id?: string | null
+          cnpj?: string | null
           contact_email?: string | null
           contact_name?: string | null
           contact_phone?: string | null
@@ -172,12 +180,17 @@ export type Database = {
           notes?: string | null
           plan?: string | null
           responsible_id?: string | null
+          state?: string | null
           status?: string | null
           updated_at?: string
+          zip_code?: string | null
         }
         Update: {
+          address?: string | null
+          city?: string | null
           client_temp_password?: string | null
           client_user_id?: string | null
+          cnpj?: string | null
           contact_email?: string | null
           contact_name?: string | null
           contact_phone?: string | null
@@ -192,8 +205,10 @@ export type Database = {
           notes?: string | null
           plan?: string | null
           responsible_id?: string | null
+          state?: string | null
           status?: string | null
           updated_at?: string
+          zip_code?: string | null
         }
         Relationships: [
           {

@@ -1,0 +1,7 @@
+-- Add CNPJ and address fields to clients table
+ALTER TABLE public.clients 
+ADD COLUMN IF NOT EXISTS cnpj TEXT,
+ADD COLUMN IF NOT EXISTS address TEXT,
+ADD COLUMN IF NOT EXISTS city TEXT,
+ADD COLUMN IF NOT EXISTS state TEXT,
+ADD COLUMN IF NOT EXISTS zip_code TEXT;
