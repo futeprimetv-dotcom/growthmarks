@@ -6,8 +6,10 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card } from "@/components/ui/card";
-import { FileText, Download, Eye, Edit, Loader2 } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { FileText, Download, Eye, Edit, Loader2, Layout } from "lucide-react";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
+import { useContractTemplates, type ContractTemplate } from "@/hooks/useContractTemplates";
 import { type ContractWithClient } from "@/hooks/useContracts";
 import { toast } from "sonner";
 
@@ -42,6 +44,9 @@ interface ContractData {
   duration: string;
   // Terms
   terms: string;
+  // Template
+  useTemplate: boolean;
+  templateContent: string;
 }
 
 const defaultTerms = `CLÁUSULA 1ª - DO OBJETO
@@ -73,8 +78,10 @@ Fica eleito o foro da comarca da sede da CONTRATADA para dirimir quaisquer dúvi
 
 export function ContractPreviewDialog({ open, onOpenChange, contract }: ContractPreviewDialogProps) {
   const { data: companySettings } = useCompanySettings();
+  const { data: templates } = useContractTemplates();
   const [tab, setTab] = useState<string>("edit");
   const [isGenerating, setIsGenerating] = useState(false);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
   const printRef = useRef<HTMLDivElement>(null);
 
   const [contractData, setContractData] = useState<ContractData>({
@@ -98,6 +105,8 @@ export function ContractPreviewDialog({ open, onOpenChange, contract }: Contract
     endDate: "",
     duration: "",
     terms: defaultTerms,
+    useTemplate: false,
+    templateContent: "",
   });
 
   useEffect(() => {
@@ -135,9 +144,67 @@ export function ContractPreviewDialog({ open, onOpenChange, contract }: Contract
         endDate: endDate?.toLocaleDateString('pt-BR') || "Indeterminado",
         duration,
         terms: defaultTerms,
+        useTemplate: false,
+        templateContent: "",
       });
+      setSelectedTemplateId("");
     }
   }, [contract, companySettings]);
+
+  const handleTemplateChange = (templateId: string) => {
+    setSelectedTemplateId(templateId);
+    
+    if (templateId && templates) {
+      const template = templates.find(t => t.id === templateId);
+      if (template) {
+        setContractData(prev => ({
+          ...prev,
+          useTemplate: true,
+          templateContent: template.content,
+        }));
+        toast.success(`Template "${template.name}" aplicado!`);
+      }
+    } else {
+      setContractData(prev => ({
+        ...prev,
+        useTemplate: false,
+        templateContent: "",
+      }));
+    }
+  };
+
+  const processTemplateContent = (content: string): string => {
+    const today = new Date().toLocaleDateString('pt-BR', { 
+      day: 'numeric', 
+      month: 'long', 
+      year: 'numeric' 
+    });
+    
+    const clientAddress = [
+      contractData.clientAddress,
+      contractData.clientCity,
+      contractData.clientState
+    ].filter(Boolean).join(", ");
+    
+    const companyAddress = [
+      contractData.companyAddress,
+      contractData.companyCity,
+      contractData.companyState
+    ].filter(Boolean).join(", ");
+
+    return content
+      .replace(/\{\{cliente_nome\}\}/g, contractData.clientName)
+      .replace(/\{\{cliente_cnpj\}\}/g, contractData.clientCnpj || "Não informado")
+      .replace(/\{\{cliente_endereco\}\}/g, clientAddress || "Não informado")
+      .replace(/\{\{empresa_nome\}\}/g, contractData.companyName)
+      .replace(/\{\{empresa_cnpj\}\}/g, contractData.companyCnpj || "Não informado")
+      .replace(/\{\{empresa_endereco\}\}/g, companyAddress || "Não informado")
+      .replace(/\{\{valor\}\}/g, contractData.value)
+      .replace(/\{\{data_inicio\}\}/g, contractData.startDate)
+      .replace(/\{\{data_fim\}\}/g, contractData.endDate)
+      .replace(/\{\{cidade\}\}/g, contractData.companyCity || "Local")
+      .replace(/\{\{data_atual\}\}/g, today);
+  };
 
   const handleGeneratePDF = async () => {
     setIsGenerating(true);
@@ -186,14 +253,10 @@ export function ContractPreviewDialog({ open, onOpenChange, contract }: Contract
         year: 'numeric' 
       });
 
-      printWindow.document.write(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <title>Contrato - ${contractData.clientName}</title>
-          ${styles}
-        </head>
-        <body>
+      // Check if using template or default format
+      const bodyContent = contractData.useTemplate && contractData.templateContent
+        ? processTemplateContent(contractData.templateContent)
+        : `
           <div class="contract-header">
             <div class="contract-title">CONTRATO DE PRESTAÇÃO DE SERVIÇOS</div>
             <div class="contract-subtitle">Marketing Digital e Comunicação</div>
@@ -272,6 +335,17 @@ export function ContractPreviewDialog({ open, onOpenChange, contract }: Contract
               </div>
             </div>
           </div>
+        `;
+
+      printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Contrato - ${contractData.clientName}</title>
+          ${styles}
+        </head>
+        <body>
+          ${bodyContent}
         </body>
         </html>
       `);
@@ -315,8 +389,40 @@ export function ContractPreviewDialog({ open, onOpenChange, contract }: Contract
           </TabsList>
 
           <TabsContent value="edit" className="flex-1 overflow-y-auto mt-4 space-y-6">
+            {/* Template Selection */}
+            {templates && templates.length > 0 && (
+              <Card className="p-4 border-primary/20 bg-primary/5">
+                <div className="flex items-center gap-2 mb-3">
+                  <Layout className="h-5 w-5 text-primary" />
+                  <h3 className="font-semibold">Usar Template</h3>
+                </div>
+                <div className="space-y-2">
+                  <Label>Selecione um template (opcional)</Label>
+                  <Select value={selectedTemplateId} onValueChange={handleTemplateChange}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Formato padrão (sem template)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">Formato padrão (sem template)</SelectItem>
+                      {templates.map((template) => (
+                        <SelectItem key={template.id} value={template.id}>
+                          {template.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {contractData.useTemplate && (
+                    <p className="text-xs text-muted-foreground">
+                      ✓ Template aplicado. Os dados abaixo serão substituídos automaticamente no template.
+                    </p>
+                  )}
+                </div>
+              </Card>
+            )}
+
             {/* Company Info */}
             <Card className="p-4">
+              <h3 className="font-semibold mb-3">Dados da Contratada</h3>
               <h3 className="font-semibold mb-3">Dados da Contratada</h3>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -449,19 +555,27 @@ export function ContractPreviewDialog({ open, onOpenChange, contract }: Contract
               </div>
             </Card>
 
-            {/* Terms */}
-            <Card className="p-4">
-              <h3 className="font-semibold mb-3">Termos e Condições</h3>
-              <Textarea
-                value={contractData.terms}
-                onChange={(e) => setContractData({ ...contractData, terms: e.target.value })}
-                rows={12}
-                className="font-mono text-sm"
-              />
-            </Card>
+            {/* Terms - Only show if not using template */}
+            {!contractData.useTemplate && (
+              <Card className="p-4">
+                <h3 className="font-semibold mb-3">Termos e Condições</h3>
+                <Textarea
+                  value={contractData.terms}
+                  onChange={(e) => setContractData({ ...contractData, terms: e.target.value })}
+                  rows={12}
+                  className="font-mono text-sm"
+                />
+              </Card>
+            )}
           </TabsContent>
 
           <TabsContent value="preview" className="flex-1 overflow-y-auto mt-4" ref={printRef}>
+            {contractData.useTemplate && contractData.templateContent ? (
+              <div 
+                className="bg-white text-black p-8 rounded-lg shadow-sm min-h-[800px]"
+                dangerouslySetInnerHTML={{ __html: processTemplateContent(contractData.templateContent) }}
+              />
+            ) : (
             <div className="bg-white text-black p-8 rounded-lg shadow-sm min-h-[800px]">
               {/* Header */}
               <div className="text-center border-b-2 border-black pb-4 mb-6">
@@ -538,6 +652,7 @@ export function ContractPreviewDialog({ open, onOpenChange, contract }: Contract
                 </div>
               </div>
             </div>
+            )}
           </TabsContent>
         </Tabs>
 
