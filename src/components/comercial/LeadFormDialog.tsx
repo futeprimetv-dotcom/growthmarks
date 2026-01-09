@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { useCreateLead, useUpdateLead, Lead } from "@/hooks/useLeads";
 import { useTeamMembers } from "@/hooks/useTeamMembers";
 import { useCRMSettings } from "@/hooks/useCRMSettings";
+import { useLeadScore } from "@/hooks/useLeadScore";
 import { Constants } from "@/integrations/supabase/types";
 import { User, Building2, DollarSign, Target, MessageSquare, Zap, X, Plus } from "lucide-react";
 
@@ -173,6 +174,7 @@ export function LeadFormDialog({ open, onOpenChange, lead }: LeadFormDialogProps
   const updateLead = useUpdateLead();
   const { data: teamMembers } = useTeamMembers();
   const { data: crmSettings } = useCRMSettings();
+  const { calculateScore } = useLeadScore();
   const [newTag, setNewTag] = useState("");
   const [activeTab, setActiveTab] = useState("basico");
   
@@ -305,6 +307,15 @@ export function LeadFormDialog({ open, onOpenChange, lead }: LeadFormDialogProps
   }, [lead, form, open]);
 
   const onSubmit = async (values: LeadFormValues) => {
+    // Calculate lead score automatically
+    const leadScore = calculateScore({
+      temperature: values.temperature as Lead["temperature"],
+      estimated_value: values.estimated_value || 0,
+      urgency: values.urgency,
+      closing_probability: values.closing_probability || 0,
+      invests_in_marketing: values.invests_in_marketing || false,
+    });
+
     const payload = {
       name: values.name,
       company: values.company || null,
@@ -343,6 +354,7 @@ export function LeadFormDialog({ open, onOpenChange, lead }: LeadFormDialogProps
       tags: values.tags || [],
       utm_source: values.utm_source || null,
       loss_reason: values.loss_reason || null,
+      lead_score: leadScore,
     };
 
     if (lead?.id) {
