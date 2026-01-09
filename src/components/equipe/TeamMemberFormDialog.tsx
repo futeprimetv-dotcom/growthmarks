@@ -145,6 +145,47 @@ export function TeamMemberFormDialog({ open, onOpenChange, member }: TeamMemberF
     }
   }, [member, open, memberUserRole]);
 
+  const resizeImage = (file: File, maxSize: number = 200): Promise<Blob> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+
+      img.onload = () => {
+        // Calculate crop dimensions for square avatar
+        const size = Math.min(img.width, img.height);
+        const offsetX = (img.width - size) / 2;
+        const offsetY = (img.height - size) / 2;
+
+        canvas.width = maxSize;
+        canvas.height = maxSize;
+
+        if (ctx) {
+          // Draw cropped and resized image
+          ctx.drawImage(
+            img,
+            offsetX, offsetY, size, size,  // Source crop
+            0, 0, maxSize, maxSize          // Destination
+          );
+
+          canvas.toBlob(
+            (blob) => {
+              if (blob) resolve(blob);
+              else reject(new Error('Falha ao processar imagem'));
+            },
+            'image/jpeg',
+            0.9
+          );
+        } else {
+          reject(new Error('Contexto canvas não disponível'));
+        }
+      };
+
+      img.onerror = () => reject(new Error('Falha ao carregar imagem'));
+      img.src = URL.createObjectURL(file);
+    });
+  };
+
   const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -155,22 +196,27 @@ export function TeamMemberFormDialog({ open, onOpenChange, member }: TeamMemberF
       return;
     }
 
-    // Validate file size (max 2MB)
-    if (file.size > 2 * 1024 * 1024) {
-      toast.error("Imagem muito grande. Máximo 2MB");
+    // Validate file size (max 5MB before resize)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Imagem muito grande. Máximo 5MB");
       return;
     }
 
     setIsUploadingAvatar(true);
 
     try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `team-member-${Date.now()}.${fileExt}`;
+      // Resize and crop to 200x200
+      const resizedBlob = await resizeImage(file, 200);
+      
+      const fileName = `team-member-${Date.now()}.jpg`;
       const filePath = fileName;
 
       const { error: uploadError } = await supabase.storage
         .from('avatars')
-        .upload(filePath, file, { upsert: true });
+        .upload(filePath, resizedBlob, { 
+          upsert: true,
+          contentType: 'image/jpeg'
+        });
 
       if (uploadError) throw uploadError;
 
@@ -406,7 +452,7 @@ export function TeamMemberFormDialog({ open, onOpenChange, member }: TeamMemberF
                   )}
                 </Button>
                 <p className="text-xs text-muted-foreground mt-1">
-                  JPG, PNG ou GIF. Máximo 2MB.
+                  Redimensionado automaticamente para 200x200px
                 </p>
               </div>
             </div>
