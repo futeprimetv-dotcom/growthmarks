@@ -3,17 +3,20 @@ import { useContracts, useDeleteContract, type ContractWithClient } from "@/hook
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ChevronDown, ChevronUp, FileText, Calendar, DollarSign, Plus, Pencil, Trash2, Loader2, FileWarning, Eye } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ChevronDown, ChevronUp, FileText, Calendar, DollarSign, Plus, Pencil, Trash2, Loader2, FileWarning, Eye, Layout } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { ContractFormDialog } from "@/components/contratos/ContractFormDialog";
 import { ContractPreviewDialog } from "@/components/contratos/ContractPreviewDialog";
+import { ContractTemplateManager } from "@/components/contratos/ContractTemplateManager";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 export default function Contratos() {
   const { data: contracts, isLoading } = useContracts();
   const deleteContract = useDeleteContract();
   
+  const [activeTab, setActiveTab] = useState("contracts");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -96,15 +99,30 @@ export default function Contratos() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Contratos</h1>
-          <p className="text-muted-foreground">Gerencie contratos e pacotes de serviços</p>
+          <p className="text-muted-foreground">Gerencie contratos, pacotes de serviços e templates</p>
         </div>
-        <Button onClick={() => { setSelectedContract(null); setFormOpen(true); }}>
-          <Plus className="h-4 w-4 mr-2" />
-          Novo Contrato
-        </Button>
+        {activeTab === "contracts" && (
+          <Button onClick={() => { setSelectedContract(null); setFormOpen(true); }}>
+            <Plus className="h-4 w-4 mr-2" />
+            Novo Contrato
+          </Button>
+        )}
       </div>
 
-      {(!contracts || contracts.length === 0) ? (
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList>
+          <TabsTrigger value="contracts" className="flex items-center gap-2">
+            <FileText className="h-4 w-4" />
+            Contratos
+          </TabsTrigger>
+          <TabsTrigger value="templates" className="flex items-center gap-2">
+            <Layout className="h-4 w-4" />
+            Templates
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="contracts" className="mt-6">
+          {(!contracts || contracts.length === 0) ? (
         <Card className="p-12">
           <div className="flex flex-col items-center justify-center text-center">
             <FileWarning className="h-12 w-12 text-muted-foreground mb-4" />
@@ -243,8 +261,14 @@ export default function Contratos() {
               </Card>
             );
           })}
-        </div>
-      )}
+          </div>
+        )}
+        </TabsContent>
+
+        <TabsContent value="templates" className="mt-6">
+          <ContractTemplateManager />
+        </TabsContent>
+      </Tabs>
 
       <ContractFormDialog
         open={formOpen}
