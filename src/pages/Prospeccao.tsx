@@ -64,7 +64,7 @@ export default function Prospeccao() {
   const addProspectFromCNPJ = useAddProspectFromCNPJ();
   const { lookup } = useCNPJLookupManual();
 
-  // Sync filters with URL params
+  // Sync filters with URL params - only on mount
   useEffect(() => {
     const urlFilters: ProspectFilters = {};
     
@@ -72,16 +72,25 @@ export default function Prospeccao() {
     if (search) urlFilters.search = search;
     
     const segments = searchParams.get("segments");
-    if (segments) urlFilters.segments = segments.split(",");
+    if (segments) {
+      // Remove duplicates using Set
+      urlFilters.segments = [...new Set(segments.split(",").filter(Boolean))];
+    }
     
     const states = searchParams.get("states");
-    if (states) urlFilters.states = states.split(",");
+    if (states) {
+      urlFilters.states = [...new Set(states.split(",").filter(Boolean))];
+    }
     
     const cities = searchParams.get("cities");
-    if (cities) urlFilters.cities = cities.split(",");
+    if (cities) {
+      urlFilters.cities = [...new Set(cities.split(",").filter(Boolean))];
+    }
     
     const sizes = searchParams.get("sizes");
-    if (sizes) urlFilters.companySizes = sizes.split(",");
+    if (sizes) {
+      urlFilters.companySizes = [...new Set(sizes.split(",").filter(Boolean))];
+    }
     
     if (searchParams.get("hasWebsite") === "true") urlFilters.hasWebsite = true;
     if (searchParams.get("hasPhone") === "true") urlFilters.hasPhone = true;
@@ -93,6 +102,7 @@ export default function Prospeccao() {
     if (Object.keys(urlFilters).length > 0) {
       setHasSearched(true);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Update URL when filters change (but don't reset hasSearched)
@@ -100,10 +110,19 @@ export default function Prospeccao() {
     const params = new URLSearchParams();
     
     if (filters.search) params.set("search", filters.search);
-    if (filters.segments?.length) params.set("segments", filters.segments.join(","));
-    if (filters.states?.length) params.set("states", filters.states.join(","));
-    if (filters.cities?.length) params.set("cities", filters.cities.join(","));
-    if (filters.companySizes?.length) params.set("sizes", filters.companySizes.join(","));
+    // Ensure unique values when setting URL params
+    if (filters.segments?.length) {
+      params.set("segments", [...new Set(filters.segments)].join(","));
+    }
+    if (filters.states?.length) {
+      params.set("states", [...new Set(filters.states)].join(","));
+    }
+    if (filters.cities?.length) {
+      params.set("cities", [...new Set(filters.cities)].join(","));
+    }
+    if (filters.companySizes?.length) {
+      params.set("sizes", [...new Set(filters.companySizes)].join(","));
+    }
     if (filters.hasWebsite) params.set("hasWebsite", "true");
     if (filters.hasPhone) params.set("hasPhone", "true");
     if (filters.hasEmail) params.set("hasEmail", "true");

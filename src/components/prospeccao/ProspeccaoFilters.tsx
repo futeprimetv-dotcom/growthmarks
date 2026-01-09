@@ -50,16 +50,17 @@ export function ProspeccaoFilters({
     updateFilter("cities", city ? [city] : undefined);
   };
 
+  // Count active filters - ensure we're counting correctly without duplicates
   const activeFiltersCount = [
-    filters.search,
-    filters.segments?.length,
-    filters.states?.length,
-    filters.cities?.length,
-    filters.companySizes?.length,
-    filters.hasWebsite,
-    filters.hasPhone,
-    filters.hasEmail
-  ].filter(Boolean).length;
+    filters.search ? 1 : 0,
+    filters.segments?.length ? 1 : 0,
+    filters.states?.length ? 1 : 0,
+    filters.cities?.length ? 1 : 0,
+    filters.companySizes?.length ? 1 : 0,
+    filters.hasWebsite === true ? 1 : 0,
+    filters.hasPhone === true ? 1 : 0,
+    filters.hasEmail === true ? 1 : 0
+  ].reduce((sum, val) => sum + val, 0);
 
   return (
     <div className="space-y-3">
