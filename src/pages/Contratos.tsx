@@ -4,22 +4,26 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ChevronDown, ChevronUp, FileText, Calendar, DollarSign, Plus, Pencil, Trash2, Loader2, FileWarning, Eye, Layout } from "lucide-react";
+import { ChevronDown, ChevronUp, FileText, Calendar, DollarSign, Plus, Pencil, Trash2, Loader2, FileWarning, Eye, Layout, Send, CheckCircle2, Mail } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { ContractFormDialog } from "@/components/contratos/ContractFormDialog";
 import { ContractPreviewDialog } from "@/components/contratos/ContractPreviewDialog";
 import { ContractTemplateManager } from "@/components/contratos/ContractTemplateManager";
+import { SendSignatureDialog } from "@/components/contratos/SendSignatureDialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { useQueryClient } from "@tanstack/react-query";
 
 export default function Contratos() {
   const { data: contracts, isLoading } = useContracts();
   const deleteContract = useDeleteContract();
+  const queryClient = useQueryClient();
   
   const [activeTab, setActiveTab] = useState("contracts");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [signatureOpen, setSignatureOpen] = useState(false);
   const [selectedContract, setSelectedContract] = useState<ContractWithClient | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [contractToDelete, setContractToDelete] = useState<string | null>(null);
@@ -44,6 +48,33 @@ export default function Contratos() {
     e.stopPropagation();
     setContractToDelete(id);
     setDeleteDialogOpen(true);
+  };
+
+  const handleSendSignature = (contract: ContractWithClient, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelectedContract(contract);
+    setSignatureOpen(true);
+  };
+
+  const getSignatureStatusBadge = (contract: ContractWithClient) => {
+    const status = (contract as any).signature_status;
+    if (status === "signed") {
+      return (
+        <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+          <CheckCircle2 className="h-3 w-3 mr-1" />
+          Assinado
+        </Badge>
+      );
+    }
+    if (status === "sent") {
+      return (
+        <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+          <Mail className="h-3 w-3 mr-1" />
+          Aguardando
+        </Badge>
+      );
+    }
+    return null;
   };
 
   const confirmDelete = async () => {
@@ -160,6 +191,7 @@ export default function Contratos() {
                           {contract.client?.name || "Cliente não encontrado"}
                         </h3>
                         <StatusBadge status={getStatusForBadge(contract.status)} />
+                        {getSignatureStatusBadge(contract)}
                       </div>
                       <div className="flex items-center gap-4 text-sm text-muted-foreground">
                         <span>{getTypeLabel(contract.type)}</span>
@@ -237,6 +269,14 @@ export default function Contratos() {
                             Ver Contrato / PDF
                           </Button>
                           <Button 
+                            variant="secondary" 
+                            size="sm"
+                            onClick={(e) => handleSendSignature(contract, e)}
+                          >
+                            <Send className="h-4 w-4 mr-2" />
+                            {(contract as any).signature_status === "sent" ? "Ver Assinatura" : "Enviar para Assinatura"}
+                          </Button>
+                          <Button 
                             variant="outline" 
                             size="sm"
                             onClick={(e) => handleEdit(contract, e)}
@@ -280,6 +320,13 @@ export default function Contratos() {
         open={previewOpen}
         onOpenChange={setPreviewOpen}
         contract={selectedContract}
+      />
+
+      <SendSignatureDialog
+        open={signatureOpen}
+        onOpenChange={setSignatureOpen}
+        contract={selectedContract}
+        onSuccess={() => queryClient.invalidateQueries({ queryKey: ["contracts"] })}
       />
 
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
