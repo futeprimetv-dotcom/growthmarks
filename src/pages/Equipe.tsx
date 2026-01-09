@@ -74,18 +74,33 @@ export default function Equipe() {
     },
   });
 
-  const getRoleTypeLabel = (userId: string | null) => {
-    if (!userId || !userRoles) return null;
-    const role = userRoles.find(r => r.user_id === userId);
-    if (!role?.role_type) return null;
+  const getRoleTypeLabel = (userId: string | null, pendingRoleType?: string | null) => {
+    // Check user_roles first for linked users
+    if (userId && userRoles) {
+      const role = userRoles.find(r => r.user_id === userId);
+      if (role?.role_type) {
+        const labels: Record<string, { label: string; color: string }> = {
+          'gestao': { label: 'Gestão', color: 'bg-emerald-500/20 text-emerald-500 border-emerald-500/30' },
+          'producao': { label: 'Produção', color: 'bg-blue-500/20 text-blue-500 border-blue-500/30' },
+          'vendedor': { label: 'Vendedor', color: 'bg-orange-500/20 text-orange-500 border-orange-500/30' },
+          'cliente': { label: 'Cliente', color: 'bg-gray-500/20 text-gray-500 border-gray-500/30' },
+        };
+        return labels[role.role_type] || null;
+      }
+    }
     
-    const labels: Record<string, { label: string; color: string }> = {
-      'gestao': { label: 'Gestão', color: 'bg-emerald-500/20 text-emerald-500 border-emerald-500/30' },
-      'producao': { label: 'Produção', color: 'bg-blue-500/20 text-blue-500 border-blue-500/30' },
-      'vendedor': { label: 'Vendedor', color: 'bg-orange-500/20 text-orange-500 border-orange-500/30' },
-      'cliente': { label: 'Cliente', color: 'bg-gray-500/20 text-gray-500 border-gray-500/30' },
-    };
-    return labels[role.role_type] || null;
+    // Fallback to pending_role_type for pre-approved members
+    if (pendingRoleType) {
+      const labels: Record<string, { label: string; color: string; pending: boolean }> = {
+        'gestao': { label: 'Gestão', color: 'bg-emerald-500/20 text-emerald-500 border-emerald-500/30 border-dashed', pending: true },
+        'producao': { label: 'Produção', color: 'bg-blue-500/20 text-blue-500 border-blue-500/30 border-dashed', pending: true },
+        'vendedor': { label: 'Vendedor', color: 'bg-orange-500/20 text-orange-500 border-orange-500/30 border-dashed', pending: true },
+        'cliente': { label: 'Cliente', color: 'bg-gray-500/20 text-gray-500 border-gray-500/30 border-dashed', pending: true },
+      };
+      return labels[pendingRoleType] || null;
+    }
+    
+    return null;
   };
 
   const toggleExpand = (id: string) => {
@@ -194,7 +209,7 @@ export default function Equipe() {
             const isExpanded = expandedId === member.id;
             const memberDemands = getMemberDemands(member.id);
             const isCurrent = isCurrentUser(member);
-            const accessLevel = getRoleTypeLabel(member.user_id);
+            const accessLevel = getRoleTypeLabel(member.user_id, (member as any).pending_role_type);
 
             return (
               <Card

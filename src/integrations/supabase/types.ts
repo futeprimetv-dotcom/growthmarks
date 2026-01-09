@@ -1684,6 +1684,9 @@ export type Database = {
           is_approved: boolean | null
           is_archived: boolean | null
           name: string
+          pending_role_type:
+            | Database["public"]["Enums"]["user_role_type"]
+            | null
           role: string
           updated_at: string
           user_id: string | null
@@ -1698,6 +1701,9 @@ export type Database = {
           is_approved?: boolean | null
           is_archived?: boolean | null
           name: string
+          pending_role_type?:
+            | Database["public"]["Enums"]["user_role_type"]
+            | null
           role: string
           updated_at?: string
           user_id?: string | null
@@ -1712,6 +1718,9 @@ export type Database = {
           is_approved?: boolean | null
           is_archived?: boolean | null
           name?: string
+          pending_role_type?:
+            | Database["public"]["Enums"]["user_role_type"]
+            | null
           role?: string
           updated_at?: string
           user_id?: string | null
