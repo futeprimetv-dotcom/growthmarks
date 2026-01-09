@@ -12,7 +12,8 @@ import {
   LogOut,
   List,
   BarChart3,
-  Search
+  Search,
+  UserCog
 } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import {
@@ -81,6 +82,7 @@ const menuSections: MenuSection[] = [
 
 // Itens do sistema ficam no footer
 const systemItems: MenuItem[] = [
+  { title: "Meu Perfil", url: "/perfil", icon: UserCog, permission: 'all' },
   { title: "Equipe", url: "/equipe", icon: UserCircle, permission: 'gestao' },
   { title: "Configurações", url: "/configuracoes", icon: Settings, permission: 'gestao' },
 ];
