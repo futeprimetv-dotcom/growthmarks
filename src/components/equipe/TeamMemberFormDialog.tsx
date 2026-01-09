@@ -179,13 +179,19 @@ export function TeamMemberFormDialog({ open, onOpenChange, member }: TeamMemberF
       return;
     }
 
-    const dataToSave = {
+    const hasLinkedUser = selectedUserId && selectedUserId !== "none";
+
+    const dataToSave: any = {
       ...formData,
-      user_id: selectedUserId && selectedUserId !== "none" ? selectedUserId : null,
+      user_id: hasLinkedUser ? selectedUserId : null,
+      // If no user linked, save as pending_role_type for pre-approval
+      pending_role_type: !hasLinkedUser ? selectedAccessLevel : null,
+      // If setting pending_role_type, pre-approve the member
+      is_approved: !hasLinkedUser && selectedAccessLevel ? true : (formData as any).is_approved,
     };
 
     // Update user role if user is linked
-    if (selectedUserId && selectedUserId !== "none") {
+    if (hasLinkedUser) {
       // Check if role exists
       const { data: existingRole } = await supabase
         .from('user_roles')
@@ -205,6 +211,9 @@ export function TeamMemberFormDialog({ open, onOpenChange, member }: TeamMemberF
           .from('user_roles')
           .insert({ user_id: selectedUserId, role: 'user', role_type: selectedAccessLevel });
       }
+      
+      // Clear pending_role_type since user is now linked
+      dataToSave.pending_role_type = null;
     }
 
     if (member) {
@@ -312,27 +321,30 @@ export function TeamMemberFormDialog({ open, onOpenChange, member }: TeamMemberF
             </p>
           </div>
 
-          {/* Access Level - only show if user is linked */}
-          {selectedUserId && selectedUserId !== "none" && (
-            <div className="space-y-2">
-              <Label>Nível de Acesso</Label>
-              <Select value={selectedAccessLevel} onValueChange={(v) => setSelectedAccessLevel(v as RoleType)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione o nível" />
-                </SelectTrigger>
-                <SelectContent>
-                  {ACCESS_LEVELS.map((level) => (
-                    <SelectItem key={level.value} value={level.value}>
-                      <div className="flex flex-col">
-                        <span>{level.label}</span>
-                        <span className="text-xs text-muted-foreground">{level.description}</span>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
+          {/* Access Level - always show for pre-approval */}
+          <div className="space-y-2">
+            <Label>Nível de Acesso {(!selectedUserId || selectedUserId === "none") && "(Pré-aprovação)"}</Label>
+            <Select value={selectedAccessLevel} onValueChange={(v) => setSelectedAccessLevel(v as RoleType)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione o nível" />
+              </SelectTrigger>
+              <SelectContent>
+                {ACCESS_LEVELS.map((level) => (
+                  <SelectItem key={level.value} value={level.value}>
+                    <div className="flex flex-col">
+                      <span>{level.label}</span>
+                      <span className="text-xs text-muted-foreground">{level.description}</span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {(!selectedUserId || selectedUserId === "none") && (
+              <p className="text-xs text-muted-foreground">
+                Quando o usuário criar conta com este email, será aprovado automaticamente com este nível
+              </p>
+            )}
+          </div>
 
           <div className="flex justify-end gap-2 pt-4">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
