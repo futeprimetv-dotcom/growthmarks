@@ -2,3 +2,6 @@ project_id = "psjstkojegdzzmswmhzj"
 
 [functions.send-contract-signature]
 verify_jwt = false
+
+[functions.ai-prospecting]
+verify_jwt = false

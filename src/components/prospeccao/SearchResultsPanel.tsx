@@ -23,6 +23,7 @@ import {
   Instagram,
   Linkedin,
   Sparkles,
+  Brain,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -39,6 +40,9 @@ import {
 import { cn } from "@/lib/utils";
 import type { CompanySearchResult } from "@/hooks/useCompanySearch";
 import { useEnrichCompany, type EnrichedData } from "@/hooks/useEnrichCompany";
+import { useFullAnalysis, useBatchAnalyze, type CompanyData, type FitAnalysis, type CompanySummary, type BatchAnalysisResult } from "@/hooks/useAIProspecting";
+import { AIFitBadge } from "./AIFitBadge";
+import { AIAnalysisDialog } from "./AIAnalysisDialog";
 
 interface Props {
   results: CompanySearchResult[];
@@ -87,14 +91,23 @@ function formatPhone(phone: string): string {
   return phone;
 }
 
+// Store AI analysis for each company
+const aiAnalysisCache = new Map<string, { fit: FitAnalysis; summary: CompanySummary }>();
+
 function CompanyCard({
   company,
   isSelected,
   onSelect,
+  aiAnalysis,
+  onAnalyzeWithAI,
+  isAnalyzing,
 }: {
   company: CompanySearchResult;
   isSelected: boolean;
   onSelect: () => void;
+  aiAnalysis?: { fit: FitAnalysis; summary: CompanySummary };
+  onAnalyzeWithAI: () => void;
+  isAnalyzing: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [copiedField, setCopiedField] = useState<string | null>(null);
@@ -102,8 +115,24 @@ function CompanyCard({
     enrichedCache.get(company.id || company.cnpj) || null
   );
   const [isEnriching, setIsEnriching] = useState(false);
+  const [showAIDialog, setShowAIDialog] = useState(false);
 
   const enrichMutation = useEnrichCompany();
+
+  const companyDataForAI: CompanyData = {
+    name: company.name || company.razao_social,
+    cnpj: company.cnpj,
+    segment: company.segment,
+    city: company.city,
+    state: company.state,
+    companySize: company.company_size,
+    cnaeCode: company.cnae_code,
+    cnaeDescription: company.cnae_description,
+    phones: company.phones,
+    emails: company.emails,
+    website: company.website_url,
+    instagram: enrichedData?.instagram,
+  };
 
   const handleCopy = async (text: string, field: string) => {
     await navigator.clipboard.writeText(text);
@@ -130,6 +159,14 @@ function CompanyCard({
       toast.error("Erro ao buscar detalhes. Tente novamente.");
     } finally {
       setIsEnriching(false);
+    }
+  };
+
+  const handleAnalyzeClick = () => {
+    if (aiAnalysis) {
+      setShowAIDialog(true);
+    } else {
+      onAnalyzeWithAI();
     }
   };
 
@@ -217,32 +254,71 @@ function CompanyCard({
                 )}
               </div>
 
-              {/* Enrich Button */}
-              <Button
-                variant={enrichedData ? "outline" : "default"}
-                size="sm"
-                onClick={handleEnrich}
-                disabled={isEnriching}
-                className="shrink-0"
-              >
-                {isEnriching ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Buscando...
-                  </>
-                ) : enrichedData ? (
-                  <>
-                    <Search className="h-4 w-4 mr-2" />
-                    Atualizar
-                  </>
-                ) : (
-                  <>
-                    <Search className="h-4 w-4 mr-2" />
-                    Buscar Detalhes
-                  </>
-                )}
-              </Button>
+              <div className="flex gap-2 shrink-0">
+                {/* AI Analysis Button */}
+                <Button
+                  variant={aiAnalysis ? "outline" : "secondary"}
+                  size="sm"
+                  onClick={handleAnalyzeClick}
+                  disabled={isAnalyzing}
+                  className="shrink-0"
+                >
+                  {isAnalyzing ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Analisando...
+                    </>
+                  ) : aiAnalysis ? (
+                    <>
+                      <Brain className="h-4 w-4 mr-2" />
+                      Ver Análise
+                    </>
+                  ) : (
+                    <>
+                      <Brain className="h-4 w-4 mr-2" />
+                      Analisar com IA
+                    </>
+                  )}
+                </Button>
+
+                {/* Enrich Button */}
+                <Button
+                  variant={enrichedData ? "outline" : "default"}
+                  size="sm"
+                  onClick={handleEnrich}
+                  disabled={isEnriching}
+                  className="shrink-0"
+                >
+                  {isEnriching ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Buscando...
+                    </>
+                  ) : enrichedData ? (
+                    <>
+                      <Search className="h-4 w-4 mr-2" />
+                      Atualizar
+                    </>
+                  ) : (
+                    <>
+                      <Search className="h-4 w-4 mr-2" />
+                      Buscar Detalhes
+                    </>
+                  )}
+                </Button>
+              </div>
             </div>
+
+            {/* AI Fit Badge */}
+            {aiAnalysis && (
+              <div className="mt-2">
+                <AIFitBadge
+                  score={aiAnalysis.fit.score}
+                  recommendation={aiAnalysis.fit.recommendation}
+                  justification={aiAnalysis.fit.justification}
+                />
+              </div>
+            )}
 
             {/* Key Info Grid */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
@@ -603,6 +679,15 @@ function CompanyCard({
           </CardContent>
         </CollapsibleContent>
       </Collapsible>
+
+      {/* AI Analysis Dialog */}
+      <AIAnalysisDialog
+        open={showAIDialog}
+        onOpenChange={setShowAIDialog}
+        company={companyDataForAI}
+        fitAnalysis={aiAnalysis?.fit}
+        summary={aiAnalysis?.summary}
+      />
     </Card>
   );
 }
@@ -644,8 +729,13 @@ export function SearchResultsPanel({
   const [batchEnriching, setBatchEnriching] = useState(false);
   const [batchProgress, setBatchProgress] = useState({ current: 0, total: 0 });
   const [enrichedResults, setEnrichedResults] = useState<Map<string, EnrichedData>>(new Map());
+  const [aiAnalysisResults, setAiAnalysisResults] = useState<Map<string, { fit: FitAnalysis; summary: CompanySummary }>>(new Map());
+  const [analyzingCompanyId, setAnalyzingCompanyId] = useState<string | null>(null);
+  const [batchAnalyzing, setBatchAnalyzing] = useState(false);
   
   const enrichMutation = useEnrichCompany();
+  const fullAnalysis = useFullAnalysis();
+  const batchAnalyze = useBatchAnalyze();
 
   const toggleSelect = (id: string) => {
     if (selectedIds.includes(id)) {
@@ -660,6 +750,102 @@ export function SearchResultsPanel({
       onSelectChange([]);
     } else {
       onSelectChange(results.map((c) => c.id || c.cnpj));
+    }
+  };
+
+  const handleAnalyzeWithAI = async (company: CompanySearchResult) => {
+    const companyId = company.id || company.cnpj;
+    setAnalyzingCompanyId(companyId);
+    
+    try {
+      const companyData: CompanyData = {
+        name: company.name || company.razao_social,
+        cnpj: company.cnpj,
+        segment: company.segment,
+        city: company.city,
+        state: company.state,
+        companySize: company.company_size,
+        cnaeCode: company.cnae_code,
+        cnaeDescription: company.cnae_description,
+        phones: company.phones,
+        emails: company.emails,
+        website: company.website_url,
+      };
+      
+      const result = await fullAnalysis.mutateAsync({ company: companyData });
+      
+      setAiAnalysisResults(prev => new Map(prev).set(companyId, result));
+      aiAnalysisCache.set(companyId, result);
+      toast.success("Análise de IA concluída!");
+    } catch (error) {
+      console.error("AI analysis error:", error);
+    } finally {
+      setAnalyzingCompanyId(null);
+    }
+  };
+
+  const handleBatchAnalyze = async () => {
+    const selectedCompanies = results.filter(c => 
+      selectedIds.includes(c.id || c.cnpj)
+    );
+    
+    if (selectedCompanies.length === 0) {
+      toast.error("Selecione pelo menos uma empresa para analisar");
+      return;
+    }
+
+    if (selectedCompanies.length > 10) {
+      toast.error("Selecione no máximo 10 empresas para análise em lote");
+      return;
+    }
+
+    setBatchAnalyzing(true);
+    
+    try {
+      const companiesData: CompanyData[] = selectedCompanies.map(c => ({
+        name: c.name || c.razao_social,
+        cnpj: c.cnpj,
+        segment: c.segment,
+        city: c.city,
+        state: c.state,
+        companySize: c.company_size,
+        cnaeCode: c.cnae_code,
+        cnaeDescription: c.cnae_description,
+      }));
+      
+      const result = await batchAnalyze.mutateAsync({ companies: companiesData });
+      
+      // Store rankings in a simplified format
+      result.rankings.forEach(ranking => {
+        const company = selectedCompanies.find(c => 
+          (c.name || c.razao_social) === ranking.companyName
+        );
+        if (company) {
+          const companyId = company.id || company.cnpj;
+          const simplifiedAnalysis = {
+            fit: {
+              score: ranking.score,
+              recommendation: ranking.recommendation,
+              justification: ranking.quickNote,
+              strengths: [],
+              concerns: [],
+            },
+            summary: {
+              summary: ranking.quickNote,
+              keyPoints: [],
+              opportunities: [],
+              suggestedServices: [],
+            }
+          };
+          setAiAnalysisResults(prev => new Map(prev).set(companyId, simplifiedAnalysis));
+        }
+      });
+      
+      toast.success(`${result.rankings.length} empresas analisadas!`);
+    } catch (error) {
+      console.error("Batch analysis error:", error);
+    } finally {
+      setBatchAnalyzing(false);
     }
   };
 
@@ -742,24 +928,45 @@ export function SearchResultsPanel({
               </Button>
               
               {selectedIds.length > 0 && (
-                <Button 
-                  size="sm" 
-                  onClick={handleBatchEnrich}
-                  disabled={batchEnriching}
-                  className="bg-primary"
-                >
-                  {batchEnriching ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Enriquecendo {batchProgress.current}/{batchProgress.total}...
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="h-4 w-4 mr-2" />
-                      Enriquecer Selecionados ({selectedIds.length})
-                    </>
-                  )}
-                </Button>
+                <>
+                  <Button 
+                    size="sm" 
+                    variant="secondary"
+                    onClick={handleBatchAnalyze}
+                    disabled={batchAnalyzing || selectedIds.length > 10}
+                  >
+                    {batchAnalyzing ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Analisando...
+                      </>
+                    ) : (
+                      <>
+                        <Brain className="h-4 w-4 mr-2" />
+                        Analisar com IA ({selectedIds.length})
+                      </>
+                    )}
+                  </Button>
+                  
+                  <Button 
+                    size="sm" 
+                    onClick={handleBatchEnrich}
+                    disabled={batchEnriching}
+                    className="bg-primary"
+                  >
+                    {batchEnriching ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Enriquecendo {batchProgress.current}/{batchProgress.total}...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="h-4 w-4 mr-2" />
+                        Enriquecer ({selectedIds.length})
+                      </>
+                    )}
+                  </Button>
+                </>
               )}
             </div>
             
@@ -785,14 +992,20 @@ export function SearchResultsPanel({
             </div>
           )}
           
-          {results.map((company) => (
-            <CompanyCard
-              key={company.id || company.cnpj}
-              company={company}
-              isSelected={selectedIds.includes(company.id || company.cnpj)}
-              onSelect={() => toggleSelect(company.id || company.cnpj)}
-            />
-          ))}
+          {results.map((company) => {
+            const companyId = company.id || company.cnpj;
+            return (
+              <CompanyCard
+                key={companyId}
+                company={company}
+                isSelected={selectedIds.includes(companyId)}
+                onSelect={() => toggleSelect(companyId)}
+                aiAnalysis={aiAnalysisResults.get(companyId)}
+                onAnalyzeWithAI={() => handleAnalyzeWithAI(company)}
+                isAnalyzing={analyzingCompanyId === companyId}
+              />
+            );
+          })}
         </div>
       )}
     </div>
