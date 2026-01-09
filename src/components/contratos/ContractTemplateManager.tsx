@@ -16,8 +16,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Pencil, Trash2, FileText, Loader2, Eye, Code } from "lucide-react";
+import { Plus, Pencil, Trash2, FileText, Loader2, Eye, Code, PanelRightOpen, PanelRightClose } from "lucide-react";
 import { RichTextEditor } from "./RichTextEditor";
+import { ContractPreviewPanel } from "./ContractPreviewPanel";
 
 const SERVICE_TYPES = [
   { value: "social_media", label: "Social Media" },
@@ -88,6 +89,7 @@ export function ContractTemplateManager() {
     content: defaultContent,
   });
   const [editorMode, setEditorMode] = useState<"visual" | "html">("visual");
+  const [showPreview, setShowPreview] = useState(true);
 
   const handleCreate = () => {
     setSelectedTemplate(null);
@@ -214,89 +216,117 @@ export function ContractTemplateManager() {
       </div>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
-          <DialogHeader>
+        <DialogContent className={showPreview ? "max-w-[95vw] w-[1400px] max-h-[90vh] overflow-hidden flex flex-col" : "max-w-3xl max-h-[90vh] overflow-hidden flex flex-col"}>
+          <DialogHeader className="flex flex-row items-center justify-between">
             <DialogTitle>
               {selectedTemplate ? "Editar Template" : "Novo Template"}
             </DialogTitle>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowPreview(!showPreview)}
+              className="gap-2"
+            >
+              {showPreview ? (
+                <>
+                  <PanelRightClose className="h-4 w-4" />
+                  Ocultar Preview
+                </>
+              ) : (
+                <>
+                  <PanelRightOpen className="h-4 w-4" />
+                  Mostrar Preview
+                </>
+              )}
+            </Button>
           </DialogHeader>
 
-          <div className="flex-1 overflow-y-auto space-y-4 py-4">
-            <div className="grid grid-cols-2 gap-4">
+          <div className={`flex-1 overflow-hidden ${showPreview ? "grid grid-cols-2 gap-6" : ""}`}>
+            {/* Editor Side */}
+            <div className="overflow-y-auto space-y-4 py-4 pr-2">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="name">Nome do Template *</Label>
+                  <Input
+                    id="name"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    placeholder="Ex: Contrato Social Media"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="service_type">Tipo de Serviço *</Label>
+                  <Select 
+                    value={formData.service_type} 
+                    onValueChange={(value) => setFormData({ ...formData, service_type: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {SERVICE_TYPES.map((type) => (
+                        <SelectItem key={type.value} value={type.value}>
+                          {type.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
               <div className="space-y-2">
-                <Label htmlFor="name">Nome do Template *</Label>
+                <Label htmlFor="description">Descrição</Label>
                 <Input
-                  id="name"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="Ex: Contrato Social Media"
+                  id="description"
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  placeholder="Breve descrição do template"
                 />
               </div>
+
               <div className="space-y-2">
-                <Label htmlFor="service_type">Tipo de Serviço *</Label>
-                <Select 
-                  value={formData.service_type} 
-                  onValueChange={(value) => setFormData({ ...formData, service_type: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {SERVICE_TYPES.map((type) => (
-                      <SelectItem key={type.value} value={type.value}>
-                        {type.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="flex items-center justify-between">
+                  <Label>Conteúdo do Contrato *</Label>
+                  <Tabs value={editorMode} onValueChange={(v) => setEditorMode(v as "visual" | "html")}>
+                    <TabsList className="h-8">
+                      <TabsTrigger value="visual" className="text-xs px-3 h-6 gap-1">
+                        <Eye className="h-3 w-3" />
+                        Visual
+                      </TabsTrigger>
+                      <TabsTrigger value="html" className="text-xs px-3 h-6 gap-1">
+                        <Code className="h-3 w-3" />
+                        HTML
+                      </TabsTrigger>
+                    </TabsList>
+                  </Tabs>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Variáveis disponíveis: {`{{cliente_nome}}, {{cliente_cnpj}}, {{cliente_endereco}}, {{empresa_nome}}, {{empresa_cnpj}}, {{empresa_endereco}}, {{valor}}, {{data_inicio}}, {{data_fim}}, {{cidade}}, {{data_atual}}`}
+                </p>
+                
+                {editorMode === "visual" ? (
+                  <RichTextEditor
+                    value={formData.content}
+                    onChange={(content) => setFormData({ ...formData, content })}
+                  />
+                ) : (
+                  <Textarea
+                    id="content"
+                    value={formData.content}
+                    onChange={(e) => setFormData({ ...formData, content: e.target.value })}
+                    rows={15}
+                    className="font-mono text-sm"
+                  />
+                )}
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="description">Descrição</Label>
-              <Input
-                id="description"
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                placeholder="Breve descrição do template"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label>Conteúdo do Contrato *</Label>
-                <Tabs value={editorMode} onValueChange={(v) => setEditorMode(v as "visual" | "html")}>
-                  <TabsList className="h-8">
-                    <TabsTrigger value="visual" className="text-xs px-3 h-6 gap-1">
-                      <Eye className="h-3 w-3" />
-                      Visual
-                    </TabsTrigger>
-                    <TabsTrigger value="html" className="text-xs px-3 h-6 gap-1">
-                      <Code className="h-3 w-3" />
-                      HTML
-                    </TabsTrigger>
-                  </TabsList>
-                </Tabs>
+            {/* Preview Side */}
+            {showPreview && (
+              <div className="overflow-hidden py-4">
+                <ContractPreviewPanel content={formData.content} className="h-full" />
               </div>
-              <p className="text-xs text-muted-foreground">
-                Variáveis disponíveis: {`{{cliente_nome}}, {{cliente_cnpj}}, {{cliente_endereco}}, {{empresa_nome}}, {{empresa_cnpj}}, {{empresa_endereco}}, {{valor}}, {{data_inicio}}, {{data_fim}}, {{cidade}}, {{data_atual}}`}
-              </p>
-              
-              {editorMode === "visual" ? (
-                <RichTextEditor
-                  value={formData.content}
-                  onChange={(content) => setFormData({ ...formData, content })}
-                />
-              ) : (
-                <Textarea
-                  id="content"
-                  value={formData.content}
-                  onChange={(e) => setFormData({ ...formData, content: e.target.value })}
-                  rows={15}
-                  className="font-mono text-sm"
-                />
-              )}
-            </div>
+            )}
           </div>
 
           <DialogFooter>
