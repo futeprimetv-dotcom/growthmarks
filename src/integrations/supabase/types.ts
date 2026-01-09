@@ -258,6 +258,57 @@ export type Database = {
           },
         ]
       }
+      crm_settings: {
+        Row: {
+          created_at: string
+          id: string
+          setting_key: string
+          setting_value: Json
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          setting_key: string
+          setting_value?: Json
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          setting_key?: string
+          setting_value?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      dashboard_layouts: {
+        Row: {
+          created_at: string
+          id: string
+          layout: Json
+          updated_at: string
+          user_id: string
+          visible_widgets: string[] | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          layout?: Json
+          updated_at?: string
+          user_id: string
+          visible_widgets?: string[] | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          layout?: Json
+          updated_at?: string
+          user_id?: string
+          visible_widgets?: string[] | null
+        }
+        Relationships: []
+      }
       demands: {
         Row: {
           actual_hours: number | null
@@ -449,66 +500,182 @@ export type Database = {
           },
         ]
       }
+      lead_history: {
+        Row: {
+          action_type: string
+          contact_channel: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          lead_id: string
+        }
+        Insert: {
+          action_type: string
+          contact_channel?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          lead_id: string
+        }
+        Update: {
+          action_type?: string
+          contact_channel?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          lead_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_history_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       leads: {
         Row: {
+          authority: string | null
+          awareness_level: string | null
+          city: string | null
+          closing_probability: number | null
           company: string | null
+          contact_channel: string | null
+          contract_type: string | null
           converted_to_client_id: string | null
           created_at: string
+          cross_sell_possible: boolean | null
+          cross_sell_services: string[] | null
+          current_investment: number | null
+          digital_maturity: string | null
           email: string | null
           estimated_value: number | null
+          expected_close_date: string | null
           id: string
+          instagram: string | null
+          invests_in_marketing: boolean | null
           is_archived: boolean | null
+          is_recurring_client: boolean | null
+          lead_score: number | null
+          loss_reason: string | null
+          ltv_potential: string | null
+          main_pain: string | null
           name: string
           next_action: string | null
           next_action_date: string | null
           notes: string | null
           origin: string | null
           phone: string | null
+          referred_by: string | null
           responsible_id: string | null
+          segment: string | null
           service_interest: string | null
+          state: string | null
           status: Database["public"]["Enums"]["lead_status"]
+          tags: string[] | null
           temperature: Database["public"]["Enums"]["lead_temperature"]
+          ticket_level: string | null
           updated_at: string
+          urgency: string | null
+          utm_source: string | null
+          whatsapp: string | null
         }
         Insert: {
+          authority?: string | null
+          awareness_level?: string | null
+          city?: string | null
+          closing_probability?: number | null
           company?: string | null
+          contact_channel?: string | null
+          contract_type?: string | null
           converted_to_client_id?: string | null
           created_at?: string
+          cross_sell_possible?: boolean | null
+          cross_sell_services?: string[] | null
+          current_investment?: number | null
+          digital_maturity?: string | null
           email?: string | null
           estimated_value?: number | null
+          expected_close_date?: string | null
           id?: string
+          instagram?: string | null
+          invests_in_marketing?: boolean | null
           is_archived?: boolean | null
+          is_recurring_client?: boolean | null
+          lead_score?: number | null
+          loss_reason?: string | null
+          ltv_potential?: string | null
+          main_pain?: string | null
           name: string
           next_action?: string | null
           next_action_date?: string | null
           notes?: string | null
           origin?: string | null
           phone?: string | null
+          referred_by?: string | null
           responsible_id?: string | null
+          segment?: string | null
           service_interest?: string | null
+          state?: string | null
           status?: Database["public"]["Enums"]["lead_status"]
+          tags?: string[] | null
           temperature?: Database["public"]["Enums"]["lead_temperature"]
+          ticket_level?: string | null
           updated_at?: string
+          urgency?: string | null
+          utm_source?: string | null
+          whatsapp?: string | null
         }
         Update: {
+          authority?: string | null
+          awareness_level?: string | null
+          city?: string | null
+          closing_probability?: number | null
           company?: string | null
+          contact_channel?: string | null
+          contract_type?: string | null
           converted_to_client_id?: string | null
           created_at?: string
+          cross_sell_possible?: boolean | null
+          cross_sell_services?: string[] | null
+          current_investment?: number | null
+          digital_maturity?: string | null
           email?: string | null
           estimated_value?: number | null
+          expected_close_date?: string | null
           id?: string
+          instagram?: string | null
+          invests_in_marketing?: boolean | null
           is_archived?: boolean | null
+          is_recurring_client?: boolean | null
+          lead_score?: number | null
+          loss_reason?: string | null
+          ltv_potential?: string | null
+          main_pain?: string | null
           name?: string
           next_action?: string | null
           next_action_date?: string | null
           notes?: string | null
           origin?: string | null
           phone?: string | null
+          referred_by?: string | null
           responsible_id?: string | null
+          segment?: string | null
           service_interest?: string | null
+          state?: string | null
           status?: Database["public"]["Enums"]["lead_status"]
+          tags?: string[] | null
           temperature?: Database["public"]["Enums"]["lead_temperature"]
+          ticket_level?: string | null
           updated_at?: string
+          urgency?: string | null
+          utm_source?: string | null
+          whatsapp?: string | null
         }
         Relationships: [
           {
