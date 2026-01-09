@@ -16,6 +16,7 @@ import { useQuery } from "@tanstack/react-query";
 import { RoleType } from "@/hooks/useUserRole";
 import { Camera, Loader2, X } from "lucide-react";
 import { toast } from "sonner";
+import { AvatarCropDialog } from "./AvatarCropDialog";
 
 interface TeamMemberFormDialogProps {
   open: boolean;
@@ -58,6 +59,8 @@ export function TeamMemberFormDialog({ open, onOpenChange, member }: TeamMemberF
   const [selectedAccessLevel, setSelectedAccessLevel] = useState<RoleType>("producao");
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [cropDialogOpen, setCropDialogOpen] = useState(false);
+  const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const createMember = useCreateTeamMember();
@@ -145,48 +148,7 @@ export function TeamMemberFormDialog({ open, onOpenChange, member }: TeamMemberF
     }
   }, [member, open, memberUserRole]);
 
-  const resizeImage = (file: File, maxSize: number = 200): Promise<Blob> => {
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-
-      img.onload = () => {
-        // Calculate crop dimensions for square avatar
-        const size = Math.min(img.width, img.height);
-        const offsetX = (img.width - size) / 2;
-        const offsetY = (img.height - size) / 2;
-
-        canvas.width = maxSize;
-        canvas.height = maxSize;
-
-        if (ctx) {
-          // Draw cropped and resized image
-          ctx.drawImage(
-            img,
-            offsetX, offsetY, size, size,  // Source crop
-            0, 0, maxSize, maxSize          // Destination
-          );
-
-          canvas.toBlob(
-            (blob) => {
-              if (blob) resolve(blob);
-              else reject(new Error('Falha ao processar imagem'));
-            },
-            'image/jpeg',
-            0.9
-          );
-        } else {
-          reject(new Error('Contexto canvas não disponível'));
-        }
-      };
-
-      img.onerror = () => reject(new Error('Falha ao carregar imagem'));
-      img.src = URL.createObjectURL(file);
-    });
-  };
-
-  const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
@@ -196,24 +158,31 @@ export function TeamMemberFormDialog({ open, onOpenChange, member }: TeamMemberF
       return;
     }
 
-    // Validate file size (max 5MB before resize)
+    // Validate file size (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
       toast.error("Imagem muito grande. Máximo 5MB");
       return;
     }
 
+    setSelectedImageFile(file);
+    setCropDialogOpen(true);
+    
+    // Reset input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  const handleCropComplete = async (croppedBlob: Blob) => {
     setIsUploadingAvatar(true);
 
     try {
-      // Resize and crop to 200x200
-      const resizedBlob = await resizeImage(file, 200);
-      
       const fileName = `team-member-${Date.now()}.jpg`;
       const filePath = fileName;
 
       const { error: uploadError } = await supabase.storage
         .from('avatars')
-        .upload(filePath, resizedBlob, { 
+        .upload(filePath, croppedBlob, { 
           upsert: true,
           contentType: 'image/jpeg'
         });
@@ -231,6 +200,7 @@ export function TeamMemberFormDialog({ open, onOpenChange, member }: TeamMemberF
       toast.error("Erro ao enviar avatar: " + error.message);
     } finally {
       setIsUploadingAvatar(false);
+      setSelectedImageFile(null);
     }
   };
 
@@ -428,7 +398,7 @@ export function TeamMemberFormDialog({ open, onOpenChange, member }: TeamMemberF
                   ref={fileInputRef}
                   type="file"
                   accept="image/*"
-                  onChange={handleAvatarUpload}
+                  onChange={handleFileSelect}
                   className="hidden"
                   id="avatar-upload"
                 />
@@ -452,11 +422,19 @@ export function TeamMemberFormDialog({ open, onOpenChange, member }: TeamMemberF
                   )}
                 </Button>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Redimensionado automaticamente para 200x200px
+                  Ajuste a posição antes de enviar
                 </p>
               </div>
             </div>
           </div>
+
+          {/* Avatar Crop Dialog */}
+          <AvatarCropDialog
+            open={cropDialogOpen}
+            onOpenChange={setCropDialogOpen}
+            imageFile={selectedImageFile}
+            onCropComplete={handleCropComplete}
+          />
 
           {/* Link to user account */}
           <div className="space-y-2">
