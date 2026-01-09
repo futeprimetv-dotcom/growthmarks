@@ -189,6 +189,12 @@ export function CNPJBatchDialog({ open, onOpenChange, onAddToProspects, onSendTo
         
         try {
           const data = await fetchCNPJ(cnpj);
+
+          // Regra do sistema: SOMENTE CNPJs ATIVOS
+          if ((data.situacaoCadastral || "").toUpperCase() !== "ATIVA") {
+            throw new Error(`CNPJ não ativo (${data.situacaoCadastral || "N/D"})`);
+          }
+
           setResults(prev => prev.map(r => 
             r.cnpj === cnpj ? { ...r, status: "success", data, selected: true } : r
           ));
