@@ -321,20 +321,24 @@ function CompanyCard({
               </div>
             )}
 
-            {/* INLINE DIGITAL PRESENCE DATA - Shown directly on card */}
+            {/* INLINE DIGITAL PRESENCE DATA - Clean organized layout */}
             {digitalPresence && (
-              <div className="mt-3 p-3 rounded-lg bg-gradient-to-r from-primary/5 to-primary/10 border border-primary/20">
-                <div className="flex flex-wrap items-center gap-3">
-                  {/* WhatsApp - Priority */}
+              <div className="mt-3 space-y-2">
+                {/* Row 1: Primary Contact + Site */}
+                <div className="flex flex-wrap items-center gap-2">
+                  {/* WhatsApp - Priority with 55 prefix */}
                   {digitalPresence.whatsapp.found && digitalPresence.whatsapp.number && (
                     <a
-                      href={`https://wa.me/${digitalPresence.whatsapp.number.replace(/\D/g, "")}`}
+                      href={`https://wa.me/${(() => {
+                        const cleaned = digitalPresence.whatsapp.number!.replace(/\D/g, "");
+                        return cleaned.startsWith('55') ? cleaned : `55${cleaned}`;
+                      })()}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-green-600 hover:bg-green-700 text-white text-sm font-medium transition-colors shadow-sm"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-green-600 hover:bg-green-700 text-white text-sm font-medium transition-colors"
                     >
                       <MessageCircle className="h-4 w-4" />
-                      <span>{digitalPresence.whatsapp.number}</span>
+                      WhatsApp
                     </a>
                   )}
 
@@ -344,11 +348,10 @@ function CompanyCard({
                       href={digitalPresence.website.url.startsWith('http') ? digitalPresence.website.url : `https://${digitalPresence.website.url}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-muted hover:bg-muted/80 text-sm font-medium transition-colors"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border bg-background hover:bg-muted text-sm transition-colors"
                     >
                       <Globe className="h-4 w-4" />
                       Site
-                      <ExternalLink className="h-3 w-3" />
                     </a>
                   )}
 
@@ -358,10 +361,10 @@ function CompanyCard({
                       href={digitalPresence.socialMedia.instagram.startsWith('http') ? digitalPresence.socialMedia.instagram : `https://instagram.com/${digitalPresence.socialMedia.instagram.replace('@', '')}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white text-sm font-medium transition-colors"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white text-sm font-medium transition-colors"
                     >
                       <Instagram className="h-4 w-4" />
-                      {digitalPresence.socialMedia.instagram}
+                      Instagram
                     </a>
                   )}
 
@@ -371,62 +374,54 @@ function CompanyCard({
                       href={digitalPresence.socialMedia.linkedin.startsWith('http') ? digitalPresence.socialMedia.linkedin : `https://linkedin.com/company/${digitalPresence.socialMedia.linkedin}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium transition-colors"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium transition-colors"
                     >
                       <Linkedin className="h-4 w-4" />
                       LinkedIn
                     </a>
                   )}
 
-                  {/* Digital Maturity Score */}
+                  {/* Digital Maturity Badge */}
                   <Badge 
                     variant="outline" 
                     className={cn(
-                      "ml-auto",
+                      "ml-auto text-xs",
                       digitalPresence.digitalMaturity.level === "alta" && "text-green-600 border-green-600",
                       digitalPresence.digitalMaturity.level === "média" && "text-yellow-600 border-yellow-600",
                       digitalPresence.digitalMaturity.level === "baixa" && "text-orange-600 border-orange-600",
                       digitalPresence.digitalMaturity.level === "inexistente" && "text-red-600 border-red-600"
                     )}
                   >
-                    Digital: {digitalPresence.digitalMaturity.score}/100
+                    Digital {digitalPresence.digitalMaturity.score}/100
                   </Badge>
                 </div>
 
-                {/* Business Hours & Google Rating Row */}
-                <div className="flex flex-wrap items-center gap-3 mt-2 pt-2 border-t border-primary/10">
-                  {/* Business Hours */}
-                  {digitalPresence.businessHours?.found && (
-                    <div className="flex items-center gap-1.5 text-sm">
-                      <Clock className="h-4 w-4 text-muted-foreground" />
-                      <span className="font-medium">{digitalPresence.businessHours.summary}</span>
-                      {digitalPresence.businessHours.isEstimated && (
-                        <span className="text-xs text-muted-foreground">(estimado)</span>
-                      )}
-                      {digitalPresence.businessHours.source === "google" && (
-                        <Badge variant="outline" className="text-xs py-0 px-1.5">Google</Badge>
-                      )}
-                    </div>
-                  )}
+                {/* Row 2: Business Hours + Rating (only if available) */}
+                {(digitalPresence.businessHours?.found || digitalPresence.googleRating?.found) && (
+                  <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                    {digitalPresence.businessHours?.found && (
+                      <div className="flex items-center gap-1">
+                        <Clock className="h-3.5 w-3.5" />
+                        <span>{digitalPresence.businessHours.summary}</span>
+                        {digitalPresence.businessHours.isEstimated && <span>(estimado)</span>}
+                      </div>
+                    )}
 
-                  {/* Google Rating */}
-                  {digitalPresence.googleRating?.found && digitalPresence.googleRating.rating && (
-                    <div className="flex items-center gap-1.5 text-sm ml-auto">
-                      <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
-                      <span className="font-medium">{digitalPresence.googleRating.rating.toFixed(1)}</span>
-                      {digitalPresence.googleRating.reviewCount && (
-                        <span className="text-xs text-muted-foreground">
-                          ({digitalPresence.googleRating.reviewCount} avaliações)
-                        </span>
-                      )}
-                    </div>
-                  )}
-                </div>
+                    {digitalPresence.googleRating?.found && digitalPresence.googleRating.rating && (
+                      <div className="flex items-center gap-1">
+                        <Star className="h-3.5 w-3.5 text-yellow-500 fill-yellow-500" />
+                        <span>{digitalPresence.googleRating.rating.toFixed(1)}</span>
+                        {digitalPresence.googleRating.reviewCount && (
+                          <span>({digitalPresence.googleRating.reviewCount})</span>
+                        )}
+                      </div>
+                    )}
 
-                {/* Data Quality Warnings inline */}
-                {digitalPresence.dataQualityWarnings && digitalPresence.dataQualityWarnings.length > 0 && (
-                  <div className="mt-2 text-xs text-yellow-600 dark:text-yellow-400">
-                    ⚠️ {digitalPresence.dataQualityWarnings[0]}
+                    {digitalPresence.dataQualityWarnings && digitalPresence.dataQualityWarnings.length > 0 && (
+                      <span className="text-yellow-600 dark:text-yellow-400">
+                        ⚠️ {digitalPresence.dataQualityWarnings[0]}
+                      </span>
+                    )}
                   </div>
                 )}
               </div>
@@ -579,10 +574,13 @@ function CompanyCard({
                 <>
                   <Separator orientation="vertical" className="h-4" />
                   <a
-                    href={`https://wa.me/55${whatsappNumbers[0].replace(/\D/g, "")}`}
+                    href={`https://wa.me/${(() => {
+                      const cleaned = whatsappNumbers[0].replace(/\D/g, "");
+                      return cleaned.startsWith('55') ? cleaned : `55${cleaned}`;
+                    })()}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-green-600 hover:bg-green-700 text-white text-sm font-medium transition-colors"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-green-600 hover:bg-green-700 text-white text-sm font-medium transition-colors"
                   >
                     <MessageCircle className="h-4 w-4" />
                     WhatsApp
