@@ -22,12 +22,14 @@ import { LeadConvertDialog } from "./LeadConvertDialog";
 import { LeadActivitiesDialog } from "./LeadActivitiesDialog";
 import { LeadScoreBadge } from "./LeadScoreBadge";
 import { WhatsAppButton } from "./WhatsAppButton";
+import { MoveFunnelDialog } from "./MoveFunnelDialog";
 import { 
   Search, Flame, Snowflake, ThermometerSun, Calendar, 
-  Plus, Upload, History, Pencil, Trash2, UserPlus, CheckSquare
+  Plus, Upload, History, Pencil, Trash2, UserPlus, CheckSquare, ArrowRightLeft
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { useSalesFunnels } from "@/hooks/useSalesFunnels";
 
 const statusConfig: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
   novo: { label: "Novo", variant: "outline" },
@@ -72,12 +74,15 @@ export function LeadsList({ funnelId }: LeadsListProps) {
   const [importOpen, setImportOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [activitiesOpen, setActivitiesOpen] = useState(false);
+  const [moveFunnelOpen, setMoveFunnelOpen] = useState(false);
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [leadToDelete, setLeadToDelete] = useState<{ id: string; name: string } | null>(null);
   const [convertLead, setConvertLead] = useState<Lead | null>(null);
+  const [leadToMove, setLeadToMove] = useState<Lead | null>(null);
   const { data: leads, isLoading } = useLeads();
   const { data: teamMembers } = useTeamMembers();
+  const { data: funnels = [] } = useSalesFunnels();
   const deleteLead = useDeleteLead();
 
   const filteredLeads = (leads || []).filter(lead => {
@@ -105,6 +110,16 @@ export function LeadsList({ funnelId }: LeadsListProps) {
   const handleActivities = (lead: Lead) => {
     setSelectedLead(lead);
     setActivitiesOpen(true);
+  };
+
+  const handleMoveFunnel = (lead: Lead) => {
+    setLeadToMove(lead);
+    setMoveFunnelOpen(true);
+  };
+
+  const getFunnelName = (funnelIdValue: string | null) => {
+    if (!funnelIdValue) return null;
+    return funnels.find(f => f.id === funnelIdValue);
   };
 
   const handleDelete = async () => {
@@ -272,6 +287,14 @@ export function LeadsList({ funnelId }: LeadsListProps) {
                           <Button variant="ghost" size="icon" onClick={() => handleEdit(lead)} title="Editar">
                             <Pencil className="h-4 w-4" />
                           </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            onClick={() => handleMoveFunnel(lead)} 
+                            title="Mover para outro funil"
+                          >
+                            <ArrowRightLeft className="h-4 w-4 text-primary" />
+                          </Button>
                           {lead.status !== 'fechamento' && lead.status !== 'perdido' && !lead.converted_to_client_id && (
                             <Button variant="ghost" size="icon" onClick={() => setConvertLead(lead)} title="Converter para Cliente">
                               <UserPlus className="h-4 w-4 text-green-500" />
@@ -325,6 +348,12 @@ export function LeadsList({ funnelId }: LeadsListProps) {
         open={activitiesOpen}
         onOpenChange={setActivitiesOpen}
         lead={selectedLead}
+      />
+
+      <MoveFunnelDialog
+        open={moveFunnelOpen}
+        onOpenChange={setMoveFunnelOpen}
+        lead={leadToMove}
       />
 
       <AlertDialog open={!!leadToDelete} onOpenChange={() => setLeadToDelete(null)}>
