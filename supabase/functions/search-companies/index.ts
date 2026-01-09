@@ -383,12 +383,16 @@ serve(async (req) => {
         const phones = [data.ddd_telefone_1, data.ddd_telefone_2].filter(Boolean);
         const emails = data.email ? [data.email.toLowerCase()] : [];
 
+        // Use CNAE description as segment instead of filter segment
+        const cnaeDesc = data.cnae_fiscal_descricao || "";
+        const derivedSegment = cnaeDesc || filters.segments?.[0] || "";
+
         companies.push({
           id: cnpj,
           cnpj: cnpj.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5"),
           name: data.nome_fantasia || data.razao_social,
           razao_social: data.razao_social,
-          segment: filters.segments?.[0] || "",
+          segment: derivedSegment,
           cnae_code: data.cnae_fiscal?.toString() || "",
           cnae_description: data.cnae_fiscal_descricao || "",
           company_size: data.porte || "",
