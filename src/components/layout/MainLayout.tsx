@@ -1,12 +1,16 @@
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "./AppSidebar";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
+import { useTrackUserSession } from "@/hooks/useUserSessions";
 
 interface MainLayoutProps {
   children: React.ReactNode;
 }
 
 export function MainLayout({ children }: MainLayoutProps) {
+  // Track user session (online status, last activity, etc.)
+  useTrackUserSession();
+
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full">
