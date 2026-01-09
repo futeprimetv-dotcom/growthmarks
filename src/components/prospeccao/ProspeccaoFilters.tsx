@@ -60,14 +60,14 @@ export function ProspeccaoFilters({
         </div>
 
         <Select
-          value={filters.segments?.[0] || ""}
-          onValueChange={(value) => updateFilter("segments", value ? [value] : undefined)}
+          value={filters.segments?.[0] || "_all"}
+          onValueChange={(value) => updateFilter("segments", value === "_all" ? undefined : [value])}
         >
           <SelectTrigger className="w-[180px]">
             <SelectValue placeholder="Segmento" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">Todos os segmentos</SelectItem>
+            <SelectItem value="_all">Todos os segmentos</SelectItem>
             {segments.slice(0, 20).map((segment) => (
               <SelectItem key={segment} value={segment}>
                 {segment}
@@ -77,14 +77,14 @@ export function ProspeccaoFilters({
         </Select>
 
         <Select
-          value={filters.states?.[0] || ""}
-          onValueChange={(value) => updateFilter("states", value ? [value] : undefined)}
+          value={filters.states?.[0] || "_all"}
+          onValueChange={(value) => updateFilter("states", value === "_all" ? undefined : [value])}
         >
           <SelectTrigger className="w-[140px]">
             <SelectValue placeholder="UF" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">Todos os estados</SelectItem>
+            <SelectItem value="_all">Todos os estados</SelectItem>
             {brazilianStates.map((state) => (
               <SelectItem key={state.value} value={state.value}>
                 {state.label}
@@ -94,14 +94,14 @@ export function ProspeccaoFilters({
         </Select>
 
         <Select
-          value={filters.companySizes?.[0] || ""}
-          onValueChange={(value) => updateFilter("companySizes", value ? [value] : undefined)}
+          value={filters.companySizes?.[0] || "_all"}
+          onValueChange={(value) => updateFilter("companySizes", value === "_all" ? undefined : [value])}
         >
           <SelectTrigger className="w-[140px]">
             <SelectValue placeholder="Porte" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">Todos os portes</SelectItem>
+            <SelectItem value="_all">Todos os portes</SelectItem>
             {companySizes.map((size) => (
               <SelectItem key={size.value} value={size.value}>
                 {size.label}
