@@ -10,6 +10,8 @@ import { cn } from "@/lib/utils";
 import { ClientFormDialog } from "@/components/clientes/ClientFormDialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { useProtectedCurrency } from "@/components/ui/protected-value";
+import { useUserRole } from "@/hooks/useUserRole";
 
 export default function Clientes() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -21,6 +23,7 @@ export default function Clientes() {
   const { data: teamMembers } = useTeamMembers();
   const { data: demands } = useDemands();
   const deleteClient = useDeleteClient();
+  const { formatCurrency, canViewValues } = useProtectedCurrency();
 
   const toggleExpand = (id: string) => {
     setExpandedId(expandedId === id ? null : id);
@@ -100,12 +103,14 @@ export default function Clientes() {
                       <p className="text-muted-foreground">{client.plan}</p>
                     </div>
                     <div className="flex items-center gap-4">
-                      <div className="text-right">
-                        <p className="text-2xl font-bold text-primary">
-                          R$ {(client.monthly_value || 0).toLocaleString('pt-BR')}
-                        </p>
-                        <p className="text-xs text-muted-foreground">por mês</p>
-                      </div>
+                      {canViewValues && (
+                        <div className="text-right">
+                          <p className="text-2xl font-bold text-primary">
+                            {formatCurrency(client.monthly_value || 0)}
+                          </p>
+                          <p className="text-xs text-muted-foreground">por mês</p>
+                        </div>
+                      )}
                       {isExpanded ? <ChevronUp className="h-5 w-5 text-muted-foreground" /> : <ChevronDown className="h-5 w-5 text-muted-foreground" />}
                     </div>
                   </div>

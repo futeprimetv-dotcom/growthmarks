@@ -3,6 +3,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { TeamMember, TeamMemberInsert, useCreateTeamMember, useUpdateTeamMember } from "@/hooks/useTeamMembers";
 
 interface TeamMemberFormDialogProps {
@@ -11,6 +18,20 @@ interface TeamMemberFormDialogProps {
   member?: TeamMember | null;
 }
 
+const ROLES_PRESETS = [
+  "Gestor(a)",
+  "Diretor(a)",
+  "Designer",
+  "Desenvolvedor(a)",
+  "Social Media",
+  "Copywriter",
+  "Analista de Tráfego",
+  "Produtor(a) de Conteúdo",
+  "Atendimento",
+  "Financeiro",
+  "Outro",
+];
+
 export function TeamMemberFormDialog({ open, onOpenChange, member }: TeamMemberFormDialogProps) {
   const [formData, setFormData] = useState<Partial<TeamMemberInsert>>({
     name: "",
@@ -18,6 +39,8 @@ export function TeamMemberFormDialog({ open, onOpenChange, member }: TeamMemberF
     role: "",
     avatar: "",
   });
+  const [customRole, setCustomRole] = useState("");
+  const [selectedPresetRole, setSelectedPresetRole] = useState<string>("");
 
   const createMember = useCreateTeamMember();
   const updateMember = useUpdateTeamMember();
@@ -30,6 +53,15 @@ export function TeamMemberFormDialog({ open, onOpenChange, member }: TeamMemberF
         role: member.role,
         avatar: member.avatar || "",
       });
+      // Check if role is in presets
+      const isPreset = ROLES_PRESETS.includes(member.role);
+      if (isPreset) {
+        setSelectedPresetRole(member.role);
+        setCustomRole("");
+      } else {
+        setSelectedPresetRole("Outro");
+        setCustomRole(member.role);
+      }
     } else {
       setFormData({
         name: "",
@@ -37,8 +69,25 @@ export function TeamMemberFormDialog({ open, onOpenChange, member }: TeamMemberF
         role: "",
         avatar: "",
       });
+      setSelectedPresetRole("");
+      setCustomRole("");
     }
   }, [member, open]);
+
+  const handleRoleChange = (value: string) => {
+    setSelectedPresetRole(value);
+    if (value !== "Outro") {
+      setFormData({ ...formData, role: value });
+      setCustomRole("");
+    } else {
+      setFormData({ ...formData, role: customRole });
+    }
+  };
+
+  const handleCustomRoleChange = (value: string) => {
+    setCustomRole(value);
+    setFormData({ ...formData, role: value });
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -94,14 +143,32 @@ export function TeamMemberFormDialog({ open, onOpenChange, member }: TeamMemberF
 
           <div className="space-y-2">
             <Label htmlFor="role">Cargo *</Label>
-            <Input
-              id="role"
-              value={formData.role}
-              onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-              placeholder="Ex: Designer, Desenvolvedor, etc."
-              required
-            />
+            <Select value={selectedPresetRole} onValueChange={handleRoleChange}>
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione um cargo" />
+              </SelectTrigger>
+              <SelectContent>
+                {ROLES_PRESETS.map((role) => (
+                  <SelectItem key={role} value={role}>
+                    {role}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
+
+          {selectedPresetRole === "Outro" && (
+            <div className="space-y-2">
+              <Label htmlFor="customRole">Cargo Personalizado *</Label>
+              <Input
+                id="customRole"
+                value={customRole}
+                onChange={(e) => handleCustomRoleChange(e.target.value)}
+                placeholder="Ex: Gerente de Projetos"
+                required
+              />
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="avatar">URL do Avatar</Label>
