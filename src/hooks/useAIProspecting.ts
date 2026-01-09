@@ -73,6 +73,28 @@ export interface BatchAnalysisResult {
   }>;
 }
 
+export interface BusinessHours {
+  found: boolean;
+  isEstimated: boolean;
+  hours: {
+    monday: string | null;
+    tuesday: string | null;
+    wednesday: string | null;
+    thursday: string | null;
+    friday: string | null;
+    saturday: string | null;
+    sunday: string | null;
+  };
+  summary: string;
+  source: "google" | "website" | "estimado";
+}
+
+export interface GoogleRating {
+  found: boolean;
+  rating: number | null;
+  reviewCount: number | null;
+}
+
 export interface DigitalPresenceAnalysis {
   website: {
     found: boolean;
@@ -96,6 +118,8 @@ export interface DigitalPresenceAnalysis {
     linkedin: string | null;
     tiktok: string | null;
   };
+  businessHours?: BusinessHours;
+  googleRating?: GoogleRating;
   digitalMaturity: {
     level: "alta" | "média" | "baixa" | "inexistente";
     score: number;

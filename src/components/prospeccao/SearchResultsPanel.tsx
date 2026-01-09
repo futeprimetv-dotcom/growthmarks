@@ -25,6 +25,8 @@ import {
   Sparkles,
   Brain,
   UserCircle,
+  Clock,
+  Star,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -389,6 +391,36 @@ function CompanyCard({
                   >
                     Digital: {digitalPresence.digitalMaturity.score}/100
                   </Badge>
+                </div>
+
+                {/* Business Hours & Google Rating Row */}
+                <div className="flex flex-wrap items-center gap-3 mt-2 pt-2 border-t border-primary/10">
+                  {/* Business Hours */}
+                  {digitalPresence.businessHours?.found && (
+                    <div className="flex items-center gap-1.5 text-sm">
+                      <Clock className="h-4 w-4 text-muted-foreground" />
+                      <span className="font-medium">{digitalPresence.businessHours.summary}</span>
+                      {digitalPresence.businessHours.isEstimated && (
+                        <span className="text-xs text-muted-foreground">(estimado)</span>
+                      )}
+                      {digitalPresence.businessHours.source === "google" && (
+                        <Badge variant="outline" className="text-xs py-0 px-1.5">Google</Badge>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Google Rating */}
+                  {digitalPresence.googleRating?.found && digitalPresence.googleRating.rating && (
+                    <div className="flex items-center gap-1.5 text-sm ml-auto">
+                      <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
+                      <span className="font-medium">{digitalPresence.googleRating.rating.toFixed(1)}</span>
+                      {digitalPresence.googleRating.reviewCount && (
+                        <span className="text-xs text-muted-foreground">
+                          ({digitalPresence.googleRating.reviewCount} avaliações)
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {/* Data Quality Warnings inline */}
