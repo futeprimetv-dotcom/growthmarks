@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,6 +14,8 @@ import { TeamMember, TeamMemberInsert, useCreateTeamMember, useUpdateTeamMember 
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { RoleType } from "@/hooks/useUserRole";
+import { Camera, Loader2, X } from "lucide-react";
+import { toast } from "sonner";
 
 interface TeamMemberFormDialogProps {
   open: boolean;
@@ -54,6 +56,9 @@ export function TeamMemberFormDialog({ open, onOpenChange, member }: TeamMemberF
   const [selectedPresetRole, setSelectedPresetRole] = useState<string>("");
   const [selectedUserId, setSelectedUserId] = useState<string>("");
   const [selectedAccessLevel, setSelectedAccessLevel] = useState<RoleType>("producao");
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const createMember = useCreateTeamMember();
   const updateMember = useUpdateTeamMember();
@@ -124,6 +129,7 @@ export function TeamMemberFormDialog({ open, onOpenChange, member }: TeamMemberF
       if (memberUserRole) {
         setSelectedAccessLevel(memberUserRole);
       }
+      setAvatarPreview(member.avatar || null);
     } else {
       setFormData({
         name: "",
@@ -135,8 +141,60 @@ export function TeamMemberFormDialog({ open, onOpenChange, member }: TeamMemberF
       setCustomRole("");
       setSelectedUserId("");
       setSelectedAccessLevel("producao");
+      setAvatarPreview(null);
     }
   }, [member, open, memberUserRole]);
+
+  const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast.error("Por favor, selecione uma imagem");
+      return;
+    }
+
+    // Validate file size (max 2MB)
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error("Imagem muito grande. Máximo 2MB");
+      return;
+    }
+
+    setIsUploadingAvatar(true);
+
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `team-member-${Date.now()}.${fileExt}`;
+      const filePath = fileName;
+
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, file, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(filePath);
+
+      setFormData(prev => ({ ...prev, avatar: urlData.publicUrl }));
+      setAvatarPreview(urlData.publicUrl);
+      toast.success("Avatar enviado com sucesso!");
+    } catch (error: any) {
+      toast.error("Erro ao enviar avatar: " + error.message);
+    } finally {
+      setIsUploadingAvatar(false);
+    }
+  };
+
+  const handleRemoveAvatar = () => {
+    setFormData(prev => ({ ...prev, avatar: "" }));
+    setAvatarPreview(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
 
   const handleRoleChange = (value: string) => {
     setSelectedPresetRole(value);
@@ -290,14 +348,68 @@ export function TeamMemberFormDialog({ open, onOpenChange, member }: TeamMemberF
             </div>
           )}
 
+          {/* Avatar Upload */}
           <div className="space-y-2">
-            <Label htmlFor="avatar">URL do Avatar</Label>
-            <Input
-              id="avatar"
-              value={formData.avatar || ""}
-              onChange={(e) => setFormData({ ...formData, avatar: e.target.value })}
-              placeholder="https://exemplo.com/avatar.jpg"
-            />
+            <Label>Avatar</Label>
+            <div className="flex items-center gap-4">
+              {/* Avatar Preview */}
+              <div className="relative">
+                {avatarPreview ? (
+                  <div className="relative">
+                    <img 
+                      src={avatarPreview} 
+                      alt="Avatar preview"
+                      className="w-16 h-16 rounded-full object-cover border-2 border-border"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleRemoveAvatar}
+                      className="absolute -top-1 -right-1 w-5 h-5 bg-destructive rounded-full flex items-center justify-center text-destructive-foreground hover:bg-destructive/90"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center border-2 border-dashed border-border">
+                    <Camera className="h-6 w-6 text-muted-foreground" />
+                  </div>
+                )}
+              </div>
+              
+              {/* Upload Button */}
+              <div className="flex-1">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleAvatarUpload}
+                  className="hidden"
+                  id="avatar-upload"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isUploadingAvatar}
+                  className="w-full"
+                >
+                  {isUploadingAvatar ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Enviando...
+                    </>
+                  ) : (
+                    <>
+                      <Camera className="h-4 w-4 mr-2" />
+                      {avatarPreview ? "Alterar foto" : "Enviar foto"}
+                    </>
+                  )}
+                </Button>
+                <p className="text-xs text-muted-foreground mt-1">
+                  JPG, PNG ou GIF. Máximo 2MB.
+                </p>
+              </div>
+            </div>
           </div>
 
           {/* Link to user account */}
