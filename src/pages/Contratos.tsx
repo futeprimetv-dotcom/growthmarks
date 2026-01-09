@@ -3,10 +3,11 @@ import { useContracts, useDeleteContract, type ContractWithClient } from "@/hook
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ChevronDown, ChevronUp, FileText, Calendar, DollarSign, Plus, Pencil, Trash2, Loader2, FileWarning } from "lucide-react";
+import { ChevronDown, ChevronUp, FileText, Calendar, DollarSign, Plus, Pencil, Trash2, Loader2, FileWarning, Eye } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { ContractFormDialog } from "@/components/contratos/ContractFormDialog";
+import { ContractPreviewDialog } from "@/components/contratos/ContractPreviewDialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 export default function Contratos() {
@@ -15,6 +16,7 @@ export default function Contratos() {
   
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [formOpen, setFormOpen] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
   const [selectedContract, setSelectedContract] = useState<ContractWithClient | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [contractToDelete, setContractToDelete] = useState<string | null>(null);
@@ -27,6 +29,12 @@ export default function Contratos() {
     e.stopPropagation();
     setSelectedContract(contract);
     setFormOpen(true);
+  };
+
+  const handlePreview = (contract: ContractWithClient, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelectedContract(contract);
+    setPreviewOpen(true);
   };
 
   const handleDelete = (id: string, e: React.MouseEvent) => {
@@ -201,7 +209,15 @@ export default function Contratos() {
                           </div>
                         )}
                         
-                        <div className="flex gap-2">
+                        <div className="flex flex-wrap gap-2">
+                          <Button 
+                            variant="default" 
+                            size="sm"
+                            onClick={(e) => handlePreview(contract, e)}
+                          >
+                            <Eye className="h-4 w-4 mr-2" />
+                            Ver Contrato / PDF
+                          </Button>
                           <Button 
                             variant="outline" 
                             size="sm"
@@ -233,6 +249,12 @@ export default function Contratos() {
       <ContractFormDialog
         open={formOpen}
         onOpenChange={setFormOpen}
+        contract={selectedContract}
+      />
+
+      <ContractPreviewDialog
+        open={previewOpen}
+        onOpenChange={setPreviewOpen}
         contract={selectedContract}
       />
 
