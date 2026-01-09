@@ -15,8 +15,10 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { TeamMemberFormDialog } from "@/components/equipe/TeamMemberFormDialog";
+import { PendingUsersCard } from "@/components/equipe/PendingUsersCard";
 import { useTeamMembers, useDeleteTeamMember, TeamMember } from "@/hooks/useTeamMembers";
 import { useDemands } from "@/hooks/useDemands";
+import { usePendingUsers } from "@/hooks/useUserApproval";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -32,7 +34,8 @@ import {
   Mail,
   Shield,
   Star,
-  Eye
+  Eye,
+  Clock
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PriorityBadge } from "@/components/ui/priority-badge";
@@ -51,6 +54,7 @@ export default function Equipe() {
   const { isGestao } = useUserRole();
   const { data: teamMembers, isLoading } = useTeamMembers();
   const { data: demands } = useDemands();
+  const { data: pendingUsers } = usePendingUsers();
   const deleteMember = useDeleteTeamMember();
 
   // Fetch user roles for all team members with user_ids
@@ -154,7 +158,8 @@ export default function Equipe() {
     );
   }
 
-  const activeMembers = teamMembers?.filter(m => !m.is_archived) || [];
+  const activeMembers = teamMembers?.filter(m => !m.is_archived && m.is_approved !== false) || [];
+  const hasPendingUsers = (pendingUsers?.length ?? 0) > 0;
 
   const TeamMembersContent = () => (
     <>
@@ -345,6 +350,20 @@ export default function Equipe() {
           </TabsTrigger>
           {isGestao && (
             <TabsTrigger 
+              value="aprovacoes" 
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-6 py-3 relative"
+            >
+              <Clock className="h-4 w-4 mr-2" />
+              Aprovações
+              {hasPendingUsers && (
+                <Badge variant="destructive" className="ml-2 h-5 w-5 p-0 flex items-center justify-center text-xs">
+                  {pendingUsers?.length}
+                </Badge>
+              )}
+            </TabsTrigger>
+          )}
+          {isGestao && (
+            <TabsTrigger 
               value="supervisao" 
               className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-6 py-3"
             >
@@ -357,6 +376,12 @@ export default function Equipe() {
         <TabsContent value="membros" className="mt-6">
           <TeamMembersContent />
         </TabsContent>
+
+        {isGestao && (
+          <TabsContent value="aprovacoes" className="mt-6">
+            <PendingUsersCard />
+          </TabsContent>
+        )}
 
         {isGestao && (
           <TabsContent value="supervisao" className="mt-6">
