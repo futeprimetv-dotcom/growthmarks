@@ -22,8 +22,10 @@ import {
   TrendingUp,
   UserCircle,
   CalendarDays,
-  CheckSquare
+  CheckSquare,
+  Eye
 } from "lucide-react";
+import { ArchivedItemPreviewDialog } from "@/components/arquivados/ArchivedItemPreviewDialog";
 import { useArchivedItems } from "@/hooks/useArchivedItems";
 import { useUserRole } from "@/hooks/useUserRole";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -99,6 +101,7 @@ export default function Arquivados() {
   const [deleteConfirm, setDeleteConfirm] = useState<ArchivedDisplayItem | null>(null);
   const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false);
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+  const [previewItem, setPreviewItem] = useState<ArchivedDisplayItem | null>(null);
   
   const { canViewArquivados, canDeletePermanently, loading: roleLoading } = useUserRole();
   const { archivedItems, isLoading, restoreItem, deletePermanently } = useArchivedItems();
@@ -450,6 +453,14 @@ export default function Arquivados() {
                       <td className="py-4 px-6">
                         <div className="flex justify-end gap-2">
                           <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => setPreviewItem(item)}
+                            title="Visualizar detalhes"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button 
                             variant="outline" 
                             size="sm"
                             onClick={() => handleRestore(item)}
@@ -544,6 +555,15 @@ export default function Arquivados() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Preview Dialog */}
+      <ArchivedItemPreviewDialog
+        item={previewItem}
+        open={!!previewItem}
+        onOpenChange={(open) => !open && setPreviewItem(null)}
+        onRestore={handleRestore}
+        isRestoring={restoreItem.isPending}
+      />
     </div>
   );
 }
