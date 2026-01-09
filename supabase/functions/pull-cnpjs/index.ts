@@ -182,10 +182,12 @@ serve(async (req) => {
   const startTime = Date.now();
 
   try {
-    const filters: PullFilters = await req.json();
+    const body = await req.json();
+    const filters: PullFilters = body;
+    const streaming = body.streaming === true;
     
     console.log("═══════════════════════════════════════════════════════════");
-    console.log("🔍 PUXAR CNPJs ATIVOS");
+    console.log("🔍 PUXAR CNPJs ATIVOS" + (streaming ? " (STREAMING)" : ""));
     console.log("═══════════════════════════════════════════════════════════");
     console.log("📋 Filtros:", JSON.stringify(filters, null, 2));
 
@@ -199,12 +201,237 @@ serve(async (req) => {
     const FIRECRAWL_API_KEY = Deno.env.get("FIRECRAWL_API_KEY");
     
     if (!FIRECRAWL_API_KEY) {
+      const errorResponse = { error: "Conector Firecrawl não configurado.", cnpjs: [], stats: {} };
       return new Response(
-        JSON.stringify({ error: "Conector Firecrawl não configurado.", cnpjs: [], stats: {} }),
+        JSON.stringify(errorResponse),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
+    // For streaming responses
+    if (streaming) {
+      const encoder = new TextEncoder();
+      const stream = new ReadableStream({
+        async start(controller) {
+          const send = (data: any) => {
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
+          };
+
+          try {
+            const searchQueries = buildSearchQueries(filters);
+            console.log("🔎 Queries:", searchQueries);
+
+            send({ type: "status", message: "Buscando CNPJs na web..." });
+
+            // Collect CNPJs from search
+            const allCNPJs: Set<string> = new Set();
+            let queryCount = 0;
+            
+            for (const query of searchQueries) {
+              try {
+                const response = await fetch("https://api.firecrawl.dev/v1/search", {
+                  method: "POST",
+                  headers: {
+                    "Authorization": `Bearer ${FIRECRAWL_API_KEY}`,
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({
+                    query,
+                    limit: 30,
+                    lang: "pt-BR",
+                    country: "BR",
+                    scrapeOptions: { formats: ["markdown"] },
+                  }),
+                });
+
+                if (response.ok) {
+                  const data = await response.json();
+                  const results = data.data || [];
+                  queryCount++;
+                  console.log(`  ✓ Query ${queryCount}: ${results.length} resultados`);
+                  
+                  for (const result of results) {
+                    const text = `${result.markdown || ""} ${result.title || ""} ${result.description || ""}`;
+                    extractCNPJs(text).forEach(c => allCNPJs.add(c));
+                  }
+
+                  send({ 
+                    type: "search_progress", 
+                    queriesCompleted: queryCount, 
+                    totalQueries: searchQueries.length,
+                    cnpjsFound: allCNPJs.size 
+                  });
+                }
+              } catch (e) {
+                console.error(`  ✗ Query erro:`, e);
+              }
+            }
+
+            console.log(`📊 CNPJs únicos encontrados: ${allCNPJs.size}`);
+            send({ type: "status", message: "Validando CNPJs..." });
+            send({ type: "search_complete", totalCNPJsFound: allCNPJs.size });
+
+            const stats = {
+              totalCNPJsFound: allCNPJs.size,
+              cnpjsProcessed: 0,
+              cacheHits: 0,
+              skippedInactive: 0,
+              skippedLocation: 0,
+              skippedSize: 0,
+              activeCount: 0,
+              processingTimeMs: 0,
+            };
+
+            if (allCNPJs.size === 0) {
+              stats.processingTimeMs = Date.now() - startTime;
+              send({ type: "complete", stats });
+              controller.close();
+              return;
+            }
+
+            // Process CNPJs
+            const cnpjArray = Array.from(allCNPJs);
+            const batchSize = 5;
+            const maxResults = filters.limit || 100;
+            let activeCount = 0;
+
+            for (let i = 0; i < cnpjArray.length && activeCount < maxResults; i += batchSize) {
+              const batch = cnpjArray.slice(i, i + batchSize);
+              
+              const batchResults = await Promise.all(batch.map(async (cnpj) => {
+                stats.cnpjsProcessed++;
+
+                // Check cache first
+                if (supabase) {
+                  const cached = await getCachedCNPJ(supabase, cnpj);
+                  if (cached) {
+                    stats.cacheHits++;
+                    return { cnpj, data: cached, fromCache: true };
+                  }
+                }
+
+                // Lookup CNPJ
+                const data = await lookupCNPJ(cnpj);
+                if (data && supabase) {
+                  await saveToCache(supabase, cnpj, data, data.situacao_cadastral || "");
+                }
+                return { cnpj, data, fromCache: false };
+              }));
+
+              for (const result of batchResults) {
+                if (!result.data) continue;
+
+                const { cnpj, data } = result;
+
+                // Check if ACTIVE
+                const situacao = String(data.situacao_cadastral || "").toLowerCase();
+                const isActive = situacao === "ativa" || situacao === "02" || situacao.includes("ativ");
+
+                if (!isActive) {
+                  stats.skippedInactive++;
+                  continue;
+                }
+
+                // Check location filter
+                if (filters.states?.length) {
+                  const dataUF = data.uf?.toUpperCase();
+                  if (!filters.states.some(s => s.toUpperCase() === dataUF)) {
+                    stats.skippedLocation++;
+                    continue;
+                  }
+                }
+
+                if (filters.cities?.length) {
+                  const dataMunicipio = (data.municipio || "").toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+                  const matchesCity = filters.cities.some(c => {
+                    const normalizedFilter = c.toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+                    return dataMunicipio.includes(normalizedFilter) || normalizedFilter.includes(dataMunicipio);
+                  });
+                  if (!matchesCity) {
+                    stats.skippedLocation++;
+                    continue;
+                  }
+                }
+
+                // Check size filter
+                if (!matchesSize(data.porte, filters.companySizes)) {
+                  stats.skippedSize++;
+                  continue;
+                }
+
+                // Format CNPJ
+                const formattedCNPJ = cnpj.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5");
+
+                activeCount++;
+                stats.activeCount = activeCount;
+
+                // Send CNPJ as it's found
+                send({
+                  type: "cnpj",
+                  cnpj: {
+                    cnpj: formattedCNPJ,
+                    razao_social: data.razao_social,
+                    nome_fantasia: data.nome_fantasia,
+                    porte: data.porte,
+                    situacao: data.situacao_cadastral,
+                    municipio: data.municipio,
+                    uf: data.uf,
+                    cnae_fiscal_descricao: data.cnae_fiscal_descricao,
+                  },
+                  progress: {
+                    processed: stats.cnpjsProcessed,
+                    total: allCNPJs.size,
+                    found: activeCount,
+                    inactiveCount: stats.skippedInactive,
+                  }
+                });
+
+                if (activeCount >= maxResults) {
+                  break;
+                }
+              }
+
+              // Send progress update
+              send({
+                type: "progress",
+                processed: stats.cnpjsProcessed,
+                total: allCNPJs.size,
+                found: activeCount,
+                inactiveCount: stats.skippedInactive,
+                cacheHits: stats.cacheHits,
+              });
+            }
+
+            stats.processingTimeMs = Date.now() - startTime;
+
+            console.log("═══════════════════════════════════════════════════════════");
+            console.log(`✅ BUSCA CONCLUÍDA em ${stats.processingTimeMs}ms`);
+            console.log(`   CNPJs ativos: ${stats.activeCount}`);
+            console.log(`   Inativos filtrados: ${stats.skippedInactive}`);
+            console.log(`   Cache hits: ${stats.cacheHits}`);
+            console.log("═══════════════════════════════════════════════════════════");
+
+            send({ type: "complete", stats });
+            controller.close();
+          } catch (error) {
+            console.error("❌ Erro no streaming:", error);
+            send({ type: "error", message: error instanceof Error ? error.message : "Erro desconhecido" });
+            controller.close();
+          }
+        }
+      });
+
+      return new Response(stream, {
+        headers: {
+          ...corsHeaders,
+          "Content-Type": "text/event-stream",
+          "Cache-Control": "no-cache",
+          "Connection": "keep-alive",
+        },
+      });
+    }
+
+    // Non-streaming response (original code)
     const searchQueries = buildSearchQueries(filters);
     console.log("🔎 Queries:", searchQueries);
 
@@ -351,7 +578,6 @@ serve(async (req) => {
 
         stats.activeCount++;
 
-        // Check if we've reached the limit
         if (activeCNPJs.length >= maxResults) {
           break;
         }

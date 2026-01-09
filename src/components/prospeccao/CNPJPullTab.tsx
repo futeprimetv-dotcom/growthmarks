@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Search, Download, Loader2, FileText, CheckCircle, XCircle } from "lucide-react";
+import { useState, useRef, useCallback } from "react";
+import { Search, Download, Loader2, FileText, CheckCircle, XCircle, StopCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -29,10 +29,14 @@ interface CNPJResult {
 
 interface SearchProgress {
   status: "idle" | "searching" | "processing" | "completed" | "error";
+  statusMessage?: string;
   totalFound: number;
   processed: number;
   activeCount: number;
   inactiveCount: number;
+  cacheHits: number;
+  queriesCompleted: number;
+  totalQueries: number;
 }
 
 export function CNPJPullTab() {
@@ -49,9 +53,14 @@ export function CNPJPullTab() {
     processed: 0,
     activeCount: 0,
     inactiveCount: 0,
+    cacheHits: 0,
+    queriesCompleted: 0,
+    totalQueries: 0,
   });
 
-  const handleSearch = async () => {
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  const handleSearch = useCallback(async () => {
     if (!segment || !state) {
       toast({
         title: "Filtros obrigatórios",
@@ -61,47 +70,165 @@ export function CNPJPullTab() {
       return;
     }
 
+    // Cancel any ongoing search
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    abortControllerRef.current = new AbortController();
+
     setResults([]);
     setProgress({
       status: "searching",
+      statusMessage: "Iniciando busca...",
       totalFound: 0,
       processed: 0,
       activeCount: 0,
       inactiveCount: 0,
+      cacheHits: 0,
+      queriesCompleted: 0,
+      totalQueries: 0,
     });
 
     try {
-      const response = await supabase.functions.invoke("pull-cnpjs", {
-        body: {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+      const response = await fetch(`${supabaseUrl}/functions/v1/pull-cnpjs`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${session?.access_token || supabaseKey}`,
+          "apikey": supabaseKey,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
           segments: [segment],
           states: [state],
           cities: city ? [city] : undefined,
           companySizes: companySize ? [companySize] : undefined,
           limit,
-        },
+          streaming: true,
+        }),
+        signal: abortControllerRef.current.signal,
       });
 
-      if (response.error) {
-        throw new Error(response.error.message);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const data = response.data;
-      
-      setProgress({
-        status: "completed",
-        totalFound: data.stats?.totalCNPJsFound || 0,
-        processed: data.stats?.cnpjsProcessed || 0,
-        activeCount: data.cnpjs?.length || 0,
-        inactiveCount: data.stats?.skippedInactive || 0,
-      });
+      const reader = response.body?.getReader();
+      if (!reader) {
+        throw new Error("No response body");
+      }
 
-      setResults(data.cnpjs || []);
+      const decoder = new TextDecoder();
+      let buffer = "";
 
-      toast({
-        title: "Busca concluída",
-        description: `${data.cnpjs?.length || 0} CNPJs ativos encontrados.`,
-      });
+      while (true) {
+        const { done, value } = await reader.read();
+        
+        if (done) break;
+        
+        buffer += decoder.decode(value, { stream: true });
+        
+        // Process complete SSE messages
+        const lines = buffer.split("\n\n");
+        buffer = lines.pop() || "";
+        
+        for (const line of lines) {
+          if (line.startsWith("data: ")) {
+            try {
+              const data = JSON.parse(line.slice(6));
+              
+              switch (data.type) {
+                case "status":
+                  setProgress(prev => ({
+                    ...prev,
+                    statusMessage: data.message,
+                  }));
+                  break;
+
+                case "search_progress":
+                  setProgress(prev => ({
+                    ...prev,
+                    status: "searching",
+                    queriesCompleted: data.queriesCompleted,
+                    totalQueries: data.totalQueries,
+                    totalFound: data.cnpjsFound,
+                  }));
+                  break;
+
+                case "search_complete":
+                  setProgress(prev => ({
+                    ...prev,
+                    status: "processing",
+                    statusMessage: "Validando CNPJs...",
+                    totalFound: data.totalCNPJsFound,
+                  }));
+                  break;
+
+                case "cnpj":
+                  setResults(prev => [...prev, data.cnpj]);
+                  setProgress(prev => ({
+                    ...prev,
+                    processed: data.progress.processed,
+                    activeCount: data.progress.found,
+                    inactiveCount: data.progress.inactiveCount,
+                  }));
+                  break;
+                  
+                case "progress":
+                  setProgress(prev => ({
+                    ...prev,
+                    processed: data.processed,
+                    activeCount: data.found,
+                    inactiveCount: data.inactiveCount,
+                    cacheHits: data.cacheHits || 0,
+                  }));
+                  break;
+                  
+                case "complete":
+                  setProgress(prev => ({
+                    ...prev,
+                    status: "completed",
+                    statusMessage: undefined,
+                  }));
+                  toast({
+                    title: "Busca concluída",
+                    description: `${data.stats?.activeCount || 0} CNPJs ativos encontrados.`,
+                  });
+                  break;
+
+                case "error":
+                  setProgress(prev => ({
+                    ...prev,
+                    status: "error",
+                    statusMessage: data.message,
+                  }));
+                  toast({
+                    title: "Erro na busca",
+                    description: data.message,
+                    variant: "destructive",
+                  });
+                  break;
+              }
+            } catch (e) {
+              console.error("Error parsing SSE message:", e, line);
+            }
+          }
+        }
+      }
     } catch (error) {
+      if ((error as Error).name === "AbortError") {
+        setProgress(prev => ({
+          ...prev,
+          status: "completed",
+          statusMessage: "Busca cancelada",
+        }));
+        return;
+      }
+
       console.error("Error pulling CNPJs:", error);
       setProgress(prev => ({ ...prev, status: "error" }));
       toast({
@@ -110,7 +237,18 @@ export function CNPJPullTab() {
         variant: "destructive",
       });
     }
-  };
+  }, [segment, state, city, companySize, limit]);
+
+  const handleCancel = useCallback(() => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    setProgress(prev => ({
+      ...prev,
+      status: "completed",
+      statusMessage: "Busca cancelada",
+    }));
+  }, []);
 
   const handleExportCSV = () => {
     if (results.length === 0) return;
@@ -161,6 +299,9 @@ export function CNPJPullTab() {
   };
 
   const handleClear = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
     setSegment(undefined);
     setState(undefined);
     setCity(undefined);
@@ -173,6 +314,9 @@ export function CNPJPullTab() {
       processed: 0,
       activeCount: 0,
       inactiveCount: 0,
+      cacheHits: 0,
+      queriesCompleted: 0,
+      totalQueries: 0,
     });
   };
 
@@ -186,6 +330,9 @@ export function CNPJPullTab() {
   ];
 
   const isSearching = progress.status === "searching" || progress.status === "processing";
+  const progressPercent = progress.totalFound > 0 
+    ? Math.round((progress.processed / progress.totalFound) * 100) 
+    : 0;
 
   return (
     <div className="space-y-4">
@@ -272,14 +419,17 @@ export function CNPJPullTab() {
           </Select>
         </div>
 
-        <Button onClick={handleSearch} disabled={isSearching}>
-          {isSearching ? (
-            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-          ) : (
+        {isSearching ? (
+          <Button variant="destructive" onClick={handleCancel}>
+            <StopCircle className="h-4 w-4 mr-2" />
+            Cancelar
+          </Button>
+        ) : (
+          <Button onClick={handleSearch}>
             <Search className="h-4 w-4 mr-2" />
-          )}
-          Puxar CNPJs
-        </Button>
+            Puxar CNPJs
+          </Button>
+        )}
 
         <Button variant="ghost" onClick={handleClear} disabled={isSearching}>
           Limpar
@@ -288,15 +438,31 @@ export function CNPJPullTab() {
 
       {/* Progress */}
       {isSearching && (
-        <Card>
+        <Card className="border-primary/20 bg-primary/5">
           <CardContent className="pt-4">
             <div className="space-y-3">
               <div className="flex items-center justify-between text-sm">
-                <span>Buscando CNPJs ativos...</span>
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <span className="font-medium">{progress.statusMessage || "Processando..."}</span>
+                <div className="flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                  {progress.status === "processing" && (
+                    <span className="text-muted-foreground">{progressPercent}%</span>
+                  )}
+                </div>
               </div>
-              <Progress value={undefined} className="h-2" />
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+              
+              {progress.status === "searching" && progress.totalQueries > 0 && (
+                <div className="text-xs text-muted-foreground">
+                  Queries: {progress.queriesCompleted}/{progress.totalQueries} • 
+                  CNPJs encontrados: {progress.totalFound}
+                </div>
+              )}
+
+              {progress.status === "processing" && (
+                <Progress value={progressPercent} className="h-2" />
+              )}
+
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-center">
                 <div>
                   <p className="text-2xl font-bold">{progress.totalFound}</p>
                   <p className="text-xs text-muted-foreground">CNPJs encontrados</p>
@@ -313,7 +479,44 @@ export function CNPJPullTab() {
                   <p className="text-2xl font-bold text-red-500">{progress.inactiveCount}</p>
                   <p className="text-xs text-muted-foreground">Inativos</p>
                 </div>
+                <div>
+                  <p className="text-2xl font-bold text-blue-500">{progress.cacheHits}</p>
+                  <p className="text-xs text-muted-foreground">Cache hits</p>
+                </div>
               </div>
+
+              {/* Live results preview during search */}
+              {results.length > 0 && (
+                <div className="border rounded-lg max-h-[200px] overflow-y-auto bg-background">
+                  <table className="w-full text-sm">
+                    <thead className="bg-muted sticky top-0">
+                      <tr>
+                        <th className="px-3 py-2 text-left font-medium">CNPJ</th>
+                        <th className="px-3 py-2 text-left font-medium">Empresa</th>
+                        <th className="px-3 py-2 text-left font-medium">Cidade/UF</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {results.slice(-10).map((r, i) => (
+                        <tr key={r.cnpj} className={i % 2 === 0 ? "bg-background" : "bg-muted/30"}>
+                          <td className="px-3 py-1.5 font-mono text-xs">{r.cnpj}</td>
+                          <td className="px-3 py-1.5 text-xs truncate max-w-[200px]">
+                            {r.nome_fantasia || r.razao_social || "-"}
+                          </td>
+                          <td className="px-3 py-1.5 text-xs">
+                            {r.municipio && r.uf ? `${r.municipio}/${r.uf}` : "-"}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {results.length > 10 && (
+                    <div className="text-center py-1 text-xs text-muted-foreground bg-muted">
+                      Mostrando últimos 10 de {results.length}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -325,16 +528,21 @@ export function CNPJPullTab() {
           <CardContent className="pt-4">
             <div className="space-y-4">
               {/* Stats */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-4 flex-wrap">
                   <div className="flex items-center gap-2">
                     <CheckCircle className="h-5 w-5 text-green-600" />
-                    <span className="font-medium">{progress.activeCount} CNPJs ativos</span>
+                    <span className="font-medium">{results.length} CNPJs ativos</span>
                   </div>
                   <div className="flex items-center gap-2 text-muted-foreground">
                     <XCircle className="h-5 w-5 text-red-500" />
                     <span>{progress.inactiveCount} inativos filtrados</span>
                   </div>
+                  {progress.cacheHits > 0 && (
+                    <div className="text-xs text-muted-foreground">
+                      ({progress.cacheHits} do cache)
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex items-center gap-2">
