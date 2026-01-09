@@ -134,6 +134,9 @@ function CompanyCard({
   };
 
   const isActive = company.situacao === "ATIVA";
+  const isWeb = company.situacao === "WEB";
+  const isInactive = company.situacao && ["BAIXADA", "SUSPENSA", "INAPTA", "NULA"].includes(company.situacao);
+  const hasPartialData = !company.cnpj || !company.situacao;
   
   // Merge original data with enriched data
   const allPhones = [...new Set([
@@ -158,7 +161,7 @@ function CompanyCard({
     <Card className={cn(
       "transition-all duration-200",
       isSelected && "ring-2 ring-primary",
-      !isActive && company.situacao !== "WEB" && "opacity-60"
+      isInactive && "opacity-60"
     )}>
       <CardHeader className="pb-3">
         <div className="flex items-start gap-4">
@@ -176,19 +179,28 @@ function CompanyCard({
                     {company.name}
                   </h3>
                   {isActive ? (
-                    <Badge variant="outline" className="text-green-600 border-green-600 shrink-0">
+                    <Badge variant="outline" className="text-green-600 border-green-600 shrink-0" title="Empresa com CNPJ ativo na Receita Federal">
                       <CheckCircle2 className="h-3 w-3 mr-1" />
                       Ativa
                     </Badge>
-                  ) : company.situacao === "WEB" ? (
-                    <Badge variant="outline" className="text-blue-600 border-blue-600 shrink-0">
+                  ) : isWeb ? (
+                    <Badge variant="outline" className="text-blue-600 border-blue-600 shrink-0" title="Empresa encontrada na web, CNPJ não verificado">
                       <Globe className="h-3 w-3 mr-1" />
                       Web
                     </Badge>
-                  ) : (
-                    <Badge variant="outline" className="text-destructive border-destructive shrink-0">
+                  ) : hasPartialData ? (
+                    <Badge variant="outline" className="text-amber-600 border-amber-600 shrink-0" title="Apenas informações básicas disponíveis">
+                      <Search className="h-3 w-3 mr-1" />
+                      Dados Parciais
+                    </Badge>
+                  ) : isInactive ? (
+                    <Badge variant="outline" className="text-destructive border-destructive shrink-0" title="Empresa com situação irregular na Receita Federal">
                       <XCircle className="h-3 w-3 mr-1" />
-                      {company.situacao || "Desconhecida"}
+                      {company.situacao}
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="text-muted-foreground shrink-0">
+                      {company.situacao}
                     </Badge>
                   )}
                   {enrichedData && (
