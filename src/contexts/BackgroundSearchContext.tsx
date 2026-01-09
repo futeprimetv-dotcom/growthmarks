@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useCallback, useRef, useEff
 import { supabase } from "@/integrations/supabase/client";
 import { useBrowserNotification } from "@/hooks/useBrowserNotification";
 import { useNotifications } from "@/contexts/NotificationContext";
+import { useNotificationSound } from "@/hooks/useNotificationSound";
 import type { ProspectFilters } from "@/hooks/useProspects";
 import type { CompanySearchResult, CompanySearchResponse, SearchDebugStats } from "@/hooks/useCompanySearch";
 
@@ -34,6 +35,7 @@ export function BackgroundSearchProvider({ children }: { children: React.ReactNo
   const abortControllerRef = useRef<AbortController | null>(null);
   const { permission, requestPermission, sendNotification } = useBrowserNotification();
   const { addNotification } = useNotifications();
+  const { playSuccessSound, playErrorSound } = useNotificationSound();
 
   const isSearching = activeSearch?.status === "running" || activeSearch?.status === "pending";
 
@@ -102,6 +104,9 @@ export function BackgroundSearchProvider({ children }: { children: React.ReactNo
         ? ` em ${(data.debug.processingTimeMs / 1000).toFixed(1)}s`
         : "";
 
+      // Play success sound
+      playSuccessSound();
+
       // Send browser notification
       sendNotification("🔍 Busca concluída!", {
         body: `${data?.companies?.length || 0} empresa(s) encontrada(s)${timeInfo}. Clique para ver os resultados.`,
@@ -132,6 +137,9 @@ export function BackgroundSearchProvider({ children }: { children: React.ReactNo
           completedAt: new Date(),
         } : null);
 
+        // Play error sound
+        playErrorSound();
+
         // Notify about error
         addNotification({
           type: "error",
@@ -143,7 +151,7 @@ export function BackgroundSearchProvider({ children }: { children: React.ReactNo
 
       throw error;
     }
-  }, [sendNotification, addNotification]);
+  }, [sendNotification, addNotification, playSuccessSound, playErrorSound]);
 
   const cancelSearch = useCallback((searchId: string) => {
     if (activeSearch?.id === searchId && abortControllerRef.current) {
