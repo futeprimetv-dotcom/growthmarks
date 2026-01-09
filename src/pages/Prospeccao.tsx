@@ -36,6 +36,7 @@ import { useCNPJLookupManual, type CNPJLookupResult } from "@/hooks/useCNPJLooku
 import { useCompanySearch, type CompanySearchResult } from "@/hooks/useCompanySearch";
 import { useSearchCache } from "@/hooks/useSearchCache";
 import { useBrowserNotification } from "@/hooks/useBrowserNotification";
+import { useNotifications } from "@/contexts/NotificationContext";
 import { toast } from "@/hooks/use-toast";
 
 export default function Prospeccao() {
@@ -75,6 +76,9 @@ export default function Prospeccao() {
   
   // Browser notifications
   const { permission, requestPermission, sendNotification } = useBrowserNotification();
+  
+  // App notifications
+  const { addNotification } = useNotifications();
   
   const { data: savedSearches = [] } = useSavedSearches();
   const sendToLeadsBase = useSendToLeadsBase();
@@ -224,6 +228,7 @@ export default function Prospeccao() {
           
           // Send browser notification if search was running in background
           if (isSearchMinimized || wasMinimized) {
+            // Browser notification
             sendNotification("🔍 Busca concluída!", {
               body: `${result.companies.length} empresa(s) encontrada(s). Clique para ver os resultados.`,
               tag: "search-complete",
@@ -232,6 +237,14 @@ export default function Prospeccao() {
                 setShowResultsPanel(true);
                 setIsSearchMinimized(false);
               },
+            });
+            
+            // App notification
+            addNotification({
+              type: "search",
+              title: "Busca concluída",
+              message: `${result.companies.length} empresa(s) encontrada(s)${timeInfo}. Clique para ver os resultados.`,
+              link: "/prospeccao",
             });
           }
         }
