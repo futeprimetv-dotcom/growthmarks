@@ -40,7 +40,7 @@ import {
 import { cn } from "@/lib/utils";
 import type { CompanySearchResult } from "@/hooks/useCompanySearch";
 import { useEnrichCompany, type EnrichedData } from "@/hooks/useEnrichCompany";
-import { useFullAnalysis, useBatchAnalyze, type CompanyData, type FitAnalysis, type CompanySummary, type BatchAnalysisResult } from "@/hooks/useAIProspecting";
+import { useFullAnalysis, useBatchAnalyze, useDigitalPresence, type CompanyData, type FitAnalysis, type CompanySummary, type BatchAnalysisResult, type DigitalPresenceAnalysis } from "@/hooks/useAIProspecting";
 import { useICPSettings } from "@/hooks/useICPSettings";
 import { AIFitBadge } from "./AIFitBadge";
 import { AIAnalysisDialog } from "./AIAnalysisDialog";
@@ -94,6 +94,7 @@ function formatPhone(phone: string): string {
 
 // Store AI analysis for each company
 const aiAnalysisCache = new Map<string, { fit: FitAnalysis; summary: CompanySummary }>();
+const digitalPresenceCache = new Map<string, DigitalPresenceAnalysis>();
 
 function CompanyCard({
   company,
@@ -117,8 +118,13 @@ function CompanyCard({
   );
   const [isEnriching, setIsEnriching] = useState(false);
   const [showAIDialog, setShowAIDialog] = useState(false);
+  const [digitalPresence, setDigitalPresence] = useState<DigitalPresenceAnalysis | null>(
+    digitalPresenceCache.get(company.id || company.cnpj) || null
+  );
+  const [isAnalyzingDigital, setIsAnalyzingDigital] = useState(false);
 
   const enrichMutation = useEnrichCompany();
+  const digitalPresenceMutation = useDigitalPresence();
 
   const companyDataForAI: CompanyData = {
     name: company.name || company.razao_social,
@@ -138,37 +144,54 @@ function CompanyCard({
   const handleCopy = async (text: string, field: string) => {
     await navigator.clipboard.writeText(text);
     setCopiedField(field);
+    toast.success("Copiado!");
     setTimeout(() => setCopiedField(null), 2000);
   };
 
-  const handleEnrich = async () => {
+  // Combined function - enrich data AND analyze with AI
+  const handleFullAnalysis = async () => {
     setIsEnriching(true);
+    setIsAnalyzingDigital(true);
+    
     try {
-      const data = await enrichMutation.mutateAsync({
-        cnpj: company.cnpj,
-        companyName: company.name || company.razao_social,
-        city: company.city,
-        state: company.state,
-      });
-      
-      setEnrichedData(data);
-      enrichedCache.set(company.id || company.cnpj, data);
-      setExpanded(true);
-      toast.success("Dados enriquecidos com sucesso!");
+      // Run both in parallel
+      const [enrichData, digitalData] = await Promise.allSettled([
+        enrichMutation.mutateAsync({
+          cnpj: company.cnpj,
+          companyName: company.name || company.razao_social,
+          city: company.city,
+          state: company.state,
+        }),
+        digitalPresenceMutation.mutateAsync({ company: companyDataForAI })
+      ]);
+
+      if (enrichData.status === 'fulfilled') {
+        setEnrichedData(enrichData.value);
+        enrichedCache.set(company.id || company.cnpj, enrichData.value);
+      }
+
+      if (digitalData.status === 'fulfilled') {
+        setDigitalPresence(digitalData.value);
+        digitalPresenceCache.set(company.id || company.cnpj, digitalData.value);
+      }
+
+      // Also run the full AI analysis if not already done
+      if (!aiAnalysis) {
+        onAnalyzeWithAI();
+      }
+
+      toast.success("Análise completa realizada!");
     } catch (error) {
-      console.error("Enrich error:", error);
-      toast.error("Erro ao buscar detalhes. Tente novamente.");
+      console.error("Analysis error:", error);
+      toast.error("Erro na análise. Tente novamente.");
     } finally {
       setIsEnriching(false);
+      setIsAnalyzingDigital(false);
     }
   };
 
-  const handleAnalyzeClick = () => {
-    if (aiAnalysis) {
-      setShowAIDialog(true);
-    } else {
-      onAnalyzeWithAI();
-    }
+  const handleOpenDialog = () => {
+    setShowAIDialog(true);
   };
 
   const isActive = company.situacao === "ATIVA";
@@ -256,54 +279,28 @@ function CompanyCard({
               </div>
 
               <div className="flex gap-2 shrink-0">
-                {/* AI Analysis Button */}
+                {/* Unified AI Analysis Button */}
                 <Button
-                  variant={aiAnalysis ? "outline" : "secondary"}
+                  variant={(aiAnalysis || digitalPresence) ? "outline" : "default"}
                   size="sm"
-                  onClick={handleAnalyzeClick}
-                  disabled={isAnalyzing}
+                  onClick={(aiAnalysis || digitalPresence) ? handleOpenDialog : handleFullAnalysis}
+                  disabled={isAnalyzing || isEnriching || isAnalyzingDigital}
                   className="shrink-0"
                 >
-                  {isAnalyzing ? (
+                  {(isAnalyzing || isEnriching || isAnalyzingDigital) ? (
                     <>
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                       Analisando...
                     </>
-                  ) : aiAnalysis ? (
+                  ) : (aiAnalysis || digitalPresence) ? (
                     <>
-                      <Brain className="h-4 w-4 mr-2" />
+                      <Sparkles className="h-4 w-4 mr-2" />
                       Ver Análise
                     </>
                   ) : (
                     <>
-                      <Brain className="h-4 w-4 mr-2" />
+                      <Sparkles className="h-4 w-4 mr-2" />
                       Analisar com IA
-                    </>
-                  )}
-                </Button>
-
-                {/* Enrich Button */}
-                <Button
-                  variant={enrichedData ? "outline" : "default"}
-                  size="sm"
-                  onClick={handleEnrich}
-                  disabled={isEnriching}
-                  className="shrink-0"
-                >
-                  {isEnriching ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Buscando...
-                    </>
-                  ) : enrichedData ? (
-                    <>
-                      <Search className="h-4 w-4 mr-2" />
-                      Atualizar
-                    </>
-                  ) : (
-                    <>
-                      <Search className="h-4 w-4 mr-2" />
-                      Buscar Detalhes
                     </>
                   )}
                 </Button>
@@ -318,6 +315,87 @@ function CompanyCard({
                   recommendation={aiAnalysis.fit.recommendation}
                   justification={aiAnalysis.fit.justification}
                 />
+              </div>
+            )}
+
+            {/* INLINE DIGITAL PRESENCE DATA - Shown directly on card */}
+            {digitalPresence && (
+              <div className="mt-3 p-3 rounded-lg bg-gradient-to-r from-primary/5 to-primary/10 border border-primary/20">
+                <div className="flex flex-wrap items-center gap-3">
+                  {/* WhatsApp - Priority */}
+                  {digitalPresence.whatsapp.found && digitalPresence.whatsapp.number && (
+                    <a
+                      href={`https://wa.me/${digitalPresence.whatsapp.number.replace(/\D/g, "")}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-green-600 hover:bg-green-700 text-white text-sm font-medium transition-colors shadow-sm"
+                    >
+                      <MessageCircle className="h-4 w-4" />
+                      <span>{digitalPresence.whatsapp.number}</span>
+                    </a>
+                  )}
+
+                  {/* Website from AI */}
+                  {digitalPresence.website.found && digitalPresence.website.url && (
+                    <a
+                      href={digitalPresence.website.url.startsWith('http') ? digitalPresence.website.url : `https://${digitalPresence.website.url}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-muted hover:bg-muted/80 text-sm font-medium transition-colors"
+                    >
+                      <Globe className="h-4 w-4" />
+                      Site
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                  )}
+
+                  {/* Instagram from AI */}
+                  {digitalPresence.socialMedia.instagram && (
+                    <a
+                      href={digitalPresence.socialMedia.instagram.startsWith('http') ? digitalPresence.socialMedia.instagram : `https://instagram.com/${digitalPresence.socialMedia.instagram.replace('@', '')}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white text-sm font-medium transition-colors"
+                    >
+                      <Instagram className="h-4 w-4" />
+                      {digitalPresence.socialMedia.instagram}
+                    </a>
+                  )}
+
+                  {/* LinkedIn from AI */}
+                  {digitalPresence.socialMedia.linkedin && (
+                    <a
+                      href={digitalPresence.socialMedia.linkedin.startsWith('http') ? digitalPresence.socialMedia.linkedin : `https://linkedin.com/company/${digitalPresence.socialMedia.linkedin}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium transition-colors"
+                    >
+                      <Linkedin className="h-4 w-4" />
+                      LinkedIn
+                    </a>
+                  )}
+
+                  {/* Digital Maturity Score */}
+                  <Badge 
+                    variant="outline" 
+                    className={cn(
+                      "ml-auto",
+                      digitalPresence.digitalMaturity.level === "alta" && "text-green-600 border-green-600",
+                      digitalPresence.digitalMaturity.level === "média" && "text-yellow-600 border-yellow-600",
+                      digitalPresence.digitalMaturity.level === "baixa" && "text-orange-600 border-orange-600",
+                      digitalPresence.digitalMaturity.level === "inexistente" && "text-red-600 border-red-600"
+                    )}
+                  >
+                    Digital: {digitalPresence.digitalMaturity.score}/100
+                  </Badge>
+                </div>
+
+                {/* Data Quality Warnings inline */}
+                {digitalPresence.dataQualityWarnings && digitalPresence.dataQualityWarnings.length > 0 && (
+                  <div className="mt-2 text-xs text-yellow-600 dark:text-yellow-400">
+                    ⚠️ {digitalPresence.dataQualityWarnings[0]}
+                  </div>
+                )}
               </div>
             )}
 
