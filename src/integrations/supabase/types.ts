@@ -14,6 +14,48 @@ export type Database = {
   }
   public: {
     Tables: {
+      activity_logs: {
+        Row: {
+          action_type: string
+          created_at: string
+          description: string | null
+          entity_id: string | null
+          entity_name: string | null
+          entity_type: string
+          id: string
+          ip_address: string | null
+          metadata: Json | null
+          user_email: string | null
+          user_id: string | null
+        }
+        Insert: {
+          action_type: string
+          created_at?: string
+          description?: string | null
+          entity_id?: string | null
+          entity_name?: string | null
+          entity_type: string
+          id?: string
+          ip_address?: string | null
+          metadata?: Json | null
+          user_email?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          action_type?: string
+          created_at?: string
+          description?: string | null
+          entity_id?: string | null
+          entity_name?: string | null
+          entity_type?: string
+          id?: string
+          ip_address?: string | null
+          metadata?: Json | null
+          user_email?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       archived_items: {
         Row: {
           archived_at: string
@@ -884,6 +926,48 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      notification_settings: {
+        Row: {
+          contract_expiry_alerts: boolean | null
+          created_at: string
+          daily_summary: boolean | null
+          deadline_reminders: boolean | null
+          hot_lead_alerts: boolean | null
+          id: string
+          payment_reminders: boolean | null
+          summary_email_time: string | null
+          updated_at: string
+          user_id: string
+          weekly_report: boolean | null
+        }
+        Insert: {
+          contract_expiry_alerts?: boolean | null
+          created_at?: string
+          daily_summary?: boolean | null
+          deadline_reminders?: boolean | null
+          hot_lead_alerts?: boolean | null
+          id?: string
+          payment_reminders?: boolean | null
+          summary_email_time?: string | null
+          updated_at?: string
+          user_id: string
+          weekly_report?: boolean | null
+        }
+        Update: {
+          contract_expiry_alerts?: boolean | null
+          created_at?: string
+          daily_summary?: boolean | null
+          deadline_reminders?: boolean | null
+          hot_lead_alerts?: boolean | null
+          id?: string
+          payment_reminders?: boolean | null
+          summary_email_time?: string | null
+          updated_at?: string
+          user_id?: string
+          weekly_report?: boolean | null
+        }
+        Relationships: []
       }
       payables: {
         Row: {

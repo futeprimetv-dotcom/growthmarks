@@ -10,6 +10,7 @@ import { useAvailableServices, AvailableService } from "@/hooks/useAvailableServ
 import { useTheme } from "@/hooks/useTheme";
 import { CRMSettingsSection } from "@/components/configuracoes/CRMSettingsSection";
 import { CompanySettingsSection } from "@/components/configuracoes/CompanySettingsSection";
+import { AdvancedSettingsSection } from "@/components/configuracoes/AdvancedSettingsSection";
 import {
   Dialog,
   DialogContent,
@@ -218,17 +219,14 @@ export default function Configuracoes() {
         </div>
       </Card>
 
-      {/* Advanced */}
-      <Card className="p-6 border-dashed">
+      {/* Advanced Settings */}
+      <div>
         <div className="flex items-center gap-3 mb-4">
-          <Lock className="h-5 w-5 text-muted-foreground" />
-          <h2 className="text-lg font-semibold text-muted-foreground">Configurações Avançadas</h2>
+          <Lock className="h-5 w-5 text-primary" />
+          <h2 className="text-lg font-semibold">Configurações Avançadas</h2>
         </div>
-        <p className="text-muted-foreground text-sm">
-          Configurações avançadas estarão disponíveis na versão completa do sistema. 
-          Entre em contato com o suporte para mais informações.
-        </p>
-      </Card>
+        <AdvancedSettingsSection />
+      </div>
 
       {/* Service Form Dialog */}
       <Dialog open={isServiceFormOpen} onOpenChange={setIsServiceFormOpen}>
