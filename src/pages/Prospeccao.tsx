@@ -23,10 +23,14 @@ import { CNPJBatchDialog } from "@/components/prospeccao/CNPJBatchDialog";
 import { RecentFiltersSelect, saveRecentProspeccaoFilters } from "@/components/prospeccao/RecentFiltersSelect";
 import { SearchResultsPanel } from "@/components/prospeccao/SearchResultsPanel";
 import { SearchLoadingOverlay } from "@/components/prospeccao/SearchLoadingOverlay";
+import { SearchLimitSelector } from "@/components/prospeccao/SearchLimitSelector";
+import { SearchTemplates } from "@/components/prospeccao/SearchTemplates";
+import { SearchHistory } from "@/components/prospeccao/SearchHistory";
 import { useProspects, useSendToLeadsBase, useAddProspectFromCNPJ, type ProspectFilters } from "@/hooks/useProspects";
 import { useSavedSearches } from "@/hooks/useSavedSearches";
 import { useCNPJLookupManual, type CNPJLookupResult } from "@/hooks/useCNPJLookup";
 import { useCompanySearch, type CompanySearchResult } from "@/hooks/useCompanySearch";
+import { useSearchCache } from "@/hooks/useSearchCache";
 import { toast } from "@/hooks/use-toast";
 
 export default function Prospeccao() {
@@ -58,6 +62,9 @@ export default function Prospeccao() {
   
   // API search mutation
   const companySearch = useCompanySearch();
+  
+  // Search cache
+  const { findCached, addToCache, getRecentSearches, clearCache } = useSearchCache();
   
   const { data: savedSearches = [] } = useSavedSearches();
   const sendToLeadsBase = useSendToLeadsBase();
@@ -139,6 +146,19 @@ export default function Prospeccao() {
     setApiTotal(0);
     
     if (searchMode === "api") {
+      // Check cache first
+      const cached = findCached(filters);
+      if (cached) {
+        setApiResults(cached.results);
+        setApiTotal(cached.total);
+        setShowResultsPanel(true);
+        toast({
+          title: "Resultados do cache",
+          description: `${cached.results.length} empresa(s) carregadas do histórico.`,
+        });
+        return;
+      }
+
       // Search via API (Firecrawl + BrasilAPI)
       try {
         const result = await companySearch.mutateAsync({
@@ -149,7 +169,12 @@ export default function Prospeccao() {
         
         setApiResults(result.companies);
         setApiTotal(result.total);
-        setShowResultsPanel(true); // Show results panel after search
+        setShowResultsPanel(true);
+        
+        // Cache the results
+        if (result.companies.length > 0) {
+          addToCache(filters, result.companies, result.total);
+        }
         
         if (result.error) {
           toast({
@@ -180,6 +205,28 @@ export default function Prospeccao() {
       // Search in database
       refetch();
     }
+  };
+
+  // Apply cached search from history
+  const handleApplyCachedSearch = (cachedFilters: ProspectFilters, results: CompanySearchResult[], total: number) => {
+    setFilters(cachedFilters);
+    setApiResults(results);
+    setApiTotal(total);
+    setHasSearched(true);
+    setShowResultsPanel(true);
+    toast({
+      title: "Busca restaurada",
+      description: `${results.length} empresa(s) carregadas do histórico.`,
+    });
+  };
+
+  // Apply template filters
+  const handleApplyTemplate = (templateFilters: ProspectFilters) => {
+    setFilters(templateFilters);
+    toast({
+      title: "Template aplicado",
+      description: "Clique em Buscar para ver os resultados.",
+    });
   };
 
   const handleCancelSearch = () => {
@@ -568,7 +615,23 @@ export default function Prospeccao() {
             </p>
           </div>
           
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Quick actions for API search */}
+            {searchMode === "api" && (
+              <>
+                <SearchLimitSelector 
+                  value={pageSize} 
+                  onChange={(v) => setPageSize(v)} 
+                />
+                <SearchTemplates onApply={handleApplyTemplate} />
+                <SearchHistory 
+                  recentSearches={getRecentSearches()}
+                  onApply={handleApplyCachedSearch}
+                  onClearHistory={clearCache}
+                />
+              </>
+            )}
+
             <RecentFiltersSelect
               onApply={(recent) => {
                 setFilters(recent);
@@ -581,7 +644,7 @@ export default function Prospeccao() {
 
             {savedSearches.length > 0 && (
               <Select onValueChange={handleLoadSavedSearch}>
-                <SelectTrigger className="w-[220px]">
+                <SelectTrigger className="w-[180px]">
                   <BookmarkCheck className="h-4 w-4 mr-2" />
                   <SelectValue placeholder="Pesquisas salvas" />
                 </SelectTrigger>
