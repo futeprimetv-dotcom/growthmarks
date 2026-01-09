@@ -41,6 +41,7 @@ import { cn } from "@/lib/utils";
 import type { CompanySearchResult } from "@/hooks/useCompanySearch";
 import { useEnrichCompany, type EnrichedData } from "@/hooks/useEnrichCompany";
 import { useFullAnalysis, useBatchAnalyze, type CompanyData, type FitAnalysis, type CompanySummary, type BatchAnalysisResult } from "@/hooks/useAIProspecting";
+import { useICPSettings } from "@/hooks/useICPSettings";
 import { AIFitBadge } from "./AIFitBadge";
 import { AIAnalysisDialog } from "./AIAnalysisDialog";
 
@@ -734,6 +735,7 @@ export function SearchResultsPanel({
   const [batchAnalyzing, setBatchAnalyzing] = useState(false);
   
   const enrichMutation = useEnrichCompany();
+  const { data: icpConfig } = useICPSettings();
   const fullAnalysis = useFullAnalysis();
   const batchAnalyze = useBatchAnalyze();
 
@@ -772,7 +774,7 @@ export function SearchResultsPanel({
         website: company.website_url,
       };
       
-      const result = await fullAnalysis.mutateAsync({ company: companyData });
+      const result = await fullAnalysis.mutateAsync({ company: companyData, icpConfig });
       
       setAiAnalysisResults(prev => new Map(prev).set(companyId, result));
       aiAnalysisCache.set(companyId, result);
@@ -813,7 +815,7 @@ export function SearchResultsPanel({
         cnaeDescription: c.cnae_description,
       }));
       
-      const result = await batchAnalyze.mutateAsync({ companies: companiesData });
+      const result = await batchAnalyze.mutateAsync({ companies: companiesData, icpConfig });
       
       // Store rankings in a simplified format
       result.rankings.forEach(ranking => {

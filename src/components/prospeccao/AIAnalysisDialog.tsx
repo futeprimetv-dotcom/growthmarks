@@ -32,6 +32,7 @@ import {
   useSuggestApproach
 } from "@/hooks/useAIProspecting";
 import { AIFitBadge } from "./AIFitBadge";
+import { useICPSettings } from "@/hooks/useICPSettings";
 
 interface AIAnalysisDialogProps {
   open: boolean;
@@ -55,16 +56,21 @@ export function AIAnalysisDialog({
   const [approach, setApproach] = useState<ApproachSuggestion | null>(null);
   const [script, setScript] = useState<ContactScript | null>(null);
   
+  const { data: icpConfig } = useICPSettings();
   const generateScript = useGenerateScript();
   const suggestApproach = useSuggestApproach();
 
   const handleGenerateScript = async () => {
-    const result = await generateScript.mutateAsync({ company, channel: selectedChannel });
+    const result = await generateScript.mutateAsync({ 
+      company, 
+      channel: selectedChannel,
+      icpConfig 
+    });
     setScript(result);
   };
 
   const handleSuggestApproach = async () => {
-    const result = await suggestApproach.mutateAsync({ company });
+    const result = await suggestApproach.mutateAsync({ company, icpConfig });
     setApproach(result);
   };
 
