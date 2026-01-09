@@ -15,6 +15,7 @@ interface Props {
     hasEmail?: boolean;
   };
   onCancel?: () => void;
+  onMinimize?: () => void;
 }
 
 const searchSteps = [
@@ -25,7 +26,7 @@ const searchSteps = [
   { icon: CheckCircle, label: "Finalizando busca...", duration: 2000 },
 ];
 
-export function SearchLoadingOverlay({ isVisible, filters, onCancel }: Props) {
+export function SearchLoadingOverlay({ isVisible, filters, onCancel, onMinimize }: Props) {
   const [currentStep, setCurrentStep] = useState(0);
   const [progress, setProgress] = useState(0);
   const [elapsedTime, setElapsedTime] = useState(0);
@@ -146,15 +147,24 @@ export function SearchLoadingOverlay({ isVisible, filters, onCancel }: Props) {
           <span>Estimado: {estimatedTime}</span>
         </div>
 
-        {/* Cancel Button */}
-        <Button 
-          variant="outline" 
-          onClick={onCancel}
-          className="w-full"
-        >
-          <X className="h-4 w-4 mr-2" />
-          Cancelar Busca
-        </Button>
+        {/* Action Buttons */}
+        <div className="flex gap-3">
+          <Button 
+            variant="secondary" 
+            onClick={onMinimize}
+            className="flex-1"
+          >
+            Continuar em segundo plano
+          </Button>
+          <Button 
+            variant="outline" 
+            onClick={onCancel}
+            className="flex-1"
+          >
+            <X className="h-4 w-4 mr-2" />
+            Cancelar
+          </Button>
+        </div>
 
         {/* Tips */}
         <p className="text-xs text-center text-muted-foreground">

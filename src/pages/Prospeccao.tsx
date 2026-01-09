@@ -48,6 +48,7 @@ export default function Prospeccao() {
   const [batchDialogOpen, setBatchDialogOpen] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   const [showResultsPanel, setShowResultsPanel] = useState(false);
+  const [isSearchMinimized, setIsSearchMinimized] = useState(false);
   const [searchMode, setSearchMode] = useState<"internet" | "cnpj" | "database">("internet");
   
   // API Search results
@@ -149,6 +150,7 @@ export default function Prospeccao() {
     setApiResults([]);
     setApiTotal(0);
     setSearchStats(null);
+    setIsSearchMinimized(false); // Reset minimization state for new search
     
     if (searchMode === "internet") {
       // Check cache first
@@ -534,7 +536,12 @@ export default function Prospeccao() {
   if (showResultsPanel && searchMode === "internet") {
     return (
       <>
-        <SearchLoadingOverlay isVisible={companySearch.isPending} filters={filters} onCancel={handleCancelSearch} />
+        <SearchLoadingOverlay 
+          isVisible={companySearch.isPending && !isSearchMinimized} 
+          filters={filters} 
+          onCancel={handleCancelSearch}
+          onMinimize={() => setIsSearchMinimized(true)}
+        />
         <div className="flex flex-col h-[calc(100vh-4rem)]">
         {/* Results Header with Actions */}
         <div className="px-6 py-3 border-b shrink-0 flex items-center justify-between bg-muted/30">
@@ -622,7 +629,12 @@ export default function Prospeccao() {
   // Default view with filters
   return (
     <>
-      <SearchLoadingOverlay isVisible={companySearch.isPending} filters={filters} onCancel={handleCancelSearch} />
+      <SearchLoadingOverlay 
+        isVisible={companySearch.isPending && !isSearchMinimized} 
+        filters={filters} 
+        onCancel={handleCancelSearch}
+        onMinimize={() => setIsSearchMinimized(true)}
+      />
       <div className="flex flex-col h-[calc(100vh-4rem)]">
       {/* Header */}
       <div className="p-6 border-b shrink-0">
