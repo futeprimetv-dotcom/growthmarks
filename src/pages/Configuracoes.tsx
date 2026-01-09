@@ -4,10 +4,10 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Settings as SettingsIcon, Palette, Lock, Package, Plus, Edit2, Trash2, AlertTriangle } from "lucide-react";
+import { Settings as SettingsIcon, Palette, Lock, Package, Plus, Edit2, Trash2 } from "lucide-react";
 import logo from "@/assets/logo-growth-marks.png";
 import { useAvailableServices, AvailableService } from "@/hooks/useAvailableServices";
-import { useUserRole } from "@/hooks/useUserRole";
+import { useTheme } from "@/hooks/useTheme";
 import { CRMSettingsSection } from "@/components/configuracoes/CRMSettingsSection";
 import { CompanySettingsSection } from "@/components/configuracoes/CompanySettingsSection";
 import {
@@ -54,7 +54,7 @@ interface ServiceFormData {
 }
 
 export default function Configuracoes() {
-  const { isGestao } = useUserRole();
+  const { theme, toggleTheme } = useTheme();
   const { services, isLoading, createService, updateService, deleteService } = useAvailableServices();
   
   const [isServiceFormOpen, setIsServiceFormOpen] = useState(false);
@@ -111,10 +111,6 @@ export default function Configuracoes() {
       deleteService.mutate(deleteConfirm.id);
       setDeleteConfirm(null);
     }
-  };
-
-  const handleResetDatabase = async () => {
-    toast.info("Funcionalidade de reset será implementada em breve");
   };
 
   return (
@@ -215,31 +211,12 @@ export default function Configuracoes() {
             <p className="font-medium">Modo Escuro</p>
             <p className="text-sm text-muted-foreground">Usar tema escuro na interface</p>
           </div>
-          <Switch defaultChecked />
+          <Switch 
+            checked={theme === "dark"} 
+            onCheckedChange={toggleTheme}
+          />
         </div>
       </Card>
-
-      {/* Danger Zone - Only for Gestão */}
-      {isGestao && (
-        <Card className="p-6 border-destructive/50">
-          <div className="flex items-center gap-3 mb-6">
-            <AlertTriangle className="h-5 w-5 text-destructive" />
-            <h2 className="text-lg font-semibold text-destructive">Zona de Perigo</h2>
-          </div>
-          
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="font-medium">Resetar Banco de Dados</p>
-              <p className="text-sm text-muted-foreground">
-                Remove todos os dados de teste. Esta ação não pode ser desfeita.
-              </p>
-            </div>
-            <Button variant="destructive" onClick={handleResetDatabase}>
-              Resetar Dados
-            </Button>
-          </div>
-        </Card>
-      )}
 
       {/* Advanced */}
       <Card className="p-6 border-dashed">
