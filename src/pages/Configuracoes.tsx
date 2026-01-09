@@ -4,11 +4,12 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Settings as SettingsIcon, Building2, Palette, Lock, Package, Plus, Edit2, Trash2, AlertTriangle } from "lucide-react";
+import { Settings as SettingsIcon, Palette, Lock, Package, Plus, Edit2, Trash2, AlertTriangle } from "lucide-react";
 import logo from "@/assets/logo-growth-marks.png";
 import { useAvailableServices, AvailableService } from "@/hooks/useAvailableServices";
 import { useUserRole } from "@/hooks/useUserRole";
 import { CRMSettingsSection } from "@/components/configuracoes/CRMSettingsSection";
+import { CompanySettingsSection } from "@/components/configuracoes/CompanySettingsSection";
 import {
   Dialog,
   DialogContent,
@@ -124,28 +125,7 @@ export default function Configuracoes() {
       </div>
 
       {/* Company Info */}
-      <Card className="p-6">
-        <div className="flex items-center gap-3 mb-6">
-          <Building2 className="h-5 w-5 text-primary" />
-          <h2 className="text-lg font-semibold">Informações da Empresa</h2>
-        </div>
-
-        <div className="space-y-6">
-          <div className="flex items-center gap-6">
-            <div className="w-20 h-20 rounded-xl bg-card border flex items-center justify-center p-2">
-              <img src={logo} alt="Logo" className="w-full h-auto" />
-            </div>
-            <div className="flex-1">
-              <Label htmlFor="company-name" className="text-muted-foreground">Nome da Empresa</Label>
-              <Input
-                id="company-name"
-                defaultValue="Growth Marks"
-                className="mt-1.5 max-w-sm"
-              />
-            </div>
-          </div>
-        </div>
-      </Card>
+      <CompanySettingsSection />
 
       {/* Services Configuration */}
       <Card className="p-6">
