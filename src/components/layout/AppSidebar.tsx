@@ -5,13 +5,11 @@ import {
   DollarSign, 
   Kanban, 
   UserCircle, 
-  Archive, 
   Settings,
   Target,
   CalendarDays,
   TrendingUp,
   LogOut,
-  Eye,
   List,
   BarChart3
 } from "lucide-react";
@@ -77,15 +75,12 @@ const menuSections: MenuSection[] = [
       { title: "Financeiro", url: "/financeiro", icon: DollarSign, permission: 'gestao' },
     ]
   },
-  {
-    label: "Sistema",
-    items: [
-      { title: "Equipe", url: "/equipe", icon: UserCircle, permission: 'gestao' },
-      { title: "Arquivados", url: "/arquivados", icon: Archive, permission: 'gestao' },
-      { title: "Configurações", url: "/configuracoes", icon: Settings, permission: 'gestao' },
-      { title: "Supervisão", url: "/supervisao", icon: Eye, permission: 'gestao' },
-    ]
-  },
+];
+
+// Itens do sistema ficam no footer
+const systemItems: MenuItem[] = [
+  { title: "Equipe", url: "/equipe", icon: UserCircle, permission: 'gestao' },
+  { title: "Configurações", url: "/configuracoes", icon: Settings, permission: 'gestao' },
 ];
 
 export function AppSidebar() {
@@ -112,6 +107,8 @@ export function AppSidebar() {
       items: section.items.filter(item => canViewItem(item.permission))
     }))
     .filter(section => section.items.length > 0);
+
+  const filteredSystemItems = systemItems.filter(item => canViewItem(item.permission));
 
   return (
     <Sidebar collapsible="icon" className="border-r border-sidebar-border">
@@ -157,42 +154,69 @@ export function AppSidebar() {
         ))}
       </SidebarContent>
 
-      <SidebarFooter className="p-4 border-t border-sidebar-border">
-        {!isCollapsed && user && (
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-sm">
-              <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-medium">
-                {user.email?.charAt(0).toUpperCase()}
+      <SidebarFooter className="border-t border-sidebar-border">
+        {/* System items */}
+        {filteredSystemItems.length > 0 && (
+          <SidebarMenu className="px-2 py-1">
+            {filteredSystemItems.map((item) => {
+              const isActive = location.pathname === item.url;
+              return (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={isActive}
+                    tooltip={item.title}
+                    size="sm"
+                  >
+                    <NavLink to={item.url}>
+                      <item.icon className={`h-4 w-4 ${isActive ? "text-primary" : ""}`} />
+                      <span>{item.title}</span>
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              );
+            })}
+          </SidebarMenu>
+        )}
+
+        {/* User info */}
+        <div className="p-3 border-t border-sidebar-border">
+          {!isCollapsed && user && (
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-sm">
+                <div className="w-7 h-7 rounded-full bg-primary/20 flex items-center justify-center text-primary text-xs font-medium">
+                  {user.email?.charAt(0).toUpperCase()}
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-sidebar-foreground truncate max-w-[90px] text-xs">
+                    {user.email}
+                  </span>
+                  <span className="text-[10px] text-muted-foreground">
+                    {isGestao ? 'Gestão' : isVendedor ? 'Vendedor' : isProducao ? 'Produção' : isCliente ? 'Cliente' : 'Usuário'}
+                  </span>
+                </div>
               </div>
-              <div className="flex flex-col">
-                <span className="text-sidebar-foreground truncate max-w-[100px]">
-                  {user.email}
-                </span>
-                <span className="text-xs text-muted-foreground">
-                  {isGestao ? 'Gestão' : isVendedor ? 'Vendedor' : isProducao ? 'Produção' : isCliente ? 'Cliente' : 'Usuário'}
-                </span>
-              </div>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={signOut}
+                className="h-7 w-7"
+              >
+                <LogOut className="h-3.5 w-3.5" />
+              </Button>
             </div>
+          )}
+          {isCollapsed && (
             <Button 
               variant="ghost" 
               size="icon" 
               onClick={signOut}
-              className="h-8 w-8"
+              className="w-full h-7"
             >
-              <LogOut className="h-4 w-4" />
+              <LogOut className="h-3.5 w-3.5" />
             </Button>
-          </div>
-        )}
-        {isCollapsed && (
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            onClick={signOut}
-            className="w-full"
-          >
-            <LogOut className="h-4 w-4" />
-          </Button>
-        )}
+          )}
+        </div>
       </SidebarFooter>
     </Sidebar>
   );
