@@ -11,7 +11,8 @@ import {
   TrendingUp,
   LogOut,
   List,
-  BarChart3
+  BarChart3,
+  Search
 } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import {
@@ -56,6 +57,7 @@ const menuSections: MenuSection[] = [
     label: "Comercial",
     items: [
       { title: "Leads", url: "/leads", icon: List, permission: 'vendedor' },
+      { title: "Prospecção", url: "/prospeccao", icon: Search, permission: 'vendedor' },
       { title: "CRM", url: "/crm", icon: Target, permission: 'vendedor' },
       { title: "Métricas", url: "/metricas-comerciais", icon: BarChart3, permission: 'vendedor' },
     ]

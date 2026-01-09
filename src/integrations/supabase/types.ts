@@ -1303,6 +1303,162 @@ export type Database = {
         }
         Relationships: []
       }
+      prospect_list_items: {
+        Row: {
+          added_at: string | null
+          id: string
+          list_id: string | null
+          prospect_id: string | null
+        }
+        Insert: {
+          added_at?: string | null
+          id?: string
+          list_id?: string | null
+          prospect_id?: string | null
+        }
+        Update: {
+          added_at?: string | null
+          id?: string
+          list_id?: string | null
+          prospect_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prospect_list_items_list_id_fkey"
+            columns: ["list_id"]
+            isOneToOne: false
+            referencedRelation: "prospect_lists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prospect_list_items_prospect_id_fkey"
+            columns: ["prospect_id"]
+            isOneToOne: false
+            referencedRelation: "prospects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      prospect_lists: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          id: string
+          name: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          name: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      prospects: {
+        Row: {
+          city: string | null
+          cnae_code: string | null
+          cnae_description: string | null
+          cnpj: string | null
+          company_size: string | null
+          created_at: string | null
+          data_revealed: boolean | null
+          emails: string[] | null
+          emails_count: number | null
+          has_email: boolean | null
+          has_phone: boolean | null
+          has_website: boolean | null
+          id: string
+          is_archived: boolean | null
+          name: string
+          neighborhood: string | null
+          phones: string[] | null
+          phones_count: number | null
+          revealed_at: string | null
+          segment: string | null
+          social_links: Json | null
+          source: string | null
+          state: string | null
+          status: string | null
+          tags: string[] | null
+          updated_at: string | null
+          website_url: string | null
+          zip_code: string | null
+        }
+        Insert: {
+          city?: string | null
+          cnae_code?: string | null
+          cnae_description?: string | null
+          cnpj?: string | null
+          company_size?: string | null
+          created_at?: string | null
+          data_revealed?: boolean | null
+          emails?: string[] | null
+          emails_count?: number | null
+          has_email?: boolean | null
+          has_phone?: boolean | null
+          has_website?: boolean | null
+          id?: string
+          is_archived?: boolean | null
+          name: string
+          neighborhood?: string | null
+          phones?: string[] | null
+          phones_count?: number | null
+          revealed_at?: string | null
+          segment?: string | null
+          social_links?: Json | null
+          source?: string | null
+          state?: string | null
+          status?: string | null
+          tags?: string[] | null
+          updated_at?: string | null
+          website_url?: string | null
+          zip_code?: string | null
+        }
+        Update: {
+          city?: string | null
+          cnae_code?: string | null
+          cnae_description?: string | null
+          cnpj?: string | null
+          company_size?: string | null
+          created_at?: string | null
+          data_revealed?: boolean | null
+          emails?: string[] | null
+          emails_count?: number | null
+          has_email?: boolean | null
+          has_phone?: boolean | null
+          has_website?: boolean | null
+          id?: string
+          is_archived?: boolean | null
+          name?: string
+          neighborhood?: string | null
+          phones?: string[] | null
+          phones_count?: number | null
+          revealed_at?: string | null
+          segment?: string | null
+          social_links?: Json | null
+          source?: string | null
+          state?: string | null
+          status?: string | null
+          tags?: string[] | null
+          updated_at?: string | null
+          website_url?: string | null
+          zip_code?: string | null
+        }
+        Relationships: []
+      }
       receivables: {
         Row: {
           client_id: string | null
@@ -1398,6 +1554,39 @@ export type Database = {
           name?: string
           position?: number | null
           updated_at?: string
+        }
+        Relationships: []
+      }
+      saved_searches: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          filters: Json
+          id: string
+          name: string
+          results_count: number | null
+          search_type: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          filters?: Json
+          id?: string
+          name: string
+          results_count?: number | null
+          search_type?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          filters?: Json
+          id?: string
+          name?: string
+          results_count?: number | null
+          search_type?: string | null
+          updated_at?: string | null
         }
         Relationships: []
       }
