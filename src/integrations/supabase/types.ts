@@ -220,6 +220,51 @@ export type Database = {
           },
         ]
       }
+      contract_services: {
+        Row: {
+          contract_id: string
+          created_at: string
+          custom_price: number | null
+          id: string
+          notes: string | null
+          service_id: string
+          updated_at: string
+        }
+        Insert: {
+          contract_id: string
+          created_at?: string
+          custom_price?: number | null
+          id?: string
+          notes?: string | null
+          service_id: string
+          updated_at?: string
+        }
+        Update: {
+          contract_id?: string
+          created_at?: string
+          custom_price?: number | null
+          id?: string
+          notes?: string | null
+          service_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contract_services_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "contracts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contract_services_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "available_services"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contract_templates: {
         Row: {
           content: string
