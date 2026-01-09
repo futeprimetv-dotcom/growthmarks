@@ -40,6 +40,7 @@ export function CNPJPullTab() {
   const [state, setState] = useState<string | undefined>();
   const [city, setCity] = useState<string | undefined>();
   const [companySize, setCompanySize] = useState<string | undefined>();
+  const [limit, setLimit] = useState(100);
   
   const [results, setResults] = useState<CNPJResult[]>([]);
   const [progress, setProgress] = useState<SearchProgress>({
@@ -76,6 +77,7 @@ export function CNPJPullTab() {
           states: [state],
           cities: city ? [city] : undefined,
           companySizes: companySize ? [companySize] : undefined,
+          limit,
         },
       });
 
@@ -163,6 +165,7 @@ export function CNPJPullTab() {
     setState(undefined);
     setCity(undefined);
     setCompanySize(undefined);
+    setLimit(100);
     setResults([]);
     setProgress({
       status: "idle",
@@ -172,6 +175,15 @@ export function CNPJPullTab() {
       inactiveCount: 0,
     });
   };
+
+  const limitOptions = [
+    { value: 10, label: "10 CNPJs" },
+    { value: 25, label: "25 CNPJs" },
+    { value: 50, label: "50 CNPJs" },
+    { value: 100, label: "100 CNPJs" },
+    { value: 500, label: "500 CNPJs" },
+    { value: 1000, label: "1000 CNPJs" },
+  ];
 
   const isSearching = progress.status === "searching" || progress.status === "processing";
 
@@ -238,6 +250,22 @@ export function CNPJPullTab() {
               {companySizes.map((size) => (
                 <SelectItem key={size.value} value={size.value}>
                   {size.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-1">
+          <label className="text-xs text-muted-foreground">Limite</label>
+          <Select value={String(limit)} onValueChange={(v) => setLimit(Number(v))}>
+            <SelectTrigger className="w-[140px]">
+              <SelectValue placeholder="Limite" />
+            </SelectTrigger>
+            <SelectContent>
+              {limitOptions.map((opt) => (
+                <SelectItem key={opt.value} value={String(opt.value)}>
+                  {opt.label}
                 </SelectItem>
               ))}
             </SelectContent>
