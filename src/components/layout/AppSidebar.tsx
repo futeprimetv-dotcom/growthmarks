@@ -30,9 +30,11 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useAppearance } from "@/contexts/AppearanceContext";
+import { useTeamMembers } from "@/hooks/useTeamMembers";
 
 interface MenuItem {
   title: string;
@@ -93,7 +95,28 @@ export function AppSidebar() {
   const { user, signOut } = useAuth();
   const { isGestao, isProducao, isCliente, isVendedor, loading: roleLoading } = useUserRole();
   const { logoSrc } = useAppearance();
+  const { data: teamMembers } = useTeamMembers();
   const isCollapsed = state === "collapsed";
+
+  // Busca o membro da equipe do usuário atual
+  const currentMember = teamMembers?.find(m => m.user_id === user?.id);
+
+  const getInitials = (name: string) => {
+    return name
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2);
+  };
+
+  const getRoleLabel = () => {
+    if (isGestao) return 'Gestão';
+    if (isVendedor) return 'Vendedor';
+    if (isProducao) return 'Produção';
+    if (isCliente) return 'Cliente';
+    return 'Usuário';
+  };
 
   const canViewItem = (permission?: string) => {
     if (roleLoading) return true; // Show all during loading
@@ -187,38 +210,51 @@ export function AppSidebar() {
         <div className="p-3 border-t border-sidebar-border">
           {!isCollapsed && user && (
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-sm">
-                <div className="w-7 h-7 rounded-full bg-primary/20 flex items-center justify-center text-primary text-xs font-medium">
-                  {user.email?.charAt(0).toUpperCase()}
-                </div>
-                <div className="flex flex-col">
-                  <span className="text-sidebar-foreground truncate max-w-[90px] text-xs">
-                    {user.email}
+              <NavLink to="/perfil" className="flex items-center gap-2 text-sm hover:opacity-80 transition-opacity flex-1 min-w-0">
+                <Avatar className="h-8 w-8 shrink-0">
+                  <AvatarImage src={currentMember?.avatar || undefined} />
+                  <AvatarFallback className="text-xs bg-primary text-primary-foreground">
+                    {currentMember ? getInitials(currentMember.name) : user.email?.charAt(0).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex flex-col min-w-0">
+                  <span className="text-sidebar-foreground truncate text-xs font-medium">
+                    {currentMember?.name || user.email}
                   </span>
                   <span className="text-[10px] text-muted-foreground">
-                    {isGestao ? 'Gestão' : isVendedor ? 'Vendedor' : isProducao ? 'Produção' : isCliente ? 'Cliente' : 'Usuário'}
+                    {getRoleLabel()}
                   </span>
                 </div>
-              </div>
+              </NavLink>
               <Button 
                 variant="ghost" 
                 size="icon" 
                 onClick={signOut}
-                className="h-7 w-7"
+                className="h-7 w-7 shrink-0"
               >
                 <LogOut className="h-3.5 w-3.5" />
               </Button>
             </div>
           )}
-          {isCollapsed && (
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              onClick={signOut}
-              className="w-full h-7"
-            >
-              <LogOut className="h-3.5 w-3.5" />
-            </Button>
+          {isCollapsed && user && (
+            <div className="flex flex-col items-center gap-2">
+              <NavLink to="/perfil">
+                <Avatar className="h-7 w-7">
+                  <AvatarImage src={currentMember?.avatar || undefined} />
+                  <AvatarFallback className="text-xs bg-primary text-primary-foreground">
+                    {currentMember ? getInitials(currentMember.name) : user.email?.charAt(0).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+              </NavLink>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={signOut}
+                className="w-full h-7"
+              >
+                <LogOut className="h-3.5 w-3.5" />
+              </Button>
+            </div>
           )}
         </div>
       </SidebarFooter>
