@@ -27,26 +27,65 @@ function extractPhones(text: string): string[] {
 function extractEmails(text: string): string[] {
   const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
   const matches = text.match(emailRegex) || [];
+  
+  // File extensions and patterns to exclude
+  const invalidPatterns = [
+    /\.(png|jpg|jpeg|gif|svg|webp|ico|bmp|tiff)$/i,
+    /\.(pdf|doc|docx|xls|xlsx|ppt|pptx|zip|rar)$/i,
+    /\.(js|ts|css|html|json|xml|txt|md|csv)$/i,
+    /example|teste|test|sample|placeholder|noreply|no-reply/i,
+    /\d{8,}/,  // Long numeric strings (likely hashes)
+    /@\dx\./,  // Patterns like @1x. or @2x. (image variants)
+    /[a-f0-9]{8,}\./i,  // Hash-like patterns
+  ];
+  
   return [...new Set(matches
     .map(e => e.toLowerCase())
-    .filter(e => !e.includes("example") && !e.includes("teste"))
+    .filter(email => {
+      // Check if email matches any invalid pattern
+      for (const pattern of invalidPatterns) {
+        if (pattern.test(email)) return false;
+      }
+      // Must have valid TLD
+      const parts = email.split("@");
+      if (parts.length !== 2) return false;
+      const domain = parts[1];
+      if (!domain.includes(".")) return false;
+      const tld = domain.split(".").pop();
+      // Valid email TLDs should be reasonable length
+      if (!tld || tld.length < 2 || tld.length > 10) return false;
+      return true;
+    })
   )];
 }
 
 // Extract Instagram handles
 function extractInstagram(text: string): string[] {
   const patterns = [
-    /@([a-zA-Z0-9._]{1,30})/g,
     /instagram\.com\/([a-zA-Z0-9._]{1,30})/gi,
     /instagram:\s*@?([a-zA-Z0-9._]{1,30})/gi,
     /insta:\s*@?([a-zA-Z0-9._]{1,30})/gi,
+  ];
+  
+  // Invalid handle patterns
+  const invalidHandles = [
+    "com", "br", "p", "reel", "stories", "explore", "accounts", 
+    "direct", "help", "about", "privacy", "terms", "api",
+    "png", "jpg", "jpeg", "gif", "svg", "webp", "ico"
   ];
   
   const handles: string[] = [];
   for (const pattern of patterns) {
     const matches = text.matchAll(pattern);
     for (const match of matches) {
-      if (match[1] && !["com", "br", "p", "reel", "stories"].includes(match[1].toLowerCase())) {
+      if (match[1]) {
+        const handle = match[1].toLowerCase();
+        // Skip if it's an invalid handle or looks like a file extension
+        if (invalidHandles.includes(handle)) continue;
+        if (/\.(png|jpg|jpeg|gif|svg|webp)$/i.test(handle)) continue;
+        if (/[a-f0-9]{8,}/i.test(handle)) continue;  // Hash-like
+        if (/^\d+$/.test(handle)) continue;  // Pure numbers
+        if (handle.length < 3) continue;  // Too short
         handles.push(match[1]);
       }
     }
