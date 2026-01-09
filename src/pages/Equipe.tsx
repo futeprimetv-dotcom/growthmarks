@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -52,10 +52,14 @@ export default function Equipe() {
 
   const { user } = useAuth();
   const { isGestao } = useUserRole();
-  const { data: teamMembers, isLoading } = useTeamMembers();
+  const { data: teamMembers, isLoading, refetch: refetchTeamMembers } = useTeamMembers();
   const { data: demands } = useDemands();
   const { data: pendingUsers } = usePendingUsers();
   const deleteMember = useDeleteTeamMember();
+
+  useEffect(() => {
+    refetchTeamMembers();
+  }, [refetchTeamMembers]);
 
   // Fetch user roles for all team members with user_ids
   const { data: userRoles } = useQuery({
