@@ -45,7 +45,7 @@ export default function Prospeccao() {
   const [batchDialogOpen, setBatchDialogOpen] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   const [showResultsPanel, setShowResultsPanel] = useState(false);
-  const [searchMode, setSearchMode] = useState<"api" | "database">("api");
+  const [searchMode, setSearchMode] = useState<"internet" | "cnpj" | "database">("internet");
   
   // API Search results
   const [apiResults, setApiResults] = useState<CompanySearchResult[]>([]);
@@ -145,7 +145,7 @@ export default function Prospeccao() {
     setApiResults([]);
     setApiTotal(0);
     
-    if (searchMode === "api") {
+    if (searchMode === "internet") {
       // Check cache first
       const cached = findCached(filters);
       if (cached) {
@@ -263,7 +263,7 @@ export default function Prospeccao() {
   };
 
   const handleExport = () => {
-    const dataToExport = searchMode === "api" ? apiResults : prospects;
+    const dataToExport = searchMode === "internet" ? apiResults : prospects;
     const selectedData = dataToExport.filter(p => selectedIds.includes(p.id || p.cnpj));
     
     // Create CSV content
@@ -293,7 +293,7 @@ export default function Prospeccao() {
   };
 
   const handleSendToLeadsBase = async () => {
-    if (searchMode === "api") {
+    if (searchMode === "internet") {
       // Convert API results to prospects first
       const selectedCompanies = apiResults.filter(c => selectedIds.includes(c.id || c.cnpj));
       
@@ -488,7 +488,7 @@ export default function Prospeccao() {
   };
 
   // Transform API results to the same format as prospects for the table
-  const displayData = searchMode === "api" ? apiResults.map(c => ({
+  const displayData = searchMode === "internet" ? apiResults.map(c => ({
     id: c.id || c.cnpj,
     name: c.name,
     cnpj: c.cnpj,
@@ -514,11 +514,11 @@ export default function Prospeccao() {
     source: "casadosdados",
   })) : prospects;
 
-  const isLoading = searchMode === "api" ? companySearch.isPending : dbLoading;
-  const totalResults = searchMode === "api" ? apiTotal : prospects.length;
+  const isLoading = searchMode === "internet" ? companySearch.isPending : dbLoading;
+  const totalResults = searchMode === "internet" ? apiTotal : prospects.length;
 
-  // If showing results panel (API search), render a clean view
-  if (showResultsPanel && searchMode === "api") {
+  // If showing results panel (internet search), render a clean view
+  if (showResultsPanel && searchMode === "internet") {
     return (
       <>
         <SearchLoadingOverlay isVisible={companySearch.isPending} filters={filters} onCancel={handleCancelSearch} />
@@ -617,7 +617,7 @@ export default function Prospeccao() {
           
           <div className="flex items-center gap-2 flex-wrap">
             {/* Quick actions for API search */}
-            {searchMode === "api" && (
+            {searchMode === "internet" && (
               <>
                 <SearchLimitSelector 
                   value={pageSize} 
@@ -660,55 +660,17 @@ export default function Prospeccao() {
           </div>
         </div>
 
-        {/* CNPJ Search */}
-        <div className="mb-4">
-          <p className="text-sm font-medium mb-2">Consultar empresa por CNPJ (BrasilAPI)</p>
-          <div className="flex items-center gap-4">
-            <CNPJSearchInput
-              onSearch={handleCNPJSearch}
-              onClear={handleCNPJClear}
-              isLoading={cnpjLoading}
-              hasResult={!!cnpjResult}
-            />
-            <Button 
-              variant="outline" 
-              onClick={() => setBatchDialogOpen(true)}
-              className="shrink-0"
-            >
-              <FileSpreadsheet className="h-4 w-4 mr-2" />
-              Consulta em Lote
-            </Button>
-          </div>
-        </div>
-        
-        {/* CNPJ Result */}
-        {cnpjResult && (
-          <div className="mb-4">
-            <CNPJResultCard
-              data={cnpjResult}
-              onAddToProspects={handleAddCNPJToProspects}
-              onSendToLeads={handleSendCNPJToLeads}
-              onSendToFunnel={() => setSendCNPJToFunnelOpen(true)}
-              isAdding={addProspectFromCNPJ.isPending || sendToLeadsBase.isPending}
-            />
-          </div>
-        )}
-        
-        {cnpjError && (
-          <Alert variant="destructive" className="mb-4">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>{cnpjError}</AlertDescription>
-          </Alert>
-        )}
 
-        <Separator className="my-4" />
-
-        {/* Search Mode Tabs */}
-        <Tabs value={searchMode} onValueChange={(v) => setSearchMode(v as "api" | "database")} className="mb-4">
-          <TabsList>
-            <TabsTrigger value="api" className="flex items-center gap-2">
+        {/* Search Mode Tabs - 3 modos principais */}
+        <Tabs value={searchMode} onValueChange={(v) => setSearchMode(v as "internet" | "cnpj" | "database")} className="mb-4">
+          <TabsList className="grid w-full grid-cols-3 max-w-lg">
+            <TabsTrigger value="internet" className="flex items-center gap-2">
               <Globe className="h-4 w-4" />
-              Buscar na Internet
+              <span className="hidden sm:inline">Buscar na</span> Internet
+            </TabsTrigger>
+            <TabsTrigger value="cnpj" className="flex items-center gap-2">
+              <Search className="h-4 w-4" />
+              Consulta CNPJ
             </TabsTrigger>
             <TabsTrigger value="database" className="flex items-center gap-2">
               <Database className="h-4 w-4" />
@@ -717,30 +679,96 @@ export default function Prospeccao() {
           </TabsList>
         </Tabs>
 
-        {/* Search Mode Description */}
-        <div className="mb-4 text-sm text-muted-foreground">
-          {searchMode === "api" ? (
-            <span className="flex items-center gap-1">
-              <Globe className="h-4 w-4" />
-              Busca empresas ativas via web scraping inteligente (Firecrawl + BrasilAPI)
-            </span>
-          ) : (
-            <span className="flex items-center gap-1">
-              <Database className="h-4 w-4" />
-              Busca apenas nos prospectos que você já salvou na sua base local
-            </span>
-          )}
-        </div>
+        {/* Content based on search mode */}
+        {searchMode === "internet" && (
+          <>
+            {/* Search Mode Description */}
+            <div className="mb-4 text-sm text-muted-foreground">
+              <span className="flex items-center gap-1">
+                <Globe className="h-4 w-4" />
+                Busca empresas ativas via web scraping inteligente (Firecrawl + BrasilAPI)
+              </span>
+            </div>
 
-        {/* Filters - Horizontal Bar */}
-        <ProspeccaoFilters
-          filters={filters}
-          onFiltersChange={setFilters}
-          onSearch={handleSearch}
-          onClear={handleClearFilters}
-          onSaveSearch={() => setSaveSearchOpen(true)}
-          isLoading={isLoading}
-        />
+            {/* Filters - Horizontal Bar */}
+            <ProspeccaoFilters
+              filters={filters}
+              onFiltersChange={setFilters}
+              onSearch={handleSearch}
+              onClear={handleClearFilters}
+              onSaveSearch={() => setSaveSearchOpen(true)}
+              isLoading={isLoading}
+            />
+          </>
+        )}
+
+        {searchMode === "cnpj" && (
+          <div className="space-y-4">
+            <div className="text-sm text-muted-foreground">
+              <span className="flex items-center gap-1">
+                <Search className="h-4 w-4" />
+                Consulte empresas diretamente pelo CNPJ usando a BrasilAPI
+              </span>
+            </div>
+            
+            <div className="flex items-center gap-4">
+              <CNPJSearchInput
+                onSearch={handleCNPJSearch}
+                onClear={handleCNPJClear}
+                isLoading={cnpjLoading}
+                hasResult={!!cnpjResult}
+              />
+              <Button 
+                variant="outline" 
+                onClick={() => setBatchDialogOpen(true)}
+                className="shrink-0"
+              >
+                <FileSpreadsheet className="h-4 w-4 mr-2" />
+                Consulta em Lote
+              </Button>
+            </div>
+            
+            {/* CNPJ Result */}
+            {cnpjResult && (
+              <CNPJResultCard
+                data={cnpjResult}
+                onAddToProspects={handleAddCNPJToProspects}
+                onSendToLeads={handleSendCNPJToLeads}
+                onSendToFunnel={() => setSendCNPJToFunnelOpen(true)}
+                isAdding={addProspectFromCNPJ.isPending || sendToLeadsBase.isPending}
+              />
+            )}
+            
+            {cnpjError && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{cnpjError}</AlertDescription>
+              </Alert>
+            )}
+          </div>
+        )}
+
+        {searchMode === "database" && (
+          <>
+            {/* Search Mode Description */}
+            <div className="mb-4 text-sm text-muted-foreground">
+              <span className="flex items-center gap-1">
+                <Database className="h-4 w-4" />
+                Busca apenas nos prospectos que você já salvou na sua base local
+              </span>
+            </div>
+
+            {/* Filters - Horizontal Bar */}
+            <ProspeccaoFilters
+              filters={filters}
+              onFiltersChange={setFilters}
+              onSearch={handleSearch}
+              onClear={handleClearFilters}
+              onSaveSearch={() => setSaveSearchOpen(true)}
+              isLoading={isLoading}
+            />
+          </>
+        )}
       </div>
 
       {/* Results Header - Only for database mode */}
@@ -781,36 +809,57 @@ export default function Prospeccao() {
 
       {/* Content */}
       <div className="flex-1 overflow-auto p-6">
-        {isError && searchMode === "database" ? (
-          <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
-              Erro ao carregar os prospectos.{" "}
-              <Button variant="link" className="p-0 h-auto" onClick={() => refetch()}>
-                Tentar novamente
-              </Button>
-            </AlertDescription>
-          </Alert>
-        ) : !hasSearched || searchMode === "api" ? (
+        {searchMode === "cnpj" ? (
+          // CNPJ mode - show empty state or nothing (content is in header)
+          !cnpjResult && !cnpjError && (
+            <div className="flex flex-col items-center justify-center py-20 text-center">
+              <Search className="h-16 w-16 text-muted-foreground/30 mb-4" />
+              <h3 className="text-lg font-semibold">Consulte empresas pelo CNPJ</h3>
+              <p className="text-muted-foreground mt-1 max-w-md">
+                Digite um CNPJ no campo acima ou use a consulta em lote para buscar múltiplas empresas de uma vez.
+              </p>
+            </div>
+          )
+        ) : searchMode === "database" ? (
+          // Database mode
+          isError ? (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                Erro ao carregar os prospectos.{" "}
+                <Button variant="link" className="p-0 h-auto" onClick={() => refetch()}>
+                  Tentar novamente
+                </Button>
+              </AlertDescription>
+            </Alert>
+          ) : !hasSearched ? (
+            <div className="flex flex-col items-center justify-center py-20 text-center">
+              <Database className="h-16 w-16 text-muted-foreground/30 mb-4" />
+              <h3 className="text-lg font-semibold">Sua base de prospectos</h3>
+              <p className="text-muted-foreground mt-1 max-w-md">
+                Utilize os filtros acima para encontrar empresas que você já salvou.
+              </p>
+            </div>
+          ) : (
+            <ProspeccaoTable
+              prospects={displayData}
+              isLoading={isLoading}
+              selectedIds={selectedIds}
+              onSelectChange={setSelectedIds}
+              page={page}
+              onPageChange={setPage}
+              pageSize={pageSize}
+            />
+          )
+        ) : (
+          // Internet mode - show empty state
           <div className="flex flex-col items-center justify-center py-20 text-center">
-            <Search className="h-16 w-16 text-muted-foreground/30 mb-4" />
-            <h3 className="text-lg font-semibold">Encontre empresas para prospectar</h3>
+            <Globe className="h-16 w-16 text-muted-foreground/30 mb-4" />
+            <h3 className="text-lg font-semibold">Encontre empresas na internet</h3>
             <p className="text-muted-foreground mt-1 max-w-md">
-              {searchMode === "api" 
-                ? "Utilize os filtros acima e clique em Buscar para encontrar empresas ativas."
-                : "Consulte um CNPJ específico ou utilize os filtros para encontrar empresas na sua base."}
+              Configure os filtros acima e clique em Buscar para encontrar empresas ativas.
             </p>
           </div>
-        ) : (
-          <ProspeccaoTable
-            prospects={displayData}
-            isLoading={isLoading}
-            selectedIds={selectedIds}
-            onSelectChange={setSelectedIds}
-            page={page}
-            onPageChange={setPage}
-            pageSize={pageSize}
-          />
         )}
       </div>
 
