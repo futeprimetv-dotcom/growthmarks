@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useLeads, useUpdateLead, useDeleteLead } from "@/hooks/useLeads";
 import { useTeamMembers } from "@/hooks/useTeamMembers";
-import { DollarSign, Phone, Calendar, User, Flame, Snowflake, ThermometerSun, Plus, Edit2, Trash2, GripVertical } from "lucide-react";
+import { DollarSign, Phone, Calendar, User, Flame, Snowflake, ThermometerSun, Plus, Edit2, Trash2, GripVertical, ArrowRightLeft } from "lucide-react";
 import {
   DndContext,
   DragEndEvent,
@@ -21,6 +21,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { LeadFormDialog } from "./LeadFormDialog";
 import { LeadScoreBadge } from "./LeadScoreBadge";
 import { WhatsAppButton } from "./WhatsAppButton";
+import { MoveFunnelDialog } from "./MoveFunnelDialog";
 import { Tables } from "@/integrations/supabase/types";
 import {
   AlertDialog,
@@ -58,10 +59,11 @@ interface LeadCardProps {
   teamMembers: { id: string; name: string }[];
   onEdit: (lead: Lead) => void;
   onDelete: (lead: Lead) => void;
+  onMoveFunnel: (lead: Lead) => void;
   isDragging?: boolean;
 }
 
-function LeadCard({ lead, teamMembers, onEdit, onDelete, isDragging }: LeadCardProps) {
+function LeadCard({ lead, teamMembers, onEdit, onDelete, onMoveFunnel, isDragging }: LeadCardProps) {
   const responsible = teamMembers.find(m => m.id === lead.responsible_id);
   const temp = lead.temperature as keyof typeof temperatureIcons;
   const TempIcon = temperatureIcons[temp]?.icon || Snowflake;
@@ -146,6 +148,15 @@ function LeadCard({ lead, teamMembers, onEdit, onDelete, isDragging }: LeadCardP
                 variant="ghost" 
                 size="icon" 
                 className="h-6 w-6"
+                onClick={(e) => { e.stopPropagation(); onMoveFunnel(lead); }}
+                title="Mover para outro funil"
+              >
+                <ArrowRightLeft className="h-3 w-3 text-primary" />
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="h-6 w-6"
                 onClick={(e) => { e.stopPropagation(); onEdit(lead); }}
               >
                 <Edit2 className="h-3 w-3" />
@@ -173,9 +184,10 @@ interface PipelineColumnProps {
   teamMembers: { id: string; name: string }[];
   onEditLead: (lead: Lead) => void;
   onDeleteLead: (lead: Lead) => void;
+  onMoveFunnelLead: (lead: Lead) => void;
 }
 
-function PipelineColumn({ column, leads, totalValue, teamMembers, onEditLead, onDeleteLead }: PipelineColumnProps) {
+function PipelineColumn({ column, leads, totalValue, teamMembers, onEditLead, onDeleteLead, onMoveFunnelLead }: PipelineColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id: column.id });
 
   return (
@@ -202,6 +214,7 @@ function PipelineColumn({ column, leads, totalValue, teamMembers, onEditLead, on
             teamMembers={teamMembers}
             onEdit={onEditLead}
             onDelete={onDeleteLead}
+            onMoveFunnel={onMoveFunnelLead}
           />
         ))}
         {leads.length === 0 && (
@@ -228,6 +241,8 @@ export function SalesPipeline({ funnelId }: SalesPipelineProps) {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<Lead | null>(null);
+  const [moveFunnelOpen, setMoveFunnelOpen] = useState(false);
+  const [leadToMove, setLeadToMove] = useState<Lead | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -305,6 +320,11 @@ export function SalesPipeline({ funnelId }: SalesPipelineProps) {
     setDeleteConfirm(lead);
   };
 
+  const handleMoveFunnelLead = (lead: Lead) => {
+    setLeadToMove(lead);
+    setMoveFunnelOpen(true);
+  };
+
   const confirmDelete = () => {
     if (deleteConfirm) {
       deleteLead.mutate({ id: deleteConfirm.id, name: deleteConfirm.name });
@@ -355,6 +375,7 @@ export function SalesPipeline({ funnelId }: SalesPipelineProps) {
                   teamMembers={teamMembers}
                   onEditLead={handleEditLead}
                   onDeleteLead={handleDeleteLead}
+                  onMoveFunnelLead={handleMoveFunnelLead}
                 />
               );
             })}
@@ -368,6 +389,7 @@ export function SalesPipeline({ funnelId }: SalesPipelineProps) {
               teamMembers={teamMembers}
               onEdit={() => {}}
               onDelete={() => {}}
+              onMoveFunnel={() => {}}
               isDragging 
             />
           ) : null}
@@ -379,6 +401,12 @@ export function SalesPipeline({ funnelId }: SalesPipelineProps) {
         onOpenChange={setIsFormOpen}
         lead={editingLead}
         defaultFunnelId={funnelId}
+      />
+
+      <MoveFunnelDialog
+        open={moveFunnelOpen}
+        onOpenChange={setMoveFunnelOpen}
+        lead={leadToMove}
       />
 
       <AlertDialog open={!!deleteConfirm} onOpenChange={() => setDeleteConfirm(null)}>
