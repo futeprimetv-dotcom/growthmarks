@@ -45,17 +45,42 @@ export function useCreateClient() {
   
   return useMutation({
     mutationFn: async (client: ClientInsert) => {
-      const { data, error } = await supabase
+      // Create the client
+      const { data: clientData, error: clientError } = await supabase
         .from("clients")
         .insert(client)
         .select()
         .single();
       
-      if (error) throw error;
-      return data;
+      if (clientError) throw clientError;
+
+      // Auto-create contract if client has contract data
+      if (clientData && (client.contract_start || client.monthly_value)) {
+        const contractData = {
+          client_id: clientData.id,
+          type: client.contract_type || "mensal",
+          value: client.monthly_value || 0,
+          start_date: client.contract_start || new Date().toISOString().split("T")[0],
+          end_date: client.contract_end || null,
+          status: "active",
+          notes: `Contrato criado automaticamente ao cadastrar o cliente ${clientData.name}`,
+        };
+
+        const { error: contractError } = await supabase
+          .from("contracts")
+          .insert(contractData);
+
+        if (contractError) {
+          console.error("Error creating contract:", contractError);
+          // Don't throw - client was created successfully
+        }
+      }
+
+      return clientData;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["clients"] });
+      queryClient.invalidateQueries({ queryKey: ["contracts"] });
       toast.success("Cliente criado com sucesso!");
     },
     onError: (error) => {
