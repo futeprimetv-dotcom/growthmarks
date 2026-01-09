@@ -27,6 +27,7 @@ import { SearchLimitSelector } from "@/components/prospeccao/SearchLimitSelector
 import { SearchTemplates } from "@/components/prospeccao/SearchTemplates";
 import { SearchHistory } from "@/components/prospeccao/SearchHistory";
 import { ICPSettingsDialog } from "@/components/prospeccao/ICPSettingsDialog";
+import { ICPIndicator } from "@/components/prospeccao/ICPIndicator";
 import { useProspects, useSendToLeadsBase, useAddProspectFromCNPJ, type ProspectFilters } from "@/hooks/useProspects";
 import { useSavedSearches } from "@/hooks/useSavedSearches";
 import { useCNPJLookupManual, type CNPJLookupResult } from "@/hooks/useCNPJLookup";
@@ -620,6 +621,9 @@ export default function Prospeccao() {
           </div>
           
           <div className="flex items-center gap-2 flex-wrap">
+            {/* ICP Indicator - always visible */}
+            <ICPIndicator />
+
             {/* Quick actions for API search */}
             {searchMode === "internet" && (
               <>
