@@ -79,6 +79,8 @@ async function fallbackLookupCNPJ(cnpj: string): Promise<any | null> {
     if (!response.ok) return null;
     const data = await response.json();
     
+    // situacao_cadastral from cnpj.ws: "Ativa", "Baixada", "Inapta", etc.
+    const situacao = data.estabelecimento?.situacao_cadastral;
     return {
       razao_social: data.razao_social,
       nome_fantasia: data.estabelecimento?.nome_fantasia,
@@ -94,7 +96,7 @@ async function fallbackLookupCNPJ(cnpj: string): Promise<any | null> {
       ddd_telefone_1: data.estabelecimento?.ddd1 && data.estabelecimento?.telefone1 
         ? `${data.estabelecimento.ddd1}${data.estabelecimento.telefone1}` : null,
       email: data.estabelecimento?.email,
-      situacao_cadastral: data.estabelecimento?.situacao_cadastral,
+      situacao_cadastral: situacao || "Ativa",
       capital_social: data.capital_social,
       data_inicio_atividade: data.estabelecimento?.data_inicio_atividade,
     };
@@ -196,18 +198,29 @@ serve(async (req) => {
         
         if (!data) continue;
         
-        // Check if active
-        const isActive = data.situacao_cadastral === "ATIVA" || 
-                         data.situacao_cadastral === "Ativa";
-        if (!isActive) continue;
+        // Check if active - handle various API response formats
+        const situacao = String(data.situacao_cadastral || "").toLowerCase();
+        const isActive = situacao === "ativa" || 
+                         situacao === "02" || // CNPJ.ws code for active
+                         situacao.includes("ativ");
+        if (!isActive) {
+          console.log(`CNPJ ${cnpj} skipped - situacao: ${data.situacao_cadastral}`);
+          continue;
+        }
         
-        // Apply location filters
-        const matchesState = !filters.states?.length || filters.states.includes(data.uf);
-        const matchesCity = !filters.cities?.length || filters.cities.some(c => 
-          data.municipio?.toUpperCase().includes(c.toUpperCase())
-        );
+        // Apply location filters - more flexible matching
+        const dataUF = data.uf?.toUpperCase();
+        const dataMunicipio = data.municipio?.toUpperCase() || "";
         
-        if (!matchesState || !matchesCity) continue;
+        const matchesState = !filters.states?.length || 
+          filters.states.some(s => s.toUpperCase() === dataUF);
+        const matchesCity = !filters.cities?.length || 
+          filters.cities.some(c => dataMunicipio.includes(c.toUpperCase()) || c.toUpperCase().includes(dataMunicipio));
+        
+        if (!matchesState || !matchesCity) {
+          console.log(`CNPJ ${cnpj} skipped - location: ${data.municipio}/${data.uf}, expected: ${filters.cities}/${filters.states}`);
+          continue;
+        }
 
         // Get basic contact info
         const phones = [data.ddd_telefone_1, data.ddd_telefone_2].filter(Boolean);
