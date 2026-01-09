@@ -8,13 +8,26 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
-import { Camera, User, Mail, Lock, Eye, EyeOff, Loader2, Shield, Save } from "lucide-react";
+import { Camera, User, Mail, Lock, Eye, EyeOff, Loader2, Shield, Save, Trash2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { AvatarCropDialog } from "@/components/equipe/AvatarCropDialog";
+import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 export default function Perfil() {
   const { user } = useAuth();
   const { data: teamMembers, isLoading } = useTeamMembers();
-  const { uploadAvatar, updateProfile, updatePassword, isUploading, isUpdating } = useProfile();
+  const { uploadAvatar, deleteAvatar, updateProfile, updatePassword, isUploading, isUpdating } = useProfile();
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   
@@ -27,6 +40,10 @@ export default function Perfil() {
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  
+  // Estado para crop dialog
+  const [cropDialogOpen, setCropDialogOpen] = useState(false);
+  const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
 
   // Busca o membro da equipe do usuário atual
   const currentMember = teamMembers?.find(m => m.user_id === user?.id);
@@ -43,21 +60,38 @@ export default function Perfil() {
     fileInputRef.current?.click();
   };
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     // Valida tipo de arquivo
     if (!file.type.startsWith('image/')) {
+      toast.error("Por favor, selecione uma imagem");
       return;
     }
 
     // Valida tamanho (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
+      toast.error("Imagem muito grande. Máximo 5MB");
       return;
     }
 
-    await uploadAvatar(file);
+    setSelectedImageFile(file);
+    setCropDialogOpen(true);
+    
+    // Reset input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  const handleCropComplete = async (croppedBlob: Blob) => {
+    await uploadAvatar(croppedBlob);
+    setSelectedImageFile(null);
+  };
+
+  const handleDeleteAvatar = async () => {
+    await deleteAvatar();
   };
 
   const handleProfileSubmit = async (e: React.FormEvent) => {
@@ -156,10 +190,55 @@ export default function Perfil() {
                   className="hidden"
                 />
               </div>
-              <p className="text-sm text-muted-foreground">
-                Clique para alterar sua foto
-              </p>
+              <div className="flex items-center gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={handleAvatarClick}
+                  disabled={isUploading}
+                >
+                  <Camera className="h-4 w-4 mr-1" />
+                  Alterar foto
+                </Button>
+                {currentMember?.avatar && (
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        disabled={isUploading}
+                        className="text-destructive hover:text-destructive"
+                      >
+                        <Trash2 className="h-4 w-4 mr-1" />
+                        Excluir
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Excluir foto de perfil?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Esta ação não pode ser desfeita. Sua foto de perfil será removida permanentemente.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleDeleteAvatar} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                          Excluir
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                )}
+              </div>
             </div>
+
+            {/* Avatar Crop Dialog */}
+            <AvatarCropDialog
+              open={cropDialogOpen}
+              onOpenChange={setCropDialogOpen}
+              imageFile={selectedImageFile}
+              onCropComplete={handleCropComplete}
+            />
 
             <Separator />
 

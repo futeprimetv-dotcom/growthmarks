@@ -10,7 +10,7 @@ export function useProfile() {
   const [isUploading, setIsUploading] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
 
-  const uploadAvatar = async (file: File) => {
+  const uploadAvatar = async (fileOrBlob: File | Blob) => {
     if (!user) {
       toast.error("Você precisa estar logado");
       return null;
@@ -18,8 +18,7 @@ export function useProfile() {
 
     setIsUploading(true);
     try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${user.id}/avatar.${fileExt}`;
+      const fileName = `${user.id}/avatar.jpg`;
 
       // Remove avatar anterior se existir
       await supabase.storage
@@ -29,7 +28,10 @@ export function useProfile() {
       // Upload do novo avatar
       const { error: uploadError } = await supabase.storage
         .from('avatars')
-        .upload(fileName, file, { upsert: true });
+        .upload(fileName, fileOrBlob, { 
+          upsert: true,
+          contentType: 'image/jpeg'
+        });
 
       if (uploadError) throw uploadError;
 
@@ -53,6 +55,41 @@ export function useProfile() {
       console.error("Erro ao fazer upload:", error);
       toast.error("Erro ao atualizar foto: " + error.message);
       return null;
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const deleteAvatar = async () => {
+    if (!user) {
+      toast.error("Você precisa estar logado");
+      return false;
+    }
+
+    setIsUploading(true);
+    try {
+      const fileName = `${user.id}/avatar.jpg`;
+
+      // Remove avatar do storage
+      await supabase.storage
+        .from('avatars')
+        .remove([fileName]);
+
+      // Limpa URL do avatar no team_member
+      const { error: updateError } = await supabase
+        .from('team_members')
+        .update({ avatar: null })
+        .eq('user_id', user.id);
+
+      if (updateError) throw updateError;
+
+      queryClient.invalidateQueries({ queryKey: ["team_members"] });
+      toast.success("Foto removida com sucesso!");
+      return true;
+    } catch (error: any) {
+      console.error("Erro ao remover foto:", error);
+      toast.error("Erro ao remover foto: " + error.message);
+      return false;
     } finally {
       setIsUploading(false);
     }
@@ -130,6 +167,7 @@ export function useProfile() {
 
   return {
     uploadAvatar,
+    deleteAvatar,
     updateProfile,
     updatePassword,
     isUploading,
