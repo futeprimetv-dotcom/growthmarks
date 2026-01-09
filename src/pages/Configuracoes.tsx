@@ -4,7 +4,8 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Settings as SettingsIcon, Palette, Lock, Package, Plus, Edit2, Trash2 } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Building2, Package, Palette, Settings2, Bell, Plus, Edit2, Trash2 } from "lucide-react";
 import logo from "@/assets/logo-growth-marks.png";
 import { useAvailableServices, AvailableService } from "@/hooks/useAvailableServices";
 import { useTheme } from "@/hooks/useTheme";
@@ -115,118 +116,162 @@ export default function Configuracoes() {
   };
 
   return (
-    <div className="space-y-6 max-w-4xl">
+    <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold">Configurações</h1>
         <p className="text-muted-foreground">Preferências do sistema</p>
       </div>
 
-      {/* Company Info */}
-      <CompanySettingsSection />
+      <Tabs defaultValue="empresa" className="w-full">
+        <TabsList className="w-full justify-start border-b rounded-none h-auto p-0 bg-transparent">
+          <TabsTrigger 
+            value="empresa" 
+            className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-6 py-3"
+          >
+            <Building2 className="h-4 w-4 mr-2" />
+            Empresa
+          </TabsTrigger>
+          <TabsTrigger 
+            value="servicos" 
+            className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-6 py-3"
+          >
+            <Package className="h-4 w-4 mr-2" />
+            Serviços
+          </TabsTrigger>
+          <TabsTrigger 
+            value="crm" 
+            className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-6 py-3"
+          >
+            <Settings2 className="h-4 w-4 mr-2" />
+            CRM
+          </TabsTrigger>
+          <TabsTrigger 
+            value="aparencia" 
+            className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-6 py-3"
+          >
+            <Palette className="h-4 w-4 mr-2" />
+            Aparência
+          </TabsTrigger>
+          <TabsTrigger 
+            value="avancado" 
+            className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-6 py-3"
+          >
+            <Bell className="h-4 w-4 mr-2" />
+            Avançado
+          </TabsTrigger>
+        </TabsList>
 
-      {/* Services Configuration */}
-      <Card className="p-6">
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-3">
-            <Package className="h-5 w-5 text-primary" />
-            <h2 className="text-lg font-semibold">Serviços Disponíveis</h2>
-          </div>
-          <Button onClick={openNewServiceForm}>
-            <Plus className="h-4 w-4 mr-2" />
-            Novo Serviço
-          </Button>
-        </div>
+        {/* Empresa Tab */}
+        <TabsContent value="empresa" className="mt-6">
+          <CompanySettingsSection />
+        </TabsContent>
 
-        {isLoading ? (
-          <div className="flex items-center justify-center h-32">
-            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
-          </div>
-        ) : services.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">
-            <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
-            <p>Nenhum serviço cadastrado.</p>
-            <Button variant="outline" className="mt-4" onClick={openNewServiceForm}>
-              <Plus className="h-4 w-4 mr-2" />
-              Cadastrar primeiro serviço
-            </Button>
-          </div>
-        ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Nome</TableHead>
-                <TableHead>Descrição</TableHead>
-                <TableHead>Valor Base</TableHead>
-                <TableHead>Tipo</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="w-[100px]">Ações</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {services.map((service) => (
-                <TableRow key={service.id}>
-                  <TableCell className="font-medium">{service.name}</TableCell>
-                  <TableCell className="text-muted-foreground max-w-[200px] truncate">
-                    {service.description || '-'}
-                  </TableCell>
-                  <TableCell>R$ {service.base_value.toLocaleString('pt-BR')}</TableCell>
-                  <TableCell className="capitalize">{service.type}</TableCell>
-                  <TableCell>
-                    <span className={`px-2 py-1 rounded-full text-xs ${
-                      service.active 
-                        ? 'bg-green-500/20 text-green-500' 
-                        : 'bg-gray-500/20 text-gray-500'
-                    }`}>
-                      {service.active ? 'Ativo' : 'Inativo'}
-                    </span>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex gap-1">
-                      <Button variant="ghost" size="icon" onClick={() => openEditServiceForm(service)}>
-                        <Edit2 className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" onClick={() => setDeleteConfirm(service)}>
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        )}
-      </Card>
+        {/* Serviços Tab */}
+        <TabsContent value="servicos" className="mt-6">
+          <Card className="p-6">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <Package className="h-5 w-5 text-primary" />
+                <h2 className="text-lg font-semibold">Serviços Disponíveis</h2>
+              </div>
+              <Button onClick={openNewServiceForm}>
+                <Plus className="h-4 w-4 mr-2" />
+                Novo Serviço
+              </Button>
+            </div>
 
-      {/* CRM Settings */}
-      <CRMSettingsSection />
+            {isLoading ? (
+              <div className="flex items-center justify-center h-32">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
+              </div>
+            ) : services.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>Nenhum serviço cadastrado.</p>
+                <Button variant="outline" className="mt-4" onClick={openNewServiceForm}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Cadastrar primeiro serviço
+                </Button>
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Nome</TableHead>
+                    <TableHead>Descrição</TableHead>
+                    <TableHead>Valor Base</TableHead>
+                    <TableHead>Tipo</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="w-[100px]">Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {services.map((service) => (
+                    <TableRow key={service.id}>
+                      <TableCell className="font-medium">{service.name}</TableCell>
+                      <TableCell className="text-muted-foreground max-w-[300px] truncate">
+                        {service.description || '-'}
+                      </TableCell>
+                      <TableCell>R$ {service.base_value.toLocaleString('pt-BR')}</TableCell>
+                      <TableCell className="capitalize">{service.type}</TableCell>
+                      <TableCell>
+                        <span className={`px-2 py-1 rounded-full text-xs ${
+                          service.active 
+                            ? 'bg-green-500/20 text-green-500' 
+                            : 'bg-muted text-muted-foreground'
+                        }`}>
+                          {service.active ? 'Ativo' : 'Inativo'}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex gap-1">
+                          <Button variant="ghost" size="icon" onClick={() => openEditServiceForm(service)}>
+                            <Edit2 className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="icon" onClick={() => setDeleteConfirm(service)}>
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </Card>
+        </TabsContent>
 
-      {/* Theme */}
-      <Card className="p-6">
-        <div className="flex items-center gap-3 mb-6">
-          <Palette className="h-5 w-5 text-primary" />
-          <h2 className="text-lg font-semibold">Aparência</h2>
-        </div>
+        {/* CRM Tab */}
+        <TabsContent value="crm" className="mt-6">
+          <CRMSettingsSection />
+        </TabsContent>
 
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="font-medium">Modo Escuro</p>
-            <p className="text-sm text-muted-foreground">Usar tema escuro na interface</p>
-          </div>
-          <Switch 
-            checked={theme === "dark"} 
-            onCheckedChange={toggleTheme}
-          />
-        </div>
-      </Card>
+        {/* Aparência Tab */}
+        <TabsContent value="aparencia" className="mt-6">
+          <Card className="p-6">
+            <div className="flex items-center gap-3 mb-6">
+              <Palette className="h-5 w-5 text-primary" />
+              <h2 className="text-lg font-semibold">Aparência</h2>
+            </div>
 
-      {/* Advanced Settings */}
-      <div>
-        <div className="flex items-center gap-3 mb-4">
-          <Lock className="h-5 w-5 text-primary" />
-          <h2 className="text-lg font-semibold">Configurações Avançadas</h2>
-        </div>
-        <AdvancedSettingsSection />
-      </div>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="font-medium">Modo Escuro</p>
+                <p className="text-sm text-muted-foreground">Usar tema escuro na interface</p>
+              </div>
+              <Switch 
+                checked={theme === "dark"} 
+                onCheckedChange={toggleTheme}
+              />
+            </div>
+          </Card>
+        </TabsContent>
+
+        {/* Avançado Tab */}
+        <TabsContent value="avancado" className="mt-6">
+          <AdvancedSettingsSection />
+        </TabsContent>
+      </Tabs>
 
       {/* Service Form Dialog */}
       <Dialog open={isServiceFormOpen} onOpenChange={setIsServiceFormOpen}>
