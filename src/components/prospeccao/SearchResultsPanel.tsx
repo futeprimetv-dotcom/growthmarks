@@ -24,6 +24,7 @@ import {
   Linkedin,
   Sparkles,
   Brain,
+  UserCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -396,6 +397,36 @@ function CompanyCard({
                     ⚠️ {digitalPresence.dataQualityWarnings[0]}
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* Partners Section - Shown after AI analysis with enriched data */}
+            {enrichedData?.partners && enrichedData.partners.length > 0 && (
+              <div className="mt-3 p-3 rounded-lg bg-muted/50 border">
+                <div className="flex items-center gap-2 mb-2">
+                  <UserCircle className="h-4 w-4 text-primary" />
+                  <span className="text-sm font-medium">Sócios</span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {enrichedData.partners.slice(0, 5).map((partner, index) => (
+                    <div
+                      key={index}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-background border text-sm"
+                    >
+                      <span className="font-medium">{partner.name}</span>
+                      {partner.role && (
+                        <span className="text-xs text-muted-foreground">
+                          ({partner.role})
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                  {enrichedData.partners.length > 5 && (
+                    <span className="text-xs text-muted-foreground self-center">
+                      +{enrichedData.partners.length - 5} mais
+                    </span>
+                  )}
+                </div>
               </div>
             )}
 

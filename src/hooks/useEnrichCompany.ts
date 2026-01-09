@@ -1,6 +1,11 @@
 import { useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
+export interface Partner {
+  name: string;
+  role: string;
+}
+
 export interface EnrichedData {
   phones: string[];
   emails: string[];
@@ -10,6 +15,7 @@ export interface EnrichedData {
   linkedin: string;
   address: string;
   cnpjData: any;
+  partners: Partner[];
 }
 
 export interface EnrichCompanyRequest {
