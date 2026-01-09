@@ -15,8 +15,9 @@ import { useCreateLead, useUpdateLead, Lead } from "@/hooks/useLeads";
 import { useTeamMembers } from "@/hooks/useTeamMembers";
 import { useCRMSettings } from "@/hooks/useCRMSettings";
 import { useLeadScore } from "@/hooks/useLeadScore";
+import { useSalesFunnels } from "@/hooks/useSalesFunnels";
 import { Constants } from "@/integrations/supabase/types";
-import { User, Building2, DollarSign, Target, MessageSquare, Zap, X, Plus } from "lucide-react";
+import { User, Building2, DollarSign, Target, MessageSquare, Zap, X, Plus, Loader2 } from "lucide-react";
 
 const leadStatusValues = Constants.public.Enums.lead_status;
 const leadTemperatureValues = Constants.public.Enums.lead_temperature;
@@ -24,6 +25,7 @@ const leadTemperatureValues = Constants.public.Enums.lead_temperature;
 const leadSchema = z.object({
   // Dados Básicos
   name: z.string().min(1, "Nome é obrigatório").max(100),
+  funnel_id: z.string().min(1, "Funil é obrigatório"),
   company: z.string().max(100).optional(),
   email: z.string().email("Email inválido").optional().or(z.literal("")),
   phone: z.string().max(20).optional(),
@@ -78,7 +80,6 @@ interface LeadFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   lead?: Lead | null;
-  defaultFunnelId?: string | null;
 }
 
 const statusLabels: Record<string, string> = {
@@ -170,19 +171,24 @@ const brazilianStates = [
   "RS", "RO", "RR", "SC", "SP", "SE", "TO"
 ];
 
-export function LeadFormDialog({ open, onOpenChange, lead, defaultFunnelId }: LeadFormDialogProps) {
+export function LeadFormDialog({ open, onOpenChange, lead }: LeadFormDialogProps) {
   const createLead = useCreateLead();
   const updateLead = useUpdateLead();
   const { data: teamMembers } = useTeamMembers();
   const { data: crmSettings } = useCRMSettings();
+  const { data: funnels = [] } = useSalesFunnels();
   const { calculateScore } = useLeadScore();
   const [newTag, setNewTag] = useState("");
   const [activeTab, setActiveTab] = useState("basico");
+  
+  // Get default funnel
+  const defaultFunnel = funnels.find(f => f.is_default) || funnels[0];
   
   const form = useForm<LeadFormValues>({
     resolver: zodResolver(leadSchema),
     defaultValues: {
       name: "",
+      funnel_id: "",
       company: "",
       email: "",
       phone: "",
@@ -226,6 +232,7 @@ export function LeadFormDialog({ open, onOpenChange, lead, defaultFunnelId }: Le
     if (lead) {
       form.reset({
         name: lead.name,
+        funnel_id: (lead as any).funnel_id || defaultFunnel?.id || "",
         company: lead.company || "",
         email: lead.email || "",
         phone: lead.phone || "",
@@ -266,6 +273,7 @@ export function LeadFormDialog({ open, onOpenChange, lead, defaultFunnelId }: Le
     } else {
       form.reset({
         name: "",
+        funnel_id: defaultFunnel?.id || "",
         company: "",
         email: "",
         phone: "",
@@ -305,7 +313,7 @@ export function LeadFormDialog({ open, onOpenChange, lead, defaultFunnelId }: Le
       });
     }
     setActiveTab("basico");
-  }, [lead, form, open]);
+  }, [lead, form, open, defaultFunnel]);
 
   const onSubmit = async (values: LeadFormValues) => {
     // Calculate lead score automatically
@@ -359,13 +367,9 @@ export function LeadFormDialog({ open, onOpenChange, lead, defaultFunnelId }: Le
     };
 
     if (lead?.id) {
-      await updateLead.mutateAsync({ id: lead.id, ...payload });
+      await updateLead.mutateAsync({ id: lead.id, ...payload, funnel_id: values.funnel_id });
     } else {
-      // Add funnel_id for new leads
-      const payloadWithFunnel = defaultFunnelId 
-        ? { ...payload, funnel_id: defaultFunnelId } 
-        : payload;
-      await createLead.mutateAsync(payloadWithFunnel as any);
+      await createLead.mutateAsync({ ...payload, funnel_id: values.funnel_id } as any);
     }
     onOpenChange(false);
   };
@@ -421,6 +425,41 @@ export function LeadFormDialog({ open, onOpenChange, lead, defaultFunnelId }: Le
 
               {/* Dados Básicos */}
               <TabsContent value="basico" className="space-y-4 mt-4">
+                {/* Seleção de Funil */}
+                <FormField
+                  control={form.control}
+                  name="funnel_id"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Funil de Vendas *</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione o funil" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {funnels.map((funnel) => (
+                            <SelectItem key={funnel.id} value={funnel.id}>
+                              <div className="flex items-center gap-2">
+                                <div 
+                                  className="w-3 h-3 rounded-full" 
+                                  style={{ backgroundColor: funnel.color || '#3b82f6' }} 
+                                />
+                                {funnel.name}
+                                {funnel.is_default && (
+                                  <span className="text-xs text-muted-foreground">(padrão)</span>
+                                )}
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
                 <div className="grid grid-cols-2 gap-4">
                   <FormField
                     control={form.control}

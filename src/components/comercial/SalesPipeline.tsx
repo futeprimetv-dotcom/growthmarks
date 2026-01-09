@@ -400,7 +400,6 @@ export function SalesPipeline({ funnelId }: SalesPipelineProps) {
         open={isFormOpen}
         onOpenChange={setIsFormOpen}
         lead={editingLead}
-        defaultFunnelId={funnelId}
       />
 
       <MoveFunnelDialog

@@ -57,8 +57,8 @@ const menuSections: MenuSection[] = [
   {
     label: "Comercial",
     items: [
-      { title: "CRM", url: "/crm", icon: Target, permission: 'vendedor' },
       { title: "Leads", url: "/leads", icon: List, permission: 'vendedor' },
+      { title: "CRM", url: "/crm", icon: Target, permission: 'vendedor' },
       { title: "Métricas", url: "/metricas-comerciais", icon: BarChart3, permission: 'vendedor' },
     ]
   },
