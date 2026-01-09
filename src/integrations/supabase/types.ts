@@ -307,6 +307,13 @@ export type Database = {
           id: string
           is_archived: boolean | null
           notes: string | null
+          signature_sent_at: string | null
+          signature_status: string | null
+          signature_token: string | null
+          signed_at: string | null
+          signer_email: string | null
+          signer_ip: string | null
+          signer_name: string | null
           start_date: string
           status: string | null
           type: string
@@ -321,6 +328,13 @@ export type Database = {
           id?: string
           is_archived?: boolean | null
           notes?: string | null
+          signature_sent_at?: string | null
+          signature_status?: string | null
+          signature_token?: string | null
+          signed_at?: string | null
+          signer_email?: string | null
+          signer_ip?: string | null
+          signer_name?: string | null
           start_date: string
           status?: string | null
           type: string
@@ -335,6 +349,13 @@ export type Database = {
           id?: string
           is_archived?: boolean | null
           notes?: string | null
+          signature_sent_at?: string | null
+          signature_status?: string | null
+          signature_token?: string | null
+          signed_at?: string | null
+          signer_email?: string | null
+          signer_ip?: string | null
+          signer_name?: string | null
           start_date?: string
           status?: string | null
           type?: string

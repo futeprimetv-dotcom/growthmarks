@@ -19,6 +19,7 @@ import Planejamentos from "./pages/Planejamentos";
 import PlanejamentoPublico from "./pages/PlanejamentoPublico";
 import Metas from "./pages/Metas";
 import Login from "./pages/Login";
+import AssinarContrato from "./pages/AssinarContrato";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -34,6 +35,7 @@ const App = () => (
             {/* Public routes */}
             <Route path="/login" element={<Login />} />
             <Route path="/planejamento/:token" element={<PlanejamentoPublico />} />
+            <Route path="/assinar-contrato/:token" element={<AssinarContrato />} />
             
             {/* Protected routes with layout */}
             <Route path="/*" element={
