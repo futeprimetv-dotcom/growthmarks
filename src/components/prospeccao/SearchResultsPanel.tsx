@@ -1,0 +1,450 @@
+import { useState } from "react";
+import {
+  Building2,
+  Mail,
+  Phone,
+  MapPin,
+  Globe,
+  Calendar,
+  DollarSign,
+  Tag,
+  ExternalLink,
+  ChevronDown,
+  ChevronUp,
+  CheckCircle2,
+  XCircle,
+  Briefcase,
+  Users,
+  Copy,
+  Check,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Separator } from "@/components/ui/separator";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import { cn } from "@/lib/utils";
+import type { CompanySearchResult } from "@/hooks/useCompanySearch";
+
+interface Props {
+  results: CompanySearchResult[];
+  isLoading: boolean;
+  selectedIds: string[];
+  onSelectChange: (ids: string[]) => void;
+  onBack: () => void;
+  totalResults: number;
+}
+
+function formatCNPJ(cnpj: string): string {
+  if (!cnpj) return "-";
+  const clean = cnpj.replace(/\D/g, "");
+  if (clean.length !== 14) return cnpj;
+  return clean.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, "$1.$2.$3/$4-$5");
+}
+
+function formatCurrency(value: number | null): string {
+  if (!value) return "-";
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  }).format(value);
+}
+
+function formatDate(dateStr: string | null): string {
+  if (!dateStr) return "-";
+  try {
+    return new Date(dateStr).toLocaleDateString("pt-BR");
+  } catch {
+    return dateStr;
+  }
+}
+
+function formatPhone(phone: string): string {
+  if (!phone) return phone;
+  const clean = phone.replace(/\D/g, "");
+  if (clean.length === 11) {
+    return clean.replace(/(\d{2})(\d{5})(\d{4})/, "($1) $2-$3");
+  } else if (clean.length === 10) {
+    return clean.replace(/(\d{2})(\d{4})(\d{4})/, "($1) $2-$3");
+  }
+  return phone;
+}
+
+function CompanyCard({
+  company,
+  isSelected,
+  onSelect,
+}: {
+  company: CompanySearchResult;
+  isSelected: boolean;
+  onSelect: () => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const [copiedField, setCopiedField] = useState<string | null>(null);
+
+  const handleCopy = async (text: string, field: string) => {
+    await navigator.clipboard.writeText(text);
+    setCopiedField(field);
+    setTimeout(() => setCopiedField(null), 2000);
+  };
+
+  const isActive = company.situacao === "ATIVA";
+
+  return (
+    <Card className={cn(
+      "transition-all duration-200",
+      isSelected && "ring-2 ring-primary",
+      !isActive && "opacity-60"
+    )}>
+      <CardHeader className="pb-3">
+        <div className="flex items-start gap-4">
+          <Checkbox
+            checked={isSelected}
+            onCheckedChange={onSelect}
+            className="mt-1"
+          />
+          
+          <div className="flex-1 min-w-0">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 mb-1">
+                  <h3 className="font-semibold text-lg truncate">
+                    {company.name}
+                  </h3>
+                  {isActive ? (
+                    <Badge variant="outline" className="text-green-600 border-green-600 shrink-0">
+                      <CheckCircle2 className="h-3 w-3 mr-1" />
+                      Ativa
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="text-destructive border-destructive shrink-0">
+                      <XCircle className="h-3 w-3 mr-1" />
+                      {company.situacao}
+                    </Badge>
+                  )}
+                </div>
+                {company.razao_social && company.razao_social !== company.name && (
+                  <p className="text-sm text-muted-foreground truncate">
+                    {company.razao_social}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Key Info Grid */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+              {/* CNPJ */}
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground font-medium uppercase">CNPJ</p>
+                <div className="flex items-center gap-1">
+                  <p className="text-sm font-mono">{formatCNPJ(company.cnpj)}</p>
+                  {company.cnpj && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6"
+                      onClick={() => handleCopy(company.cnpj, "cnpj")}
+                    >
+                      {copiedField === "cnpj" ? (
+                        <Check className="h-3 w-3 text-green-600" />
+                      ) : (
+                        <Copy className="h-3 w-3" />
+                      )}
+                    </Button>
+                  )}
+                </div>
+              </div>
+
+              {/* Location */}
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground font-medium uppercase">Localização</p>
+                <div className="flex items-center gap-1 text-sm">
+                  <MapPin className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                  <span>{company.city}/{company.state}</span>
+                </div>
+              </div>
+
+              {/* Company Size */}
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground font-medium uppercase">Porte</p>
+                <div className="flex items-center gap-1 text-sm">
+                  <Users className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                  <span>{company.company_size || "-"}</span>
+                </div>
+              </div>
+
+              {/* Capital Social */}
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground font-medium uppercase">Capital Social</p>
+                <div className="flex items-center gap-1 text-sm">
+                  <DollarSign className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                  <span>{formatCurrency(company.capital_social)}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Contact Row */}
+            <div className="flex flex-wrap items-center gap-4 mt-4 pt-3 border-t">
+              {/* Emails */}
+              {company.emails && company.emails.length > 0 ? (
+                <div className="flex items-center gap-2">
+                  <Mail className="h-4 w-4 text-primary" />
+                  <div className="flex flex-wrap gap-2">
+                    {company.emails.slice(0, 2).map((email, i) => (
+                      <a
+                        key={i}
+                        href={`mailto:${email}`}
+                        className="text-sm text-primary hover:underline"
+                      >
+                        {email}
+                      </a>
+                    ))}
+                    {company.emails.length > 2 && (
+                      <span className="text-xs text-muted-foreground">
+                        +{company.emails.length - 2}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Mail className="h-4 w-4" />
+                  <span className="text-sm">Sem email</span>
+                </div>
+              )}
+
+              <Separator orientation="vertical" className="h-4" />
+
+              {/* Phones */}
+              {company.phones && company.phones.length > 0 ? (
+                <div className="flex items-center gap-2">
+                  <Phone className="h-4 w-4 text-primary" />
+                  <div className="flex flex-wrap gap-2">
+                    {company.phones.slice(0, 2).map((phone, i) => (
+                      <a
+                        key={i}
+                        href={`tel:${phone.replace(/\D/g, "")}`}
+                        className="text-sm text-primary hover:underline"
+                      >
+                        {formatPhone(phone)}
+                      </a>
+                    ))}
+                    {company.phones.length > 2 && (
+                      <span className="text-xs text-muted-foreground">
+                        +{company.phones.length - 2}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Phone className="h-4 w-4" />
+                  <span className="text-sm">Sem telefone</span>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </CardHeader>
+
+      {/* Expandable Details */}
+      <Collapsible open={expanded} onOpenChange={setExpanded}>
+        <CollapsibleTrigger asChild>
+          <Button
+            variant="ghost"
+            className="w-full flex items-center justify-center gap-2 rounded-none border-t h-10"
+          >
+            {expanded ? (
+              <>
+                <ChevronUp className="h-4 w-4" />
+                Menos detalhes
+              </>
+            ) : (
+              <>
+                <ChevronDown className="h-4 w-4" />
+                Ver mais detalhes
+              </>
+            )}
+          </Button>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <CardContent className="pt-4 grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Left Column */}
+            <div className="space-y-4">
+              {/* CNAE */}
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground font-medium uppercase flex items-center gap-1">
+                  <Briefcase className="h-3 w-3" />
+                  Atividade Principal (CNAE)
+                </p>
+                <p className="text-sm">
+                  {company.cnae_code && (
+                    <span className="font-mono text-muted-foreground mr-2">
+                      {company.cnae_code}
+                    </span>
+                  )}
+                  {company.cnae_description || "-"}
+                </p>
+              </div>
+
+              {/* Segment */}
+              {company.segment && (
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground font-medium uppercase flex items-center gap-1">
+                    <Tag className="h-3 w-3" />
+                    Segmento
+                  </p>
+                  <p className="text-sm">{company.segment}</p>
+                </div>
+              )}
+
+              {/* Opening Date */}
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground font-medium uppercase flex items-center gap-1">
+                  <Calendar className="h-3 w-3" />
+                  Data de Abertura
+                </p>
+                <p className="text-sm">{formatDate(company.data_abertura)}</p>
+              </div>
+            </div>
+
+            {/* Right Column */}
+            <div className="space-y-4">
+              {/* Full Address */}
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground font-medium uppercase flex items-center gap-1">
+                  <MapPin className="h-3 w-3" />
+                  Endereço Completo
+                </p>
+                <p className="text-sm">
+                  {[
+                    company.address,
+                    company.number,
+                    company.complement,
+                    company.neighborhood,
+                  ]
+                    .filter(Boolean)
+                    .join(", ") || "-"}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {company.city}/{company.state}
+                  {company.zip_code && ` - CEP: ${company.zip_code}`}
+                </p>
+              </div>
+
+              {/* Website */}
+              {company.has_website && (
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground font-medium uppercase flex items-center gap-1">
+                    <Globe className="h-3 w-3" />
+                    Website
+                  </p>
+                  <a
+                    href="#"
+                    className="text-sm text-primary hover:underline flex items-center gap-1"
+                  >
+                    Visitar site <ExternalLink className="h-3 w-3" />
+                  </a>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </CollapsibleContent>
+      </Collapsible>
+    </Card>
+  );
+}
+
+function LoadingSkeleton() {
+  return (
+    <div className="space-y-4">
+      {Array.from({ length: 5 }).map((_, i) => (
+        <Card key={i}>
+          <CardHeader>
+            <div className="flex items-start gap-4">
+              <Skeleton className="h-5 w-5" />
+              <div className="flex-1 space-y-3">
+                <Skeleton className="h-6 w-3/4" />
+                <Skeleton className="h-4 w-1/2" />
+                <div className="grid grid-cols-4 gap-4 mt-4">
+                  <Skeleton className="h-12 w-full" />
+                  <Skeleton className="h-12 w-full" />
+                  <Skeleton className="h-12 w-full" />
+                  <Skeleton className="h-12 w-full" />
+                </div>
+              </div>
+            </div>
+          </CardHeader>
+        </Card>
+      ))}
+    </div>
+  );
+}
+
+export function SearchResultsPanel({
+  results,
+  isLoading,
+  selectedIds,
+  onSelectChange,
+  onBack,
+  totalResults,
+}: Props) {
+  const toggleSelect = (id: string) => {
+    if (selectedIds.includes(id)) {
+      onSelectChange(selectedIds.filter((i) => i !== id));
+    } else {
+      onSelectChange([...selectedIds, id]);
+    }
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.length === results.length) {
+      onSelectChange([]);
+    } else {
+      onSelectChange(results.map((c) => c.id || c.cnpj));
+    }
+  };
+
+  return (
+    <div className="flex-1 overflow-auto p-4">
+      {isLoading ? (
+        <LoadingSkeleton />
+      ) : results.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-20 text-center">
+          <Building2 className="h-16 w-16 text-muted-foreground/30 mb-4" />
+          <h3 className="text-lg font-semibold">Nenhuma empresa encontrada</h3>
+          <p className="text-muted-foreground mt-1 max-w-md">
+            Tente ajustar os filtros para encontrar mais resultados.
+          </p>
+          <Button variant="outline" className="mt-4" onClick={onBack}>
+            Voltar aos filtros
+          </Button>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between pb-2">
+            <Button variant="outline" size="sm" onClick={toggleSelectAll}>
+              {selectedIds.length === results.length
+                ? "Desmarcar todos"
+                : `Selecionar todos (${results.length})`}
+            </Button>
+          </div>
+          {results.map((company) => (
+            <CompanyCard
+              key={company.id || company.cnpj}
+              company={company}
+              isSelected={selectedIds.includes(company.id || company.cnpj)}
+              onSelect={() => toggleSelect(company.id || company.cnpj)}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
