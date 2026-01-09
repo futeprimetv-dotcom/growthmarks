@@ -7,6 +7,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useClients } from "@/hooks/useClients";
 import { useCreateContract, useUpdateContract, type Contract } from "@/hooks/useContracts";
+import { useContractServices, useSyncContractServices } from "@/hooks/useContractServices";
+import { ContractServicesSelect } from "./ContractServicesSelect";
 import { Loader2 } from "lucide-react";
 
 interface ContractFormDialogProps {
@@ -25,6 +27,10 @@ export function ContractFormDialog({
   const { data: clients } = useClients();
   const createContract = useCreateContract();
   const updateContract = useUpdateContract();
+  const { data: existingServices } = useContractServices(contract?.id);
+  const syncServices = useSyncContractServices();
+
+  const [selectedServices, setSelectedServices] = useState<string[]>([]);
 
   const [formData, setFormData] = useState({
     client_id: defaultClientId || "",
@@ -57,8 +63,15 @@ export function ContractFormDialog({
         status: "active",
         notes: "",
       });
+      setSelectedServices([]);
     }
   }, [contract, defaultClientId, open]);
+
+  useEffect(() => {
+    if (existingServices) {
+      setSelectedServices(existingServices.map(s => s.service_id));
+    }
+  }, [existingServices]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -68,20 +81,29 @@ export function ContractFormDialog({
       end_date: formData.end_date || null,
     };
 
+    let contractId: string;
+
     if (contract) {
       await updateContract.mutateAsync({ id: contract.id, ...contractData });
+      contractId = contract.id;
     } else {
-      await createContract.mutateAsync(contractData);
+      const newContract = await createContract.mutateAsync(contractData);
+      contractId = newContract.id;
+    }
+
+    // Sync services with the contract
+    if (contractId) {
+      await syncServices.mutateAsync({ contractId, serviceIds: selectedServices });
     }
     
     onOpenChange(false);
   };
 
-  const isLoading = createContract.isPending || updateContract.isPending;
+  const isLoading = createContract.isPending || updateContract.isPending || syncServices.isPending;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
             {contract ? "Editar Contrato" : "Novo Contrato"}
@@ -182,6 +204,14 @@ export function ContractFormDialog({
                 onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
               />
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Serviços Incluídos</Label>
+            <ContractServicesSelect
+              selectedServices={selectedServices}
+              onServicesChange={setSelectedServices}
+            />
           </div>
 
           <div className="space-y-2">

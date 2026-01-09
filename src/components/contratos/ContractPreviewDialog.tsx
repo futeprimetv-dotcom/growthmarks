@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { FileText, Download, Eye, Edit, Loader2, Layout } from "lucide-react";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
 import { useContractTemplates, type ContractTemplate } from "@/hooks/useContractTemplates";
+import { useContractServices } from "@/hooks/useContractServices";
 import { type ContractWithClient } from "@/hooks/useContracts";
 import { toast } from "sonner";
 
@@ -79,6 +80,7 @@ Fica eleito o foro da comarca da sede da CONTRATADA para dirimir quaisquer dúvi
 export function ContractPreviewDialog({ open, onOpenChange, contract }: ContractPreviewDialogProps) {
   const { data: companySettings } = useCompanySettings();
   const { data: templates } = useContractTemplates();
+  const { data: contractServices } = useContractServices(contract?.id);
   const [tab, setTab] = useState<string>("edit");
   const [isGenerating, setIsGenerating] = useState(false);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
@@ -123,6 +125,15 @@ export function ContractPreviewDialog({ open, onOpenChange, contract }: Contract
         duration = "Indeterminado";
       }
 
+      // Build services string from linked services
+      let servicesText = contract.client?.plan || "Serviços de Marketing Digital";
+      if (contractServices && contractServices.length > 0) {
+        servicesText = contractServices
+          .map(cs => cs.service?.name)
+          .filter(Boolean)
+          .join(", ");
+      }
+
       setContractData({
         companyName: companySettings.name || "Growth Marks",
         companyCnpj: companySettings.cnpj || "",
@@ -137,7 +148,7 @@ export function ContractPreviewDialog({ open, onOpenChange, contract }: Contract
         clientContact: contract.client?.contact_name || "",
         clientEmail: contract.client?.contact_email || "",
         clientPhone: contract.client?.contact_phone || "",
-        services: contract.client?.plan || "Serviços de Marketing Digital",
+        services: servicesText,
         value: `R$ ${contract.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
         paymentTerms: "Pagamento mensal até o dia 10",
         startDate: startDate.toLocaleDateString('pt-BR'),
@@ -149,7 +160,7 @@ export function ContractPreviewDialog({ open, onOpenChange, contract }: Contract
       });
       setSelectedTemplateId("");
     }
-  }, [contract, companySettings]);
+  }, [contract, companySettings, contractServices]);
 
   const handleTemplateChange = (templateId: string) => {
     setSelectedTemplateId(templateId);
