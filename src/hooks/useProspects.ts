@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { mockProspects, type MockProspect } from "@/data/mockProspects";
+import type { CNPJLookupResult } from "@/hooks/useCNPJLookup";
 
 export interface Prospect {
   id: string;
@@ -224,6 +225,145 @@ export function useSendToLeadsBase() {
       toast({
         title: "Erro",
         description: "Não foi possível criar os leads.",
+        variant: "destructive"
+      });
+    }
+  });
+}
+
+// New hook to add prospect from CNPJ lookup
+export function useAddProspectFromCNPJ() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (cnpjData: CNPJLookupResult): Promise<MockProspect> => {
+      // Map porte to company_size
+      const getCompanySize = (porte: string): string => {
+        if (porte.includes("MICRO")) return "MEI";
+        if (porte.includes("PEQUENO")) return "ME";
+        if (porte.includes("MEDIO") || porte.includes("DEMAIS")) return "EPP";
+        return "ME";
+      };
+
+      const phones = [cnpjData.telefone1, cnpjData.telefone2].filter(Boolean) as string[];
+      const emails = cnpjData.email ? [cnpjData.email.toLowerCase()] : [];
+
+      const prospect: MockProspect = {
+        id: cnpjData.cnpj,
+        name: cnpjData.nomeFantasia || cnpjData.razaoSocial,
+        cnpj: cnpjData.cnpj,
+        segment: cnpjData.cnaeFiscalDescricao,
+        cnae_code: cnpjData.cnaeFiscal.toString(),
+        cnae_description: cnpjData.cnaeFiscalDescricao,
+        company_size: getCompanySize(cnpjData.porte),
+        city: cnpjData.cidade,
+        state: cnpjData.uf,
+        neighborhood: cnpjData.bairro,
+        has_website: false,
+        website_url: undefined,
+        has_phone: phones.length > 0,
+        has_email: emails.length > 0,
+        emails_count: emails.length,
+        phones_count: phones.length,
+        data_revealed: true,
+        emails,
+        phones,
+        social_links: undefined,
+        status: "novo",
+        tags: ["cnpj-api"],
+        source: "brasilapi"
+      };
+
+      // Save to Supabase prospects table
+      const { error } = await supabase.from("prospects").insert({
+        id: prospect.id,
+        name: prospect.name,
+        cnpj: prospect.cnpj,
+        segment: prospect.segment,
+        cnae_code: cnpjData.cnaeFiscal.toString(),
+        cnae_description: cnpjData.cnaeFiscalDescricao,
+        company_size: prospect.company_size,
+        city: prospect.city,
+        state: prospect.state,
+        neighborhood: prospect.neighborhood,
+        zip_code: cnpjData.cep,
+        has_website: prospect.has_website,
+        has_phone: prospect.has_phone,
+        has_email: prospect.has_email,
+        emails: prospect.emails,
+        phones: prospect.phones,
+        emails_count: prospect.emails.length,
+        phones_count: prospect.phones.length,
+        status: "novo",
+        tags: prospect.tags,
+        source: "brasilapi",
+        data_revealed: true,
+        revealed_at: new Date().toISOString()
+      });
+
+      if (error) {
+        // If duplicate, just return the prospect without error
+        if (error.code === "23505") {
+          return prospect;
+        }
+        throw error;
+      }
+
+      return prospect;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["prospects"] });
+    },
+    onError: (error) => {
+      console.error("Error adding prospect:", error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível adicionar o prospecto.",
+        variant: "destructive"
+      });
+    }
+  });
+}
+
+// Hook to send CNPJ data directly to funnel
+export function useSendCNPJToFunnel() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ cnpjData, funnelId }: { cnpjData: CNPJLookupResult; funnelId: string }) => {
+      const phones = [cnpjData.telefone1, cnpjData.telefone2].filter(Boolean) as string[];
+      
+      const { error } = await supabase.from("leads").insert({
+        name: cnpjData.nomeFantasia || cnpjData.razaoSocial,
+        company: cnpjData.razaoSocial,
+        email: cnpjData.email?.toLowerCase() || null,
+        phone: phones[0] || null,
+        whatsapp: phones[0] || null,
+        city: cnpjData.cidade,
+        state: cnpjData.uf,
+        segment: cnpjData.cnaeFiscalDescricao,
+        funnel_id: funnelId,
+        status: "novo",
+        temperature: "cold",
+        origin: "prospeccao",
+        tags: ["cnpj-api"]
+      });
+
+      if (error) throw error;
+
+      return { name: cnpjData.nomeFantasia || cnpjData.razaoSocial };
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["leads"] });
+      toast({
+        title: "Lead criado",
+        description: `${data.name} foi adicionado ao funil.`
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Erro",
+        description: "Não foi possível enviar para o funil.",
         variant: "destructive"
       });
     }

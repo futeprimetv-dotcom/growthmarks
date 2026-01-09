@@ -10,13 +10,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
 import { ProspeccaoFilters } from "@/components/prospeccao/ProspeccaoFilters";
 import { ProspeccaoTable } from "@/components/prospeccao/ProspeccaoTable";
 import { ProspeccaoActions } from "@/components/prospeccao/ProspeccaoActions";
 import { SaveSearchDialog } from "@/components/prospeccao/SaveSearchDialog";
 import { SendToFunnelDialog } from "@/components/prospeccao/SendToFunnelDialog";
-import { useProspects, useSendToLeadsBase, type ProspectFilters } from "@/hooks/useProspects";
+import { CNPJSearchInput } from "@/components/prospeccao/CNPJSearchInput";
+import { CNPJResultCard } from "@/components/prospeccao/CNPJResultCard";
+import { useProspects, useSendToLeadsBase, useAddProspectFromCNPJ, type ProspectFilters } from "@/hooks/useProspects";
 import { useSavedSearches } from "@/hooks/useSavedSearches";
+import { useCNPJLookupManual, type CNPJLookupResult } from "@/hooks/useCNPJLookup";
 import { toast } from "@/hooks/use-toast";
 
 export default function Prospeccao() {
@@ -26,11 +30,19 @@ export default function Prospeccao() {
   const [page, setPage] = useState(1);
   const [saveSearchOpen, setSaveSearchOpen] = useState(false);
   const [sendToFunnelOpen, setSendToFunnelOpen] = useState(false);
+  const [sendCNPJToFunnelOpen, setSendCNPJToFunnelOpen] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
+  
+  // CNPJ Lookup State
+  const [cnpjResult, setCnpjResult] = useState<CNPJLookupResult | null>(null);
+  const [cnpjLoading, setCnpjLoading] = useState(false);
+  const [cnpjError, setCnpjError] = useState<string | null>(null);
 
   const { data: prospects = [], isLoading, isError, refetch } = useProspects(filters, hasSearched);
   const { data: savedSearches = [] } = useSavedSearches();
   const sendToLeadsBase = useSendToLeadsBase();
+  const addProspectFromCNPJ = useAddProspectFromCNPJ();
+  const { lookup } = useCNPJLookupManual();
 
   // Sync filters with URL params
   useEffect(() => {
@@ -143,6 +155,62 @@ export default function Prospeccao() {
     });
   };
 
+  // CNPJ Lookup handlers
+  const handleCNPJSearch = async (cnpj: string) => {
+    setCnpjLoading(true);
+    setCnpjError(null);
+    setCnpjResult(null);
+    
+    try {
+      const result = await lookup(cnpj);
+      setCnpjResult(result);
+    } catch (error) {
+      setCnpjError(error instanceof Error ? error.message : "Erro ao consultar CNPJ");
+      toast({
+        title: "Erro na consulta",
+        description: error instanceof Error ? error.message : "Erro ao consultar CNPJ",
+        variant: "destructive"
+      });
+    } finally {
+      setCnpjLoading(false);
+    }
+  };
+  
+  const handleCNPJClear = () => {
+    setCnpjResult(null);
+    setCnpjError(null);
+  };
+  
+  const handleAddCNPJToProspects = () => {
+    if (!cnpjResult) return;
+    
+    addProspectFromCNPJ.mutate(cnpjResult, {
+      onSuccess: () => {
+        toast({
+          title: "Prospecto adicionado",
+          description: `${cnpjResult.nomeFantasia || cnpjResult.razaoSocial} foi adicionado à lista.`
+        });
+      }
+    });
+  };
+  
+  const handleSendCNPJToLeads = () => {
+    if (!cnpjResult) return;
+    
+    addProspectFromCNPJ.mutate(cnpjResult, {
+      onSuccess: (prospect) => {
+        sendToLeadsBase.mutate([prospect], {
+          onSuccess: () => {
+            toast({
+              title: "Lead criado",
+              description: `${cnpjResult.nomeFantasia || cnpjResult.razaoSocial} foi enviado para a base de leads.`
+            });
+          }
+        });
+      }
+    });
+  };
+
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)]">
       {/* Header */}
@@ -174,6 +242,39 @@ export default function Prospeccao() {
             </Select>
           )}
         </div>
+
+        {/* CNPJ Search */}
+        <div className="mb-4">
+          <p className="text-sm font-medium mb-2">Consultar empresa por CNPJ (BrasilAPI)</p>
+          <CNPJSearchInput
+            onSearch={handleCNPJSearch}
+            onClear={handleCNPJClear}
+            isLoading={cnpjLoading}
+            hasResult={!!cnpjResult}
+          />
+        </div>
+        
+        {/* CNPJ Result */}
+        {cnpjResult && (
+          <div className="mb-4">
+            <CNPJResultCard
+              data={cnpjResult}
+              onAddToProspects={handleAddCNPJToProspects}
+              onSendToLeads={handleSendCNPJToLeads}
+              onSendToFunnel={() => setSendCNPJToFunnelOpen(true)}
+              isAdding={addProspectFromCNPJ.isPending || sendToLeadsBase.isPending}
+            />
+          </div>
+        )}
+        
+        {cnpjError && (
+          <Alert variant="destructive" className="mb-4">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{cnpjError}</AlertDescription>
+          </Alert>
+        )}
+
+        <Separator className="my-4" />
 
         {/* Filters - Horizontal Bar */}
         <ProspeccaoFilters
@@ -224,7 +325,7 @@ export default function Prospeccao() {
             <Search className="h-16 w-16 text-muted-foreground/30 mb-4" />
             <h3 className="text-lg font-semibold">Encontre empresas para prospectar</h3>
             <p className="text-muted-foreground mt-1 max-w-md">
-              Utilize os filtros acima e clique em "Buscar" para encontrar empresas que correspondem ao seu perfil de cliente ideal.
+              Consulte um CNPJ específico acima ou utilize os filtros e clique em "Buscar" para encontrar empresas.
             </p>
           </div>
         ) : (
@@ -252,6 +353,22 @@ export default function Prospeccao() {
         selectedProspects={selectedIds}
         onSuccess={() => setSelectedIds([])}
       />
+      
+      {/* Dialog for sending CNPJ result to funnel */}
+      {cnpjResult && (
+        <SendToFunnelDialog
+          open={sendCNPJToFunnelOpen}
+          onOpenChange={setSendCNPJToFunnelOpen}
+          selectedProspects={[cnpjResult.cnpj]}
+          cnpjData={cnpjResult}
+          onSuccess={() => {
+            toast({
+              title: "Enviado para funil",
+              description: `${cnpjResult.nomeFantasia || cnpjResult.razaoSocial} foi enviado para o funil.`
+            });
+          }}
+        />
+      )}
     </div>
   );
 }
