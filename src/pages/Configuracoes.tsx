@@ -8,6 +8,7 @@ import { Settings as SettingsIcon, Building2, Palette, Lock, Package, Plus, Edit
 import logo from "@/assets/logo-growth-marks.png";
 import { useAvailableServices, AvailableService } from "@/hooks/useAvailableServices";
 import { useUserRole } from "@/hooks/useUserRole";
+import { CRMSettingsSection } from "@/components/configuracoes/CRMSettingsSection";
 import {
   Dialog,
   DialogContent,
@@ -218,6 +219,9 @@ export default function Configuracoes() {
           </Table>
         )}
       </Card>
+
+      {/* CRM Settings */}
+      <CRMSettingsSection />
 
       {/* Theme */}
       <Card className="p-6">
