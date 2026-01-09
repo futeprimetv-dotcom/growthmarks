@@ -30,6 +30,59 @@ const stateAbbreviations: Record<string, string> = {
   'SP': 'São Paulo', 'SE': 'Sergipe', 'TO': 'Tocantins'
 };
 
+// Segment synonyms for better search coverage
+const segmentSynonyms: Record<string, string[]> = {
+  "Comércio Automotivo": [
+    "loja de carros", "revenda de veículos", "concessionária", "revendedora de automóveis",
+    "venda de carros", "seminovos", "carros usados", "multimarcas", "veículos usados",
+    "loja de veículos", "comércio de veículos", "auto comercial", "car shop"
+  ],
+  "Restaurantes": [
+    "restaurante", "pizzaria", "hamburgueria", "lanchonete", "bar e restaurante",
+    "churrascaria", "self service", "buffet", "cantina", "bistrô", "food"
+  ],
+  "Clínicas e Saúde": [
+    "clínica médica", "consultório", "clínica odontológica", "dentista", "laboratório",
+    "fisioterapia", "psicologia", "nutricionista", "clínica estética", "hospital"
+  ],
+  "Academias": [
+    "academia", "crossfit", "pilates", "musculação", "fitness", "personal trainer",
+    "estúdio fitness", "box de crossfit", "centro de treinamento"
+  ],
+  "Educação": [
+    "escola", "colégio", "curso", "faculdade", "universidade", "ensino",
+    "centro educacional", "escola de idiomas", "curso técnico", "treinamento"
+  ],
+  "Varejo": [
+    "loja", "comércio", "mercado", "supermercado", "atacado", "distribuidora",
+    "shopping", "outlet", "magazine", "boutique"
+  ],
+  "Imobiliárias": [
+    "imobiliária", "corretor", "imóveis", "construtora", "incorporadora",
+    "administradora de imóveis", "locação", "aluguel", "venda de imóveis"
+  ],
+  "Salões de Beleza": [
+    "salão de beleza", "cabeleireiro", "barbearia", "manicure", "estética",
+    "studio de beleza", "espaço de beleza", "hair", "beauty"
+  ],
+  "Contabilidade": [
+    "escritório contábil", "contabilidade", "contador", "assessoria contábil",
+    "serviços contábeis", "consultoria fiscal", "departamento pessoal"
+  ],
+  "Advocacia": [
+    "escritório de advocacia", "advogado", "advocacia", "assessoria jurídica",
+    "consultoria jurídica", "jurídico", "law firm"
+  ],
+  "Tecnologia": [
+    "software", "desenvolvimento", "TI", "informática", "startup", "tech",
+    "sistemas", "aplicativos", "digital", "soluções tecnológicas"
+  ],
+  "Construção Civil": [
+    "construtora", "empreiteira", "engenharia", "obras", "reforma",
+    "construção", "incorporação", "edificações"
+  ],
+};
+
 // Build optimized search queries for Firecrawl
 function buildSearchQueries(filters: SearchFilters): string[] {
   const queries: string[] = [];
@@ -38,11 +91,34 @@ function buildSearchQueries(filters: SearchFilters): string[] {
   const stateAbbr = filters.states?.[0] || "";
   const stateName = stateAbbreviations[stateAbbr] || stateAbbr;
 
-  // More specific queries with city name in quotes for better matching
+  // Get synonyms for the segment
+  const synonyms = segmentSynonyms[segment] || [];
+  
+  // Primary search terms - use segment and up to 3 synonyms
+  const searchTerms = [segment, ...synonyms.slice(0, 3)];
+
+  // Query 1: Site-specific with exact city match
   queries.push(`site:cnpj.biz "${city}" "${segment}" CNPJ`);
+  
+  // Query 2: Another site with state
   queries.push(`site:empresascnpj.com "${city}" ${stateAbbr} ${segment}`);
+  
+  // Query 3: General search with segment
   queries.push(`"${segment}" "${city}" ${stateAbbr} CNPJ contato telefone -franquia`);
+  
+  // Query 4: With state full name
   queries.push(`empresas ${segment} ${city} ${stateName} lista comercial CNPJ`);
+
+  // Add synonym-based queries for better coverage (only if we have synonyms)
+  if (synonyms.length > 0) {
+    // Use top 2 synonyms for additional queries
+    const topSynonym = synonyms[0];
+    queries.push(`"${topSynonym}" "${city}" ${stateAbbr} CNPJ empresas`);
+    
+    if (synonyms.length > 1) {
+      queries.push(`site:cnpj.biz "${city}" "${synonyms[1]}" CNPJ`);
+    }
+  }
 
   return queries;
 }
