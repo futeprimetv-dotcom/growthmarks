@@ -73,13 +73,41 @@ export interface BatchAnalysisResult {
   }>;
 }
 
+export interface DigitalPresenceAnalysis {
+  website: {
+    found: boolean;
+    url: string | null;
+    confidence: "alta" | "média" | "baixa";
+    notes: string;
+  };
+  whatsapp: {
+    found: boolean;
+    number: string | null;
+    confidence: "alta" | "média" | "baixa";
+    source: string;
+  };
+  socialMedia: {
+    instagram: string | null;
+    facebook: string | null;
+    linkedin: string | null;
+    tiktok: string | null;
+  };
+  digitalMaturity: {
+    level: "alta" | "média" | "baixa" | "inexistente";
+    score: number;
+    analysis: string;
+  };
+  contactSuggestions: string[];
+}
+
 type AnalysisType = 
   | "analyze-fit" 
   | "generate-summary" 
   | "suggest-approach" 
   | "generate-script" 
   | "qualify-lead"
-  | "batch-analyze";
+  | "batch-analyze"
+  | "digital-presence";
 
 interface AIProspectingRequest {
   type: AnalysisType;
@@ -202,6 +230,20 @@ export function useBatchAnalyze() {
         type: "batch-analyze",
         companies,
         icpConfig,
+      });
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+    },
+  });
+}
+
+export function useDigitalPresence() {
+  return useMutation({
+    mutationFn: async ({ company }: { company: CompanyData }) => {
+      return callAIProspecting<DigitalPresenceAnalysis>({
+        type: "digital-presence",
+        company,
       });
     },
     onError: (error: Error) => {

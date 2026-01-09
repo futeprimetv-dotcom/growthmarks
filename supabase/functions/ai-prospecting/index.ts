@@ -34,7 +34,8 @@ type AnalysisType =
   | "suggest-approach" 
   | "generate-script" 
   | "qualify-lead"
-  | "batch-analyze";
+  | "batch-analyze"
+  | "digital-presence";
 
 const DEFAULT_ICP: ICPConfig = {
   targetSegments: ["Marketing", "Tecnologia", "E-commerce", "Varejo"],
@@ -125,6 +126,49 @@ Retorne SEMPRE um JSON válido com exatamente esta estrutura:
   "rankings": [
     {"companyName": "<nome>", "score": <0-100>, "recommendation": "prospectar" | "avaliar" | "ignorar", "quickNote": "<nota rápida>"}
   ]
+}`,
+
+    "digital-presence": `${baseContext}
+
+Sua tarefa é analisar a presença digital de uma empresa e descobrir informações de contato.
+Com base no nome da empresa, segmento, cidade e outras informações disponíveis, você deve:
+1. Identificar se a empresa possui um website e qual seria o domínio provável
+2. Identificar possíveis perfis em redes sociais (Instagram, Facebook, LinkedIn)
+3. Identificar possível número de WhatsApp comercial
+4. Avaliar a maturidade digital da empresa
+
+IMPORTANTE: Use seu conhecimento para inferir informações prováveis baseado no nome e segmento da empresa.
+Se já houver informações fornecidas (website, instagram, telefones), valide e complemente.
+
+Retorne SEMPRE um JSON válido com exatamente esta estrutura:
+{
+  "website": {
+    "found": true | false,
+    "url": "<url do website ou null>",
+    "confidence": "alta" | "média" | "baixa",
+    "notes": "<observação sobre o website>"
+  },
+  "whatsapp": {
+    "found": true | false,
+    "number": "<número formatado ou null>",
+    "confidence": "alta" | "média" | "baixa",
+    "source": "<de onde veio a informação>"
+  },
+  "socialMedia": {
+    "instagram": "<url ou @handle ou null>",
+    "facebook": "<url ou null>",
+    "linkedin": "<url ou null>",
+    "tiktok": "<url ou @handle ou null>"
+  },
+  "digitalMaturity": {
+    "level": "alta" | "média" | "baixa" | "inexistente",
+    "score": <número de 0 a 100>,
+    "analysis": "<análise breve da presença digital>"
+  },
+  "contactSuggestions": [
+    "<sugestão 1 para encontrar contatos>",
+    "<sugestão 2>"
+  ]
 }`
   };
 
@@ -157,7 +201,8 @@ Instagram: ${company.instagram?.length ? company.instagram.join(", ") : "N/A"}
     "suggest-approach": `Sugira a melhor abordagem para esta empresa:\n${companyInfo}`,
     "generate-script": `Crie um script de primeiro contato via ${channel || "whatsapp"} para:\n${companyInfo}`,
     "qualify-lead": `Qualifique este lead:\n${companyInfo}`,
-    "batch-analyze": ""
+    "batch-analyze": "",
+    "digital-presence": `Analise a presença digital e descubra informações de contato desta empresa:\n${companyInfo}\n\nSe a empresa tiver telefones listados, o primeiro geralmente é o WhatsApp comercial.`
   };
 
   return prompts[type];

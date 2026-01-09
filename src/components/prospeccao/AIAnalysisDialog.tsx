@@ -18,9 +18,15 @@ import {
   Loader2,
   Phone,
   Mail,
-  MessageCircle
+  MessageCircle,
+  Globe,
+  Instagram,
+  Facebook,
+  Linkedin,
+  ExternalLink,
+  Smartphone
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { 
   FitAnalysis, 
@@ -28,8 +34,10 @@ import {
   ApproachSuggestion, 
   ContactScript,
   CompanyData,
+  DigitalPresenceAnalysis,
   useGenerateScript,
-  useSuggestApproach
+  useSuggestApproach,
+  useDigitalPresence
 } from "@/hooks/useAIProspecting";
 import { AIFitBadge } from "./AIFitBadge";
 import { useICPSettings } from "@/hooks/useICPSettings";
@@ -52,13 +60,28 @@ export function AIAnalysisDialog({
   isLoading,
 }: AIAnalysisDialogProps) {
   const [copiedScript, setCopiedScript] = useState(false);
+  const [copiedWhatsApp, setCopiedWhatsApp] = useState(false);
   const [selectedChannel, setSelectedChannel] = useState<string>("whatsapp");
   const [approach, setApproach] = useState<ApproachSuggestion | null>(null);
   const [script, setScript] = useState<ContactScript | null>(null);
+  const [digitalPresence, setDigitalPresence] = useState<DigitalPresenceAnalysis | null>(null);
   
   const { data: icpConfig } = useICPSettings();
   const generateScript = useGenerateScript();
   const suggestApproach = useSuggestApproach();
+  const digitalPresenceAnalysis = useDigitalPresence();
+
+  // Auto-fetch digital presence when dialog opens
+  useEffect(() => {
+    if (open && !digitalPresence && !digitalPresenceAnalysis.isPending) {
+      handleAnalyzeDigitalPresence();
+    }
+  }, [open]);
+
+  const handleAnalyzeDigitalPresence = async () => {
+    const result = await digitalPresenceAnalysis.mutateAsync({ company });
+    setDigitalPresence(result);
+  };
 
   const handleGenerateScript = async () => {
     const result = await generateScript.mutateAsync({ 
@@ -74,11 +97,36 @@ export function AIAnalysisDialog({
     setApproach(result);
   };
 
-  const copyToClipboard = (text: string) => {
+  const copyToClipboard = (text: string, type: "script" | "whatsapp" = "script") => {
     navigator.clipboard.writeText(text);
-    setCopiedScript(true);
-    toast.success("Script copiado!");
-    setTimeout(() => setCopiedScript(false), 2000);
+    if (type === "whatsapp") {
+      setCopiedWhatsApp(true);
+      toast.success("WhatsApp copiado!");
+      setTimeout(() => setCopiedWhatsApp(false), 2000);
+    } else {
+      setCopiedScript(true);
+      toast.success("Script copiado!");
+      setTimeout(() => setCopiedScript(false), 2000);
+    }
+  };
+
+  const getConfidenceBadge = (confidence: "alta" | "média" | "baixa") => {
+    const colors = {
+      alta: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
+      média: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
+      baixa: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
+    };
+    return <Badge className={colors[confidence]}>{confidence}</Badge>;
+  };
+
+  const getMaturityColor = (level: string) => {
+    const colors: Record<string, string> = {
+      alta: "text-green-600",
+      média: "text-yellow-600",
+      baixa: "text-orange-600",
+      inexistente: "text-red-600"
+    };
+    return colors[level] || "text-muted-foreground";
   };
 
   return (
@@ -97,25 +145,245 @@ export function AIAnalysisDialog({
             <p className="text-muted-foreground">Analisando empresa com IA...</p>
           </div>
         ) : (
-          <Tabs defaultValue="fit" className="w-full">
-            <TabsList className="grid w-full grid-cols-4">
+          <Tabs defaultValue="digital" className="w-full">
+            <TabsList className="grid w-full grid-cols-5">
+              <TabsTrigger value="digital" className="flex items-center gap-1">
+                <Globe className="h-4 w-4" />
+                <span className="hidden sm:inline">Digital</span>
+              </TabsTrigger>
               <TabsTrigger value="fit" className="flex items-center gap-1">
                 <Target className="h-4 w-4" />
-                Fit
+                <span className="hidden sm:inline">Fit</span>
               </TabsTrigger>
               <TabsTrigger value="summary" className="flex items-center gap-1">
                 <FileText className="h-4 w-4" />
-                Resumo
+                <span className="hidden sm:inline">Resumo</span>
               </TabsTrigger>
               <TabsTrigger value="approach" className="flex items-center gap-1">
                 <Lightbulb className="h-4 w-4" />
-                Abordagem
+                <span className="hidden sm:inline">Abordagem</span>
               </TabsTrigger>
               <TabsTrigger value="script" className="flex items-center gap-1">
                 <MessageSquare className="h-4 w-4" />
-                Script
+                <span className="hidden sm:inline">Script</span>
               </TabsTrigger>
             </TabsList>
+
+            {/* DIGITAL PRESENCE TAB - PRIORITY */}
+            <TabsContent value="digital" className="mt-4 space-y-4">
+              {digitalPresenceAnalysis.isPending ? (
+                <div className="flex flex-col items-center justify-center py-8 gap-4">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  <p className="text-muted-foreground">Buscando presença digital...</p>
+                </div>
+              ) : digitalPresence ? (
+                <>
+                  {/* WhatsApp - PRIORITY */}
+                  <Card className="border-2 border-green-500/50 bg-green-50/50 dark:bg-green-950/20">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-base flex items-center gap-2 text-green-700 dark:text-green-400">
+                        <Smartphone className="h-5 w-5" />
+                        WhatsApp Comercial
+                        {digitalPresence.whatsapp.found && getConfidenceBadge(digitalPresence.whatsapp.confidence)}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {digitalPresence.whatsapp.found && digitalPresence.whatsapp.number ? (
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-xl font-bold text-green-700 dark:text-green-400">
+                              {digitalPresence.whatsapp.number}
+                            </p>
+                            <p className="text-xs text-muted-foreground">{digitalPresence.whatsapp.source}</p>
+                          </div>
+                          <div className="flex gap-2">
+                            <Button 
+                              size="sm"
+                              variant="outline"
+                              onClick={() => copyToClipboard(digitalPresence.whatsapp.number!, "whatsapp")}
+                            >
+                              {copiedWhatsApp ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                            </Button>
+                            <Button 
+                              size="sm"
+                              className="bg-green-600 hover:bg-green-700"
+                              onClick={() => window.open(`https://wa.me/${digitalPresence.whatsapp.number?.replace(/\D/g, '')}`, '_blank')}
+                            >
+                              <MessageCircle className="h-4 w-4 mr-1" />
+                              Abrir
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-muted-foreground text-sm">
+                          WhatsApp não identificado. {digitalPresence.contactSuggestions?.[0] || "Tente buscar no site da empresa."}
+                        </p>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  {/* Website */}
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm flex items-center gap-2">
+                        <Globe className="h-4 w-4" />
+                        Website
+                        {digitalPresence.website.found && getConfidenceBadge(digitalPresence.website.confidence)}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {digitalPresence.website.found && digitalPresence.website.url ? (
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <a 
+                              href={digitalPresence.website.url.startsWith('http') ? digitalPresence.website.url : `https://${digitalPresence.website.url}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-primary hover:underline flex items-center gap-1"
+                            >
+                              {digitalPresence.website.url}
+                              <ExternalLink className="h-3 w-3" />
+                            </a>
+                            <p className="text-xs text-muted-foreground">{digitalPresence.website.notes}</p>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-muted-foreground text-sm">Website não identificado</p>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  {/* Social Media */}
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm">Redes Sociais</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-2 gap-3">
+                        {digitalPresence.socialMedia.instagram && (
+                          <a 
+                            href={digitalPresence.socialMedia.instagram.startsWith('http') ? digitalPresence.socialMedia.instagram : `https://instagram.com/${digitalPresence.socialMedia.instagram.replace('@', '')}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-2 p-2 rounded-md bg-gradient-to-r from-purple-500/10 to-pink-500/10 hover:from-purple-500/20 hover:to-pink-500/20 transition-colors"
+                          >
+                            <Instagram className="h-5 w-5 text-pink-600" />
+                            <span className="text-sm truncate">{digitalPresence.socialMedia.instagram}</span>
+                          </a>
+                        )}
+                        {digitalPresence.socialMedia.facebook && (
+                          <a 
+                            href={digitalPresence.socialMedia.facebook.startsWith('http') ? digitalPresence.socialMedia.facebook : `https://facebook.com/${digitalPresence.socialMedia.facebook}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-2 p-2 rounded-md bg-blue-500/10 hover:bg-blue-500/20 transition-colors"
+                          >
+                            <Facebook className="h-5 w-5 text-blue-600" />
+                            <span className="text-sm truncate">{digitalPresence.socialMedia.facebook}</span>
+                          </a>
+                        )}
+                        {digitalPresence.socialMedia.linkedin && (
+                          <a 
+                            href={digitalPresence.socialMedia.linkedin.startsWith('http') ? digitalPresence.socialMedia.linkedin : `https://linkedin.com/company/${digitalPresence.socialMedia.linkedin}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-2 p-2 rounded-md bg-blue-700/10 hover:bg-blue-700/20 transition-colors"
+                          >
+                            <Linkedin className="h-5 w-5 text-blue-700" />
+                            <span className="text-sm truncate">{digitalPresence.socialMedia.linkedin}</span>
+                          </a>
+                        )}
+                        {digitalPresence.socialMedia.tiktok && (
+                          <a 
+                            href={digitalPresence.socialMedia.tiktok.startsWith('http') ? digitalPresence.socialMedia.tiktok : `https://tiktok.com/${digitalPresence.socialMedia.tiktok}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-2 p-2 rounded-md bg-slate-500/10 hover:bg-slate-500/20 transition-colors"
+                          >
+                            <span className="text-lg">🎵</span>
+                            <span className="text-sm truncate">{digitalPresence.socialMedia.tiktok}</span>
+                          </a>
+                        )}
+                        {!digitalPresence.socialMedia.instagram && !digitalPresence.socialMedia.facebook && 
+                         !digitalPresence.socialMedia.linkedin && !digitalPresence.socialMedia.tiktok && (
+                          <p className="text-muted-foreground text-sm col-span-2">Nenhuma rede social identificada</p>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Digital Maturity */}
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm flex items-center justify-between">
+                        <span>Maturidade Digital</span>
+                        <Badge variant="outline" className={getMaturityColor(digitalPresence.digitalMaturity.level)}>
+                          {digitalPresence.digitalMaturity.level.toUpperCase()} ({digitalPresence.digitalMaturity.score}/100)
+                        </Badge>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-sm text-muted-foreground">{digitalPresence.digitalMaturity.analysis}</p>
+                    </CardContent>
+                  </Card>
+
+                  {/* Contact Suggestions */}
+                  {digitalPresence.contactSuggestions?.length > 0 && (
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm flex items-center gap-2">
+                          <Lightbulb className="h-4 w-4" />
+                          Sugestões para Encontrar Contatos
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <ul className="space-y-1">
+                          {digitalPresence.contactSuggestions.map((suggestion, i) => (
+                            <li key={i} className="text-sm flex items-start gap-2">
+                              <span className="text-primary">•</span>
+                              {suggestion}
+                            </li>
+                          ))}
+                        </ul>
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  <Button 
+                    variant="outline" 
+                    className="w-full"
+                    onClick={() => {
+                      setDigitalPresence(null);
+                      handleAnalyzeDigitalPresence();
+                    }}
+                    disabled={digitalPresenceAnalysis.isPending}
+                  >
+                    <Sparkles className="h-4 w-4 mr-2" />
+                    Reanalisar Presença Digital
+                  </Button>
+                </>
+              ) : (
+                <div className="text-center py-8">
+                  <Globe className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                  <p className="text-muted-foreground mb-4">
+                    Descubra website, redes sociais e WhatsApp desta empresa
+                  </p>
+                  <Button onClick={handleAnalyzeDigitalPresence} disabled={digitalPresenceAnalysis.isPending}>
+                    {digitalPresenceAnalysis.isPending ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Analisando...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="h-4 w-4 mr-2" />
+                        Analisar Presença Digital
+                      </>
+                    )}
+                  </Button>
+                </div>
+              )}
+            </TabsContent>
 
             <TabsContent value="fit" className="mt-4 space-y-4">
               {fitAnalysis ? (
