@@ -18,32 +18,47 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { useSalesFunnels } from "@/hooks/useSalesFunnels";
-import { useSendProspectsToFunnel } from "@/hooks/useProspects";
+import { useSendProspectsToFunnel, useSendCNPJToFunnel } from "@/hooks/useProspects";
+import type { CNPJLookupResult } from "@/hooks/useCNPJLookup";
 
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   selectedProspects: string[];
+  cnpjData?: CNPJLookupResult;
   onSuccess: () => void;
 }
 
-export function SendToFunnelDialog({ open, onOpenChange, selectedProspects, onSuccess }: Props) {
+export function SendToFunnelDialog({ open, onOpenChange, selectedProspects, cnpjData, onSuccess }: Props) {
   const [funnelId, setFunnelId] = useState<string>("");
   const { data: funnels } = useSalesFunnels();
   const sendMutation = useSendProspectsToFunnel();
+  const sendCNPJMutation = useSendCNPJToFunnel();
 
   const handleSubmit = async () => {
     if (!funnelId) return;
     
-    await sendMutation.mutateAsync({
-      prospectIds: selectedProspects,
-      funnelId
-    });
+    if (cnpjData) {
+      // Send CNPJ data directly to funnel
+      await sendCNPJMutation.mutateAsync({
+        cnpjData,
+        funnelId
+      });
+    } else {
+      // Send selected prospects to funnel
+      await sendMutation.mutateAsync({
+        prospectIds: selectedProspects,
+        funnelId
+      });
+    }
     
     onSuccess();
     onOpenChange(false);
     setFunnelId("");
   };
+
+  const isPending = sendMutation.isPending || sendCNPJMutation.isPending;
+  const count = cnpjData ? 1 : selectedProspects.length;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -51,7 +66,10 @@ export function SendToFunnelDialog({ open, onOpenChange, selectedProspects, onSu
         <DialogHeader>
           <DialogTitle>Enviar para Funil</DialogTitle>
           <DialogDescription>
-            Selecione o funil para onde deseja enviar {selectedProspects.length} prospecto(s) como leads.
+            {cnpjData 
+              ? `Enviar "${cnpjData.nomeFantasia || cnpjData.razaoSocial}" como lead para o funil selecionado.`
+              : `Selecione o funil para onde deseja enviar ${count} prospecto(s) como leads.`
+            }
           </DialogDescription>
         </DialogHeader>
 
@@ -83,8 +101,8 @@ export function SendToFunnelDialog({ open, onOpenChange, selectedProspects, onSu
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancelar
           </Button>
-          <Button onClick={handleSubmit} disabled={!funnelId || sendMutation.isPending}>
-            {sendMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+          <Button onClick={handleSubmit} disabled={!funnelId || isPending}>
+            {isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
             Enviar para Funil
           </Button>
         </DialogFooter>
