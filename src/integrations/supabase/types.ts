@@ -885,6 +885,66 @@ export type Database = {
           },
         ]
       }
+      payables: {
+        Row: {
+          category: string
+          created_at: string
+          description: string
+          due_date: string
+          id: string
+          is_archived: boolean | null
+          notes: string | null
+          paid_at: string | null
+          paid_value: number | null
+          payment_method: string | null
+          recurring: boolean | null
+          reference_month: number
+          reference_year: number
+          status: string
+          supplier: string | null
+          updated_at: string
+          value: number
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          description: string
+          due_date: string
+          id?: string
+          is_archived?: boolean | null
+          notes?: string | null
+          paid_at?: string | null
+          paid_value?: number | null
+          payment_method?: string | null
+          recurring?: boolean | null
+          reference_month: number
+          reference_year: number
+          status?: string
+          supplier?: string | null
+          updated_at?: string
+          value: number
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string
+          due_date?: string
+          id?: string
+          is_archived?: boolean | null
+          notes?: string | null
+          paid_at?: string | null
+          paid_value?: number | null
+          payment_method?: string | null
+          recurring?: boolean | null
+          reference_month?: number
+          reference_year?: number
+          status?: string
+          supplier?: string | null
+          updated_at?: string
+          value?: number
+        }
+        Relationships: []
+      }
       planning_campaigns: {
         Row: {
           budget: number | null
@@ -1124,6 +1184,68 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      receivables: {
+        Row: {
+          client_id: string | null
+          created_at: string
+          description: string
+          due_date: string
+          id: string
+          is_archived: boolean | null
+          notes: string | null
+          paid_at: string | null
+          paid_value: number | null
+          payment_method: string | null
+          reference_month: number
+          reference_year: number
+          status: string
+          updated_at: string
+          value: number
+        }
+        Insert: {
+          client_id?: string | null
+          created_at?: string
+          description: string
+          due_date: string
+          id?: string
+          is_archived?: boolean | null
+          notes?: string | null
+          paid_at?: string | null
+          paid_value?: number | null
+          payment_method?: string | null
+          reference_month: number
+          reference_year: number
+          status?: string
+          updated_at?: string
+          value: number
+        }
+        Update: {
+          client_id?: string | null
+          created_at?: string
+          description?: string
+          due_date?: string
+          id?: string
+          is_archived?: boolean | null
+          notes?: string | null
+          paid_at?: string | null
+          paid_value?: number | null
+          payment_method?: string | null
+          reference_month?: number
+          reference_year?: number
+          status?: string
+          updated_at?: string
+          value?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "receivables_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       services: {
         Row: {
