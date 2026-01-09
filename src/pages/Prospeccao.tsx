@@ -22,6 +22,7 @@ import { CNPJResultCard } from "@/components/prospeccao/CNPJResultCard";
 import { CNPJBatchDialog } from "@/components/prospeccao/CNPJBatchDialog";
 import { RecentFiltersSelect, saveRecentProspeccaoFilters } from "@/components/prospeccao/RecentFiltersSelect";
 import { SearchResultsPanel } from "@/components/prospeccao/SearchResultsPanel";
+import { SearchLoadingOverlay } from "@/components/prospeccao/SearchLoadingOverlay";
 import { useProspects, useSendToLeadsBase, useAddProspectFromCNPJ, type ProspectFilters } from "@/hooks/useProspects";
 import { useSavedSearches } from "@/hooks/useSavedSearches";
 import { useCNPJLookupManual, type CNPJLookupResult } from "@/hooks/useCNPJLookup";
@@ -445,7 +446,9 @@ export default function Prospeccao() {
   // If showing results panel (API search), render a clean view
   if (showResultsPanel && searchMode === "api") {
     return (
-      <div className="flex flex-col h-[calc(100vh-4rem)]">
+      <>
+        <SearchLoadingOverlay isVisible={companySearch.isPending} filters={filters} />
+        <div className="flex flex-col h-[calc(100vh-4rem)]">
         {/* Results Header with Actions */}
         <div className="px-6 py-3 border-b shrink-0 flex items-center justify-between bg-muted/30">
           <div className="flex items-center gap-3">
@@ -515,13 +518,16 @@ export default function Prospeccao() {
           selectedProspects={selectedIds}
           onSuccess={() => setSelectedIds([])}
         />
-      </div>
+        </div>
+      </>
     );
   }
 
   // Default view with filters
   return (
-    <div className="flex flex-col h-[calc(100vh-4rem)]">
+    <>
+      <SearchLoadingOverlay isVisible={companySearch.isPending} filters={filters} />
+      <div className="flex flex-col h-[calc(100vh-4rem)]">
       {/* Header */}
       <div className="p-6 border-b shrink-0">
         <div className="flex items-center justify-between mb-4">
@@ -756,6 +762,7 @@ export default function Prospeccao() {
         onSendToLeads={handleBatchSendToLeads}
         isAdding={batchAdding}
       />
-    </div>
+      </div>
+    </>
   );
 }
