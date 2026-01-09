@@ -11,6 +11,7 @@ interface PullFilters {
   states?: string[];
   cities?: string[];
   companySizes?: string[];
+  limit?: number;
 }
 
 // State name mapping
@@ -268,8 +269,9 @@ serve(async (req) => {
     const activeCNPJs: any[] = [];
     const cnpjArray = Array.from(allCNPJs);
     const batchSize = 5;
+    const maxResults = filters.limit || 100;
 
-    for (let i = 0; i < cnpjArray.length; i += batchSize) {
+    for (let i = 0; i < cnpjArray.length && activeCNPJs.length < maxResults; i += batchSize) {
       const batch = cnpjArray.slice(i, i + batchSize);
       
       const batchResults = await Promise.all(batch.map(async (cnpj) => {
@@ -348,6 +350,11 @@ serve(async (req) => {
         });
 
         stats.activeCount++;
+
+        // Check if we've reached the limit
+        if (activeCNPJs.length >= maxResults) {
+          break;
+        }
       }
     }
 

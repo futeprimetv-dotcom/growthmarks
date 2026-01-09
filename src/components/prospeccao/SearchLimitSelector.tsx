@@ -18,6 +18,8 @@ const limits = [
   { value: 25, label: "25 empresas", description: "Moderado (~1min)" },
   { value: 50, label: "50 empresas", description: "Lento (~2min)" },
   { value: 100, label: "100 empresas", description: "Muito lento (~5min)" },
+  { value: 500, label: "500 empresas", description: "Demorado (~15min)" },
+  { value: 1000, label: "1000 empresas", description: "Muito demorado (~30min)" },
 ];
 
 export function SearchLimitSelector({ value, onChange }: Props) {
