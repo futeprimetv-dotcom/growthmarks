@@ -24,7 +24,6 @@ import {
   Linkedin,
   Sparkles,
   Brain,
-  UserCircle,
   Clock,
   Star,
 } from "lucide-react";
@@ -427,48 +426,48 @@ function CompanyCard({
               </div>
             )}
 
-            {/* Partners Section - Shown after AI analysis with enriched data */}
+            {/* Partners Section - Compact design */}
             {enrichedData?.partners && enrichedData.partners.length > 0 && (
-              <div className="mt-3 p-3 rounded-lg bg-muted/50 border">
-                <div className="flex items-center gap-2 mb-2">
-                  <UserCircle className="h-4 w-4 text-primary" />
-                  <span className="text-sm font-medium">Sócios</span>
+              <div className="mt-3">
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  <Users className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="text-xs font-medium text-muted-foreground">Sócios</span>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  {enrichedData.partners.slice(0, 5).map((partner, index) => (
-                    <div
-                      key={index}
-                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-background border text-sm"
-                    >
-                      <span className="font-medium">{partner.name}</span>
+                <div className="flex flex-wrap gap-1.5">
+                  {enrichedData.partners.slice(0, 4).map((partner, index) => (
+                    <Badge key={index} variant="secondary" className="font-normal text-xs py-0.5">
+                      {partner.name.split(' ').slice(0, 2).join(' ')}
                       {partner.role && (
-                        <span className="text-xs text-muted-foreground">
-                          ({partner.role})
+                        <span className="text-muted-foreground ml-1">
+                          ({partner.role.split(' ')[0]})
                         </span>
                       )}
-                    </div>
+                    </Badge>
                   ))}
-                  {enrichedData.partners.length > 5 && (
-                    <span className="text-xs text-muted-foreground self-center">
-                      +{enrichedData.partners.length - 5} mais
-                    </span>
+                  {enrichedData.partners.length > 4 && (
+                    <Badge variant="outline" className="text-xs py-0.5">
+                      +{enrichedData.partners.length - 4}
+                    </Badge>
                   )}
                 </div>
               </div>
             )}
 
-            {/* Key Info Grid */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+            {/* Key Info Grid - Cleaner layout */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4 pt-3 border-t">
               {/* CNPJ */}
-              <div className="space-y-1">
-                <p className="text-xs text-muted-foreground font-medium uppercase">CNPJ</p>
+              <div>
+                <div className="flex items-center gap-1.5 mb-0.5">
+                  <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="text-xs text-muted-foreground">CNPJ</span>
+                </div>
                 <div className="flex items-center gap-1">
-                  <p className="text-sm font-mono">{formatCNPJ(company.cnpj)}</p>
+                  <span className="text-sm font-mono">{formatCNPJ(company.cnpj)}</span>
                   {company.cnpj && (
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-6 w-6"
+                      className="h-5 w-5"
                       onClick={() => handleCopy(company.cnpj, "cnpj")}
                     >
                       {copiedField === "cnpj" ? (
@@ -482,97 +481,93 @@ function CompanyCard({
               </div>
 
               {/* Location */}
-              <div className="space-y-1">
-                <p className="text-xs text-muted-foreground font-medium uppercase">Localização</p>
-                <div className="flex items-center gap-1 text-sm">
-                  <MapPin className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                  <span>{company.city}/{company.state}</span>
+              <div>
+                <div className="flex items-center gap-1.5 mb-0.5">
+                  <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="text-xs text-muted-foreground">Localização</span>
                 </div>
+                <span className="text-sm">{company.city}/{company.state}</span>
               </div>
 
               {/* Company Size */}
-              <div className="space-y-1">
-                <p className="text-xs text-muted-foreground font-medium uppercase">Porte</p>
-                <div className="flex items-center gap-1 text-sm">
-                  <Users className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                  <span>{company.company_size || "-"}</span>
+              <div>
+                <div className="flex items-center gap-1.5 mb-0.5">
+                  <Briefcase className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="text-xs text-muted-foreground">Porte</span>
                 </div>
+                <span className="text-sm">{company.company_size || "-"}</span>
               </div>
 
               {/* Capital Social */}
-              <div className="space-y-1">
-                <p className="text-xs text-muted-foreground font-medium uppercase">Capital Social</p>
-                <div className="flex items-center gap-1 text-sm">
-                  <DollarSign className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                  <span>{formatCurrency(company.capital_social)}</span>
+              <div>
+                <div className="flex items-center gap-1.5 mb-0.5">
+                  <DollarSign className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="text-xs text-muted-foreground">Capital</span>
                 </div>
+                <span className="text-sm">{formatCurrency(company.capital_social)}</span>
               </div>
             </div>
 
-            {/* Contact Row */}
-            <div className="flex flex-wrap items-center gap-3 mt-4 pt-3 border-t">
+            {/* Contact Row - Cleaner layout */}
+            <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t">
               {/* Emails */}
               {allEmails.length > 0 ? (
-                <div className="flex items-center gap-2">
-                  <Mail className="h-4 w-4 text-primary" />
-                  <div className="flex flex-wrap gap-2">
-                    {allEmails.slice(0, 2).map((email, i) => (
-                      <a
-                        key={i}
-                        href={`mailto:${email}`}
-                        className="text-sm text-primary hover:underline"
-                      >
-                        {email}
-                      </a>
-                    ))}
-                    {allEmails.length > 2 && (
-                      <span className="text-xs text-muted-foreground">
-                        +{allEmails.length - 2}
-                      </span>
-                    )}
-                  </div>
+                <div className="flex items-center gap-1.5">
+                  <Mail className="h-4 w-4 text-muted-foreground" />
+                  {allEmails.slice(0, 1).map((email, i) => (
+                    <a
+                      key={i}
+                      href={`mailto:${email}`}
+                      className="text-sm text-primary hover:underline truncate max-w-[180px]"
+                    >
+                      {email}
+                    </a>
+                  ))}
+                  {allEmails.length > 1 && (
+                    <Badge variant="outline" className="text-xs py-0">
+                      +{allEmails.length - 1}
+                    </Badge>
+                  )}
                 </div>
               ) : (
-                <div className="flex items-center gap-2 text-muted-foreground">
+                <div className="flex items-center gap-1.5 text-muted-foreground">
                   <Mail className="h-4 w-4" />
-                  <span className="text-sm">Sem email</span>
+                  <span className="text-sm">-</span>
                 </div>
               )}
 
-              <Separator orientation="vertical" className="h-4" />
+              <span className="text-muted-foreground">•</span>
 
               {/* Phones */}
               {allPhones.length > 0 ? (
-                <div className="flex items-center gap-2">
-                  <Phone className="h-4 w-4 text-primary" />
-                  <div className="flex flex-wrap items-center gap-2">
-                    {allPhones.slice(0, 2).map((phone, i) => (
-                      <a
-                        key={i}
-                        href={`tel:${phone.replace(/\D/g, "")}`}
-                        className="text-sm text-primary hover:underline"
-                      >
-                        {formatPhone(phone)}
-                      </a>
-                    ))}
-                    {allPhones.length > 2 && (
-                      <span className="text-xs text-muted-foreground">
-                        +{allPhones.length - 2}
-                      </span>
-                    )}
-                  </div>
+                <div className="flex items-center gap-1.5">
+                  <Phone className="h-4 w-4 text-muted-foreground" />
+                  {allPhones.slice(0, 1).map((phone, i) => (
+                    <a
+                      key={i}
+                      href={`tel:${phone.replace(/\D/g, "")}`}
+                      className="text-sm text-primary hover:underline"
+                    >
+                      {formatPhone(phone)}
+                    </a>
+                  ))}
+                  {allPhones.length > 1 && (
+                    <Badge variant="outline" className="text-xs py-0">
+                      +{allPhones.length - 1}
+                    </Badge>
+                  )}
                 </div>
               ) : (
-                <div className="flex items-center gap-2 text-muted-foreground">
+                <div className="flex items-center gap-1.5 text-muted-foreground">
                   <Phone className="h-4 w-4" />
-                  <span className="text-sm">Sem telefone</span>
+                  <span className="text-sm">-</span>
                 </div>
               )}
 
-              {/* WhatsApp Button */}
-              {whatsappNumbers.length > 0 && (
-                <>
-                  <Separator orientation="vertical" className="h-4" />
+              {/* Action Buttons - Right aligned */}
+              <div className="flex items-center gap-1.5 ml-auto">
+                {/* WhatsApp Button */}
+                {whatsappNumbers.length > 0 && (
                   <a
                     href={`https://wa.me/${(() => {
                       const cleaned = whatsappNumbers[0].replace(/\D/g, "");
@@ -580,61 +575,50 @@ function CompanyCard({
                     })()}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-green-600 hover:bg-green-700 text-white text-sm font-medium transition-colors"
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-green-600 hover:bg-green-700 text-white text-xs font-medium transition-colors"
                   >
-                    <MessageCircle className="h-4 w-4" />
+                    <MessageCircle className="h-3.5 w-3.5" />
                     WhatsApp
                   </a>
-                </>
-              )}
+                )}
 
-              {/* Instagram */}
-              {enrichedData?.instagram && enrichedData.instagram.length > 0 && (
-                <>
-                  <Separator orientation="vertical" className="h-4" />
+                {/* Instagram */}
+                {enrichedData?.instagram && enrichedData.instagram.length > 0 && (
                   <a
                     href={`https://instagram.com/${enrichedData.instagram[0]}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white text-sm font-medium transition-colors"
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white text-xs font-medium transition-colors"
                   >
-                    <Instagram className="h-4 w-4" />
-                    @{enrichedData.instagram[0]}
+                    <Instagram className="h-3.5 w-3.5" />
                   </a>
-                </>
-              )}
+                )}
 
-              {/* LinkedIn */}
-              {enrichedData?.linkedin && (
-                <>
-                  <Separator orientation="vertical" className="h-4" />
+                {/* LinkedIn */}
+                {enrichedData?.linkedin && (
                   <a
                     href={enrichedData.linkedin}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium transition-colors"
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium transition-colors"
                   >
-                    <Linkedin className="h-4 w-4" />
-                    LinkedIn
+                    <Linkedin className="h-3.5 w-3.5" />
                   </a>
-                </>
-              )}
+                )}
 
-              {/* Website */}
-              {(enrichedData?.website || company.website_url) && (
-                <>
-                  <Separator orientation="vertical" className="h-4" />
+                {/* Website */}
+                {(enrichedData?.website || company.website_url) && (
                   <a
                     href={enrichedData?.website || company.website_url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-muted hover:bg-muted/80 text-sm font-medium transition-colors"
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border bg-background hover:bg-muted text-xs font-medium transition-colors"
                   >
-                    <Globe className="h-4 w-4" />
+                    <Globe className="h-3.5 w-3.5" />
                     Site
                   </a>
-                </>
-              )}
+                )}
+              </div>
             </div>
 
             {/* Quick hint when no contact */}
