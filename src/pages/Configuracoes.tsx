@@ -5,7 +5,8 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Building2, Package, Palette, Settings2, Bell, Plus, Edit2, Trash2 } from "lucide-react";
+import { Building2, Package, Palette, Settings2, Bell, Plus, Edit2, Trash2, Archive } from "lucide-react";
+import ArquivadosContent from "@/components/configuracoes/ArquivadosContent";
 import { useAvailableServices, AvailableService } from "@/hooks/useAvailableServices";
 import { CRMSettingsSection } from "@/components/configuracoes/CRMSettingsSection";
 import { CompanySettingsSection } from "@/components/configuracoes/CompanySettingsSection";
@@ -157,6 +158,13 @@ export default function Configuracoes() {
             <Bell className="h-4 w-4 mr-2" />
             Avançado
           </TabsTrigger>
+          <TabsTrigger 
+            value="arquivados" 
+            className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-6 py-3"
+          >
+            <Archive className="h-4 w-4 mr-2" />
+            Arquivados
+          </TabsTrigger>
         </TabsList>
 
         {/* Empresa Tab */}
@@ -252,6 +260,11 @@ export default function Configuracoes() {
         {/* Avançado Tab */}
         <TabsContent value="avancado" className="mt-6">
           <AdvancedSettingsSection />
+        </TabsContent>
+
+        {/* Arquivados Tab */}
+        <TabsContent value="arquivados" className="mt-6">
+          <ArquivadosContent />
         </TabsContent>
       </Tabs>
 

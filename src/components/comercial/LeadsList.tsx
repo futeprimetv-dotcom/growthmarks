@@ -206,6 +206,7 @@ export function LeadsList() {
                 <TableRow>
                   <TableHead>Lead</TableHead>
                   <TableHead className="text-center">Score</TableHead>
+                  <TableHead>Funil</TableHead>
                   <TableHead>Serviço</TableHead>
                   <TableHead>Valor Est.</TableHead>
                   <TableHead>Origem</TableHead>
@@ -234,6 +235,24 @@ export function LeadsList() {
                       </TableCell>
                       <TableCell className="text-center">
                         <LeadScoreBadge lead={lead} size="sm" />
+                      </TableCell>
+                      <TableCell>
+                        {(() => {
+                          const funnel = getFunnelName(lead.funnel_id);
+                          return funnel ? (
+                            <Badge 
+                              variant="outline" 
+                              style={{ 
+                                borderColor: funnel.color || undefined,
+                                color: funnel.color || undefined 
+                              }}
+                            >
+                              {funnel.name}
+                            </Badge>
+                          ) : (
+                            <span className="text-muted-foreground text-sm">-</span>
+                          );
+                        })()}
                       </TableCell>
                       <TableCell>
                         {lead.service_interest ? (

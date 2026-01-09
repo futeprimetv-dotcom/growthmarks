@@ -3,6 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -30,11 +31,14 @@ import {
   Users,
   Mail,
   Shield,
-  Star
+  Star,
+  Eye
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PriorityBadge } from "@/components/ui/priority-badge";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { useUserRole } from "@/hooks/useUserRole";
+import SupervisaoContent from "@/components/equipe/SupervisaoContent";
 
 export default function Equipe() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -44,6 +48,7 @@ export default function Equipe() {
   const [memberToDelete, setMemberToDelete] = useState<TeamMember | null>(null);
 
   const { user } = useAuth();
+  const { isGestao } = useUserRole();
   const { data: teamMembers, isLoading } = useTeamMembers();
   const { data: demands } = useDemands();
   const deleteMember = useDeleteTeamMember();
@@ -151,13 +156,9 @@ export default function Equipe() {
 
   const activeMembers = teamMembers?.filter(m => !m.is_archived) || [];
 
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Equipe</h1>
-          <p className="text-muted-foreground">Gerencie a equipe e suas demandas</p>
-        </div>
+  const TeamMembersContent = () => (
+    <>
+      <div className="flex items-center justify-end mb-6">
         <Button onClick={handleAddNew}>
           <Plus className="h-4 w-4 mr-2" />
           Novo Membro
@@ -323,6 +324,46 @@ export default function Equipe() {
           })}
         </div>
       )}
+    </>
+  );
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-3xl font-bold">Equipe</h1>
+        <p className="text-muted-foreground">Gerencie a equipe e suas demandas</p>
+      </div>
+
+      <Tabs defaultValue="membros" className="w-full">
+        <TabsList className="w-full justify-start border-b rounded-none h-auto p-0 bg-transparent">
+          <TabsTrigger 
+            value="membros" 
+            className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-6 py-3"
+          >
+            <Users className="h-4 w-4 mr-2" />
+            Membros
+          </TabsTrigger>
+          {isGestao && (
+            <TabsTrigger 
+              value="supervisao" 
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-6 py-3"
+            >
+              <Eye className="h-4 w-4 mr-2" />
+              Supervisão
+            </TabsTrigger>
+          )}
+        </TabsList>
+
+        <TabsContent value="membros" className="mt-6">
+          <TeamMembersContent />
+        </TabsContent>
+
+        {isGestao && (
+          <TabsContent value="supervisao" className="mt-6">
+            <SupervisaoContent />
+          </TabsContent>
+        )}
+      </Tabs>
 
       <TeamMemberFormDialog
         open={dialogOpen}
