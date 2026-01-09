@@ -27,6 +27,7 @@ import { SearchLimitSelector } from "@/components/prospeccao/SearchLimitSelector
 import { SearchTemplates } from "@/components/prospeccao/SearchTemplates";
 import { SearchHistory } from "@/components/prospeccao/SearchHistory";
 import { SearchStatsPanel, type SearchDebugStats } from "@/components/prospeccao/SearchStatsPanel";
+import { BackgroundSearchBanner } from "@/components/prospeccao/BackgroundSearchBanner";
 import { ICPSettingsDialog } from "@/components/prospeccao/ICPSettingsDialog";
 import { ICPIndicator } from "@/components/prospeccao/ICPIndicator";
 import { useProspects, useSendToLeadsBase, useAddProspectFromCNPJ, type ProspectFilters } from "@/hooks/useProspects";
@@ -543,6 +544,13 @@ export default function Prospeccao() {
           onMinimize={() => setIsSearchMinimized(true)}
         />
         <div className="flex flex-col h-[calc(100vh-4rem)]">
+        {/* Background Search Banner */}
+        <BackgroundSearchBanner
+          isVisible={companySearch.isPending && isSearchMinimized}
+          filters={filters}
+          onRestore={() => setIsSearchMinimized(false)}
+          onCancel={handleCancelSearch}
+        />
         {/* Results Header with Actions */}
         <div className="px-6 py-3 border-b shrink-0 flex items-center justify-between bg-muted/30">
           <div className="flex items-center gap-3">
@@ -636,6 +644,13 @@ export default function Prospeccao() {
         onMinimize={() => setIsSearchMinimized(true)}
       />
       <div className="flex flex-col h-[calc(100vh-4rem)]">
+      {/* Background Search Banner */}
+      <BackgroundSearchBanner
+        isVisible={companySearch.isPending && isSearchMinimized}
+        filters={filters}
+        onRestore={() => setIsSearchMinimized(false)}
+        onCancel={handleCancelSearch}
+      />
       {/* Header */}
       <div className="p-6 border-b shrink-0">
         <div className="flex items-center justify-between mb-4">
