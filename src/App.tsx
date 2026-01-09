@@ -15,7 +15,6 @@ import Producao from "./pages/Producao";
 import Equipe from "./pages/Equipe";
 import Arquivados from "./pages/Arquivados";
 import Configuracoes from "./pages/Configuracoes";
-import Comercial from "./pages/Comercial";
 import Planejamentos from "./pages/Planejamentos";
 import PlanejamentoPublico from "./pages/PlanejamentoPublico";
 import Metas from "./pages/Metas";
@@ -23,6 +22,9 @@ import Supervisao from "./pages/Supervisao";
 import Login from "./pages/Login";
 import AssinarContrato from "./pages/AssinarContrato";
 import NotFound from "./pages/NotFound";
+import CRM from "./pages/CRM";
+import Leads from "./pages/Leads";
+import MetricasComerciais from "./pages/MetricasComerciais";
 
 const queryClient = new QueryClient();
 
@@ -54,9 +56,11 @@ const App = () => (
                     <Route path="/arquivados" element={<Arquivados />} />
                     <Route path="/configuracoes" element={<Configuracoes />} />
                     <Route path="/supervisao" element={<Supervisao />} />
-                    <Route path="/comercial" element={<Comercial />} />
                     <Route path="/planejamentos" element={<Planejamentos />} />
                     <Route path="/metas" element={<Metas />} />
+                    <Route path="/crm" element={<CRM />} />
+                    <Route path="/leads" element={<Leads />} />
+                    <Route path="/metricas-comerciais" element={<MetricasComerciais />} />
                     <Route path="*" element={<NotFound />} />
                   </Routes>
                 </MainLayout>
