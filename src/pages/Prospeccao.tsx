@@ -37,6 +37,7 @@ import { useCompanySearch, type CompanySearchResult } from "@/hooks/useCompanySe
 import { useSearchCache } from "@/hooks/useSearchCache";
 import { useBrowserNotification } from "@/hooks/useBrowserNotification";
 import { useNotifications } from "@/contexts/NotificationContext";
+import { useBackgroundSearch } from "@/contexts/BackgroundSearchContext";
 import { toast } from "@/hooks/use-toast";
 
 export default function Prospeccao() {
@@ -80,17 +81,42 @@ export default function Prospeccao() {
   // App notifications
   const { addNotification } = useNotifications();
   
+  // Background search context (persists across navigation)
+  const { activeSearch, isSearching: isBackgroundSearching, startBackgroundSearch, cancelSearch: cancelBackgroundSearch, clearSearch } = useBackgroundSearch();
+  
   const { data: savedSearches = [] } = useSavedSearches();
   const sendToLeadsBase = useSendToLeadsBase();
   const addProspectFromCNPJ = useAddProspectFromCNPJ();
   const { lookup } = useCNPJLookupManual();
 
-  // Request notification permission when minimizing search
-  const handleMinimizeSearch = async () => {
-    if (permission !== "granted") {
-      await requestPermission();
+  // Check for completed background search results on mount
+  useEffect(() => {
+    if (activeSearch?.status === "completed" && activeSearch.results) {
+      setApiResults(activeSearch.results);
+      setApiTotal(activeSearch.total || 0);
+      setHasSearched(true);
+      setShowResultsPanel(true);
+      if (activeSearch.stats) {
+        setSearchStats(activeSearch.stats);
+      }
+      clearSearch(); // Clear the background search after loading results
     }
-    setIsSearchMinimized(true);
+  }, [activeSearch, clearSearch]);
+
+  // Request notification permission when minimizing search
+  const handleMinimizeToBackground = async () => {
+    // Cancel the local search and start a background search instead
+    companySearch.cancel();
+    
+    try {
+      await startBackgroundSearch(filters, pageSize);
+      toast({
+        title: "Busca em segundo plano",
+        description: "A busca continuará mesmo se você navegar para outras páginas.",
+      });
+    } catch (error) {
+      // Error will be handled by the context
+    }
   };
 
   // Sync filters with URL params - only on mount
@@ -580,7 +606,7 @@ export default function Prospeccao() {
           isVisible={companySearch.isPending && !isSearchMinimized} 
           filters={filters} 
           onCancel={handleCancelSearch}
-          onMinimize={handleMinimizeSearch}
+          onMinimize={handleMinimizeToBackground}
         />
         <div className="flex flex-col h-[calc(100vh-4rem)]">
         {/* Background Search Banner */}
@@ -680,7 +706,7 @@ export default function Prospeccao() {
         isVisible={companySearch.isPending && !isSearchMinimized} 
         filters={filters} 
         onCancel={handleCancelSearch}
-        onMinimize={handleMinimizeSearch}
+        onMinimize={handleMinimizeToBackground}
       />
       <div className="flex flex-col h-[calc(100vh-4rem)]">
       {/* Background Search Banner */}

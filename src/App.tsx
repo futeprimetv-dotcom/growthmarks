@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { AppearanceProvider } from "@/contexts/AppearanceContext";
 import { NotificationProvider } from "@/contexts/NotificationContext";
+import { BackgroundSearchProvider } from "@/contexts/BackgroundSearchContext";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { MainLayout } from "@/components/layout/MainLayout";
 import Dashboard from "./pages/Dashboard";
@@ -36,6 +37,7 @@ const App = () => (
     <AuthProvider>
       <AppearanceProvider>
       <NotificationProvider>
+      <BackgroundSearchProvider>
       <TooltipProvider>
         <Toaster />
         <Sonner />
@@ -74,6 +76,7 @@ const App = () => (
           </Routes>
         </BrowserRouter>
       </TooltipProvider>
+      </BackgroundSearchProvider>
       </NotificationProvider>
       </AppearanceProvider>
     </AuthProvider>
