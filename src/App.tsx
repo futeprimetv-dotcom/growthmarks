@@ -18,6 +18,7 @@ import Comercial from "./pages/Comercial";
 import Planejamentos from "./pages/Planejamentos";
 import PlanejamentoPublico from "./pages/PlanejamentoPublico";
 import Metas from "./pages/Metas";
+import Supervisao from "./pages/Supervisao";
 import Login from "./pages/Login";
 import AssinarContrato from "./pages/AssinarContrato";
 import NotFound from "./pages/NotFound";
@@ -50,6 +51,7 @@ const App = () => (
                     <Route path="/equipe" element={<Equipe />} />
                     <Route path="/arquivados" element={<Arquivados />} />
                     <Route path="/configuracoes" element={<Configuracoes />} />
+                    <Route path="/supervisao" element={<Supervisao />} />
                     <Route path="/comercial" element={<Comercial />} />
                     <Route path="/planejamentos" element={<Planejamentos />} />
                     <Route path="/metas" element={<Metas />} />

@@ -1438,6 +1438,48 @@ export type Database = {
         }
         Relationships: []
       }
+      user_sessions: {
+        Row: {
+          created_at: string
+          id: string
+          is_online: boolean | null
+          last_activity_at: string
+          last_login_at: string
+          session_started_at: string | null
+          total_time_online_minutes: number | null
+          updated_at: string
+          user_email: string | null
+          user_id: string
+          user_name: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_online?: boolean | null
+          last_activity_at?: string
+          last_login_at?: string
+          session_started_at?: string | null
+          total_time_online_minutes?: number | null
+          updated_at?: string
+          user_email?: string | null
+          user_id: string
+          user_name?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_online?: boolean | null
+          last_activity_at?: string
+          last_login_at?: string
+          session_started_at?: string | null
+          total_time_online_minutes?: number | null
+          updated_at?: string
+          user_email?: string | null
+          user_id?: string
+          user_name?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
