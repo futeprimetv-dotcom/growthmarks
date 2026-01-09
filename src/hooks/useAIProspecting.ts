@@ -2,6 +2,10 @@ import { useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
+// Re-export ICPConfig from centralized config
+export { type ICPConfig, type ToneOfVoice, DEFAULT_ICP } from "@/config/icp";
+import type { ICPConfig } from "@/config/icp";
+
 export interface CompanyData {
   name: string;
   cnpj?: string;
@@ -15,14 +19,6 @@ export interface CompanyData {
   emails?: string[];
   website?: string;
   instagram?: string[];
-}
-
-export interface ICPConfig {
-  targetSegments: string[];
-  preferredSizes: string[];
-  targetStates: string[];
-  minTicket: number;
-  toneOfVoice: "formal" | "casual" | "technical" | "consultative";
 }
 
 export interface FitAnalysis {

@@ -1,15 +1,10 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import type { ICPConfig } from "./useAIProspecting";
+import { DEFAULT_ICP, type ICPConfig } from "@/config/icp";
 
-const DEFAULT_ICP: ICPConfig = {
-  targetSegments: ["Marketing", "Tecnologia", "E-commerce", "Varejo"],
-  preferredSizes: ["ME", "EPP", "Médio"],
-  targetStates: ["SP", "RJ", "MG", "PR", "SC", "RS"],
-  minTicket: 1500,
-  toneOfVoice: "consultative"
-};
+// Re-export from centralized config
+export { DEFAULT_ICP, type ICPConfig } from "@/config/icp";
 
 export function useICPSettings() {
   return useQuery({
@@ -112,5 +107,3 @@ export function useResetICPSettings() {
     },
   });
 }
-
-export { DEFAULT_ICP };

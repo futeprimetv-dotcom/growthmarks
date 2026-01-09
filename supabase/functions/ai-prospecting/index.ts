@@ -35,7 +35,8 @@ type AnalysisType =
   | "generate-script" 
   | "qualify-lead"
   | "batch-analyze"
-  | "digital-presence";
+  | "digital-presence"
+  | "full-analysis"; // Combined fit + summary in one call
 
 const DEFAULT_ICP: ICPConfig = {
   targetSegments: ["Marketing", "Tecnologia", "E-commerce", "Varejo"],
@@ -65,6 +66,26 @@ Retorne SEMPRE um JSON válido com exatamente esta estrutura:
   "justification": "<justificativa em 2-3 frases>",
   "strengths": ["<ponto forte 1>", "<ponto forte 2>"],
   "concerns": ["<preocupação 1>", "<preocupação 2>"]
+}`,
+
+    "full-analysis": `${baseContext}
+
+Sua tarefa é fazer uma análise COMPLETA de uma empresa: avaliar fit com ICP E gerar resumo executivo.
+Retorne SEMPRE um JSON válido com exatamente esta estrutura:
+{
+  "fit": {
+    "score": <número de 0 a 100>,
+    "recommendation": "prospectar" | "avaliar" | "ignorar",
+    "justification": "<justificativa em 2-3 frases>",
+    "strengths": ["<ponto forte 1>", "<ponto forte 2>"],
+    "concerns": ["<preocupação 1>", "<preocupação 2>"]
+  },
+  "summary": {
+    "summary": "<resumo em 2-3 parágrafos>",
+    "keyPoints": ["<ponto chave 1>", "<ponto chave 2>", "<ponto chave 3>"],
+    "opportunities": ["<oportunidade 1>", "<oportunidade 2>"],
+    "suggestedServices": ["<serviço 1>", "<serviço 2>"]
+  }
 }`,
 
     "generate-summary": `${baseContext}
@@ -252,6 +273,7 @@ Instagram: ${company.instagram?.length ? company.instagram.join(", ") : "N/A"}
 
   const prompts: Record<AnalysisType, string> = {
     "analyze-fit": `Analise o fit desta empresa com nosso ICP:\n${companyInfo}`,
+    "full-analysis": `Faça uma análise completa desta empresa (fit + resumo executivo):\n${companyInfo}`,
     "generate-summary": `Gere um resumo executivo desta empresa:\n${companyInfo}`,
     "suggest-approach": `Sugira a melhor abordagem para esta empresa:\n${companyInfo}`,
     "generate-script": `Crie um script de primeiro contato via ${channel || "whatsapp"} para:\n${companyInfo}`,

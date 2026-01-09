@@ -25,8 +25,8 @@ import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { useICPSettings, useUpdateICPSettings, useResetICPSettings, DEFAULT_ICP } from "@/hooks/useICPSettings";
-import type { ICPConfig } from "@/hooks/useAIProspecting";
+import { useICPSettings, useUpdateICPSettings, useResetICPSettings } from "@/hooks/useICPSettings";
+import { DEFAULT_ICP, type ICPConfig } from "@/config/icp";
 
 const BRAZILIAN_STATES = [
   "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", 

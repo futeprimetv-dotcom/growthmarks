@@ -286,6 +286,39 @@ export type Database = {
           },
         ]
       }
+      cnpj_cache: {
+        Row: {
+          cnpj: string
+          data: Json
+          expires_at: string
+          fetched_at: string
+          hit_count: number
+          last_accessed_at: string
+          situacao: string | null
+          source: string
+        }
+        Insert: {
+          cnpj: string
+          data: Json
+          expires_at?: string
+          fetched_at?: string
+          hit_count?: number
+          last_accessed_at?: string
+          situacao?: string | null
+          source?: string
+        }
+        Update: {
+          cnpj?: string
+          data?: Json
+          expires_at?: string
+          fetched_at?: string
+          hit_count?: number
+          last_accessed_at?: string
+          situacao?: string | null
+          source?: string
+        }
+        Relationships: []
+      }
       contract_services: {
         Row: {
           contract_id: string
@@ -1747,6 +1780,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      cleanup_expired_cnpj_cache: { Args: never; Returns: number }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -1764,6 +1798,7 @@ export type Database = {
       is_authenticated: { Args: never; Returns: boolean }
       is_gestao: { Args: never; Returns: boolean }
       is_producao: { Args: never; Returns: boolean }
+      touch_cnpj_cache: { Args: { p_cnpj: string }; Returns: undefined }
     }
     Enums: {
       app_role: "admin" | "user"
