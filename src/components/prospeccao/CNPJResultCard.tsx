@@ -10,7 +10,10 @@ import {
   Briefcase,
   DollarSign,
   Send,
-  Plus
+  Plus,
+  Copy,
+  Check,
+  ExternalLink
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -18,6 +21,9 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { formatCNPJ } from "@/lib/cnpjUtils";
 import type { CNPJLookupResult } from "@/hooks/useCNPJLookup";
+import { useState } from "react";
+import { toast } from "sonner";
+import whatsappIcon from "@/assets/whatsapp-icon.png";
 
 interface Props {
   data: CNPJLookupResult;
@@ -27,6 +33,14 @@ interface Props {
   isAdding?: boolean;
 }
 
+// Helper: format phone with Brazil code for WhatsApp
+const formatWhatsAppUrl = (phone: string) => {
+  const cleaned = phone.replace(/\D/g, '');
+  // Add 55 if not already starting with it
+  const withCountryCode = cleaned.startsWith('55') ? cleaned : `55${cleaned}`;
+  return `https://wa.me/${withCountryCode}`;
+};
+
 export function CNPJResultCard({ 
   data, 
   onAddToProspects, 
@@ -34,6 +48,7 @@ export function CNPJResultCard({
   onSendToFunnel,
   isAdding 
 }: Props) {
+  const [copiedCNPJ, setCopiedCNPJ] = useState(false);
   const isActive = data.situacaoCadastral === "ATIVA";
   
   const formatDate = (dateStr: string) => {
@@ -58,12 +73,22 @@ export function CNPJResultCard({
     return portes[porte] || porte;
   };
 
+  const handleCopyCNPJ = () => {
+    navigator.clipboard.writeText(data.cnpj);
+    setCopiedCNPJ(true);
+    toast.success("CNPJ copiado!");
+    setTimeout(() => setCopiedCNPJ(false), 2000);
+  };
+
+  const primaryPhone = data.telefone1 || data.telefone2;
+
   return (
-    <Card className="border-primary/20 bg-primary/5">
+    <Card className="border-primary/20 bg-gradient-to-br from-card to-primary/5">
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between gap-4">
-          <div className="flex-1">
-            <div className="flex items-center gap-2 mb-1">
+          <div className="flex-1 min-w-0">
+            {/* Status Badges */}
+            <div className="flex items-center gap-2 mb-2 flex-wrap">
               <Badge variant={isActive ? "default" : "destructive"} className="gap-1">
                 {isActive ? (
                   <BadgeCheck className="h-3 w-3" />
@@ -74,42 +99,48 @@ export function CNPJResultCard({
               </Badge>
               <Badge variant="outline">{getPorteLabel(data.porte)}</Badge>
             </div>
-            <CardTitle className="text-xl">
+            
+            {/* Company Name */}
+            <CardTitle className="text-xl leading-tight">
               {data.nomeFantasia || data.razaoSocial}
             </CardTitle>
             {data.nomeFantasia && (
-              <p className="text-sm text-muted-foreground mt-1">
+              <p className="text-sm text-muted-foreground mt-1 truncate">
                 {data.razaoSocial}
               </p>
             )}
-            <p className="text-sm font-mono text-muted-foreground mt-1">
-              CNPJ: {formatCNPJ(data.cnpj)}
-            </p>
+            
+            {/* CNPJ with copy */}
+            <div className="flex items-center gap-2 mt-2">
+              <p className="text-sm font-mono text-muted-foreground">
+                CNPJ: {formatCNPJ(data.cnpj)}
+              </p>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="h-6 w-6"
+                onClick={handleCopyCNPJ}
+              >
+                {copiedCNPJ ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+              </Button>
+            </div>
           </div>
           
-          <div className="flex gap-2">
+          {/* Actions */}
+          <div className="flex flex-col gap-2 shrink-0">
             <Button 
               variant="outline" 
               size="sm"
               onClick={onAddToProspects}
-              disabled={isAdding}
+              disabled={isAdding || !isActive}
             >
               <Plus className="h-4 w-4 mr-1" />
-              Adicionar à Lista
-            </Button>
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={onSendToLeads}
-              disabled={isAdding}
-            >
-              <Send className="h-4 w-4 mr-1" />
-              Enviar p/ Leads
+              Adicionar
             </Button>
             <Button 
               size="sm"
               onClick={onSendToFunnel}
-              disabled={isAdding}
+              disabled={isAdding || !isActive}
             >
               <Send className="h-4 w-4 mr-1" />
               Enviar p/ Funil
@@ -119,99 +150,110 @@ export function CNPJResultCard({
       </CardHeader>
       
       <CardContent className="space-y-4">
-        {/* Main Info Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="flex items-start gap-2">
-            <MapPin className="h-4 w-4 text-muted-foreground mt-0.5" />
-            <div className="text-sm">
-              <p className="font-medium">{data.cidade} - {data.uf}</p>
-              <p className="text-muted-foreground">{data.bairro}</p>
-              <p className="text-muted-foreground text-xs">{data.endereco}</p>
-              <p className="text-muted-foreground text-xs">CEP: {data.cep}</p>
-            </div>
-          </div>
-          
-          <div className="flex items-start gap-2">
-            <Briefcase className="h-4 w-4 text-muted-foreground mt-0.5" />
-            <div className="text-sm">
-              <p className="font-medium">CNAE Principal</p>
-              <p className="text-muted-foreground">{data.cnaeFiscal}</p>
-              <p className="text-muted-foreground text-xs line-clamp-2">
-                {data.cnaeFiscalDescricao}
+        {/* Quick Contact - WhatsApp Priority */}
+        {primaryPhone && (
+          <div className="flex items-center gap-3 p-3 rounded-lg bg-green-500/10 border border-green-500/20">
+            <img src={whatsappIcon} alt="WhatsApp" className="h-8 w-8" />
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold text-green-700 dark:text-green-400">
+                {data.telefone1}
+                {data.telefone1 && data.telefone2 && " • "}
+                {data.telefone2}
               </p>
+              {data.email && (
+                <p className="text-xs text-muted-foreground truncate">{data.email.toLowerCase()}</p>
+              )}
             </div>
+            <Button 
+              size="sm"
+              className="bg-green-600 hover:bg-green-700 gap-2 shrink-0"
+              onClick={() => window.open(formatWhatsAppUrl(primaryPhone), '_blank')}
+            >
+              <img src={whatsappIcon} alt="" className="h-4 w-4" />
+              WhatsApp
+            </Button>
           </div>
-          
-          <div className="flex items-start gap-2">
-            <DollarSign className="h-4 w-4 text-muted-foreground mt-0.5" />
-            <div className="text-sm">
-              <p className="font-medium">Capital Social</p>
-              <p className="text-muted-foreground">
-                {formatCurrency(data.capitalSocial)}
-              </p>
-            </div>
+        )}
+
+        {!primaryPhone && data.email && (
+          <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+            <Mail className="h-5 w-5 text-muted-foreground" />
+            <span className="text-sm flex-1">{data.email.toLowerCase()}</span>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => window.open(`mailto:${data.email}`, '_blank')}
+            >
+              Enviar Email
+            </Button>
           </div>
-          
-          <div className="flex items-start gap-2">
-            <Calendar className="h-4 w-4 text-muted-foreground mt-0.5" />
-            <div className="text-sm">
-              <p className="font-medium">Início Atividade</p>
-              <p className="text-muted-foreground">
-                {formatDate(data.dataInicioAtividade)}
-              </p>
-            </div>
-          </div>
-        </div>
-        
+        )}
+
         <Separator />
-        
-        {/* Contact Info */}
-        <div className="flex flex-wrap gap-6">
-          {(data.telefone1 || data.telefone2) && (
-            <div className="flex items-center gap-2">
-              <Phone className="h-4 w-4 text-muted-foreground" />
-              <div className="text-sm">
-                {data.telefone1 && <span>{data.telefone1}</span>}
-                {data.telefone1 && data.telefone2 && <span className="mx-1">•</span>}
-                {data.telefone2 && <span>{data.telefone2}</span>}
-              </div>
+
+        {/* Info Grid - Cleaner Layout */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-1.5 text-muted-foreground">
+              <MapPin className="h-3.5 w-3.5" />
+              <span className="text-xs font-medium">Localização</span>
             </div>
-          )}
+            <p className="text-sm font-medium">{data.cidade} - {data.uf}</p>
+            <p className="text-xs text-muted-foreground">{data.bairro}</p>
+          </div>
           
-          {data.email && (
-            <div className="flex items-center gap-2">
-              <Mail className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm">{data.email.toLowerCase()}</span>
+          <div className="space-y-1">
+            <div className="flex items-center gap-1.5 text-muted-foreground">
+              <Briefcase className="h-3.5 w-3.5" />
+              <span className="text-xs font-medium">CNAE</span>
             </div>
-          )}
-          
-          {!data.telefone1 && !data.telefone2 && !data.email && (
-            <p className="text-sm text-muted-foreground">
-              Nenhum contato disponível na base da Receita Federal
+            <p className="text-sm font-medium">{data.cnaeFiscal}</p>
+            <p className="text-xs text-muted-foreground line-clamp-1">
+              {data.cnaeFiscalDescricao}
             </p>
-          )}
+          </div>
+          
+          <div className="space-y-1">
+            <div className="flex items-center gap-1.5 text-muted-foreground">
+              <DollarSign className="h-3.5 w-3.5" />
+              <span className="text-xs font-medium">Capital Social</span>
+            </div>
+            <p className="text-sm font-medium">
+              {formatCurrency(data.capitalSocial)}
+            </p>
+          </div>
+          
+          <div className="space-y-1">
+            <div className="flex items-center gap-1.5 text-muted-foreground">
+              <Calendar className="h-3.5 w-3.5" />
+              <span className="text-xs font-medium">Abertura</span>
+            </div>
+            <p className="text-sm font-medium">
+              {formatDate(data.dataInicioAtividade)}
+            </p>
+          </div>
         </div>
         
-        {/* Sócios */}
+        {/* Sócios - Compact */}
         {data.socios.length > 0 && (
           <>
             <Separator />
             <div>
               <div className="flex items-center gap-2 mb-2">
                 <Users className="h-4 w-4 text-muted-foreground" />
-                <p className="text-sm font-medium">Quadro Societário</p>
+                <p className="text-sm font-medium">Sócios ({data.socios.length})</p>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              <div className="flex flex-wrap gap-2">
                 {data.socios.slice(0, 4).map((socio, index) => (
-                  <div key={index} className="text-sm">
-                    <p className="font-medium">{socio.nome}</p>
-                    <p className="text-muted-foreground text-xs">{socio.qualificacao}</p>
-                  </div>
+                  <Badge key={index} variant="secondary" className="font-normal">
+                    {socio.nome.split(' ').slice(0, 2).join(' ')}
+                    <span className="text-muted-foreground ml-1 text-xs">
+                      ({socio.qualificacao.split(' ').slice(0, 1).join('')})
+                    </span>
+                  </Badge>
                 ))}
                 {data.socios.length > 4 && (
-                  <p className="text-sm text-muted-foreground">
-                    +{data.socios.length - 4} sócio(s)
-                  </p>
+                  <Badge variant="outline">+{data.socios.length - 4}</Badge>
                 )}
               </div>
             </div>

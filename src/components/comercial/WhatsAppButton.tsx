@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
-import { MessageCircle } from "lucide-react";
 import { useCreateLeadHistory } from "@/hooks/useLeadHistory";
 import { cn } from "@/lib/utils";
+import whatsappIcon from "@/assets/whatsapp-icon.png";
 
 interface WhatsAppButtonProps {
   phone?: string | null;
@@ -45,7 +45,7 @@ export function WhatsAppButton({
     const message = customMessage || `Olá${leadName ? `, ${leadName}` : ""}! Tudo bem?`;
     const encodedMessage = encodeURIComponent(message);
     
-    // Open WhatsApp
+    // Open WhatsApp using wa.me
     window.open(`https://wa.me/${formattedPhone}?text=${encodedMessage}`, "_blank");
     
     // Log to history if leadId is provided
@@ -72,7 +72,7 @@ export function WhatsAppButton({
       className={cn("text-green-600 hover:text-green-700 hover:bg-green-50", className)}
       title="Abrir WhatsApp"
     >
-      <MessageCircle className="h-4 w-4" />
+      <img src={whatsappIcon} alt="WhatsApp" className="h-4 w-4" />
       {showLabel && <span className="ml-2">WhatsApp</span>}
     </Button>
   );

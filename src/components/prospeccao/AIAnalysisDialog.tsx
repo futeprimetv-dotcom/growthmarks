@@ -2,7 +2,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { 
   Sparkles, 
@@ -24,7 +24,10 @@ import {
   Facebook,
   Linkedin,
   ExternalLink,
-  Smartphone
+  Building2,
+  MapPin,
+  Users,
+  Banknote
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
@@ -41,6 +44,15 @@ import {
 } from "@/hooks/useAIProspecting";
 import { AIFitBadge } from "./AIFitBadge";
 import { useICPSettings } from "@/hooks/useICPSettings";
+import whatsappIcon from "@/assets/whatsapp-icon.png";
+
+// Helper: format phone with Brazil code for WhatsApp
+const formatWhatsAppUrl = (phone: string) => {
+  const cleaned = phone.replace(/\D/g, '');
+  // Add 55 if not already starting with it
+  const withCountryCode = cleaned.startsWith('55') ? cleaned : `55${cleaned}`;
+  return `https://wa.me/${withCountryCode}`;
+};
 
 interface AIAnalysisDialogProps {
   open: boolean;
@@ -179,24 +191,23 @@ export function AIAnalysisDialog({
               ) : digitalPresence ? (
                 <>
                   {/* WhatsApp - PRIORITY */}
-                  <Card className="border-2 border-green-500/50 bg-green-50/50 dark:bg-green-950/20">
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-base flex items-center gap-2 text-green-700 dark:text-green-400">
-                        <Smartphone className="h-5 w-5" />
-                        WhatsApp Comercial
-                        {digitalPresence.whatsapp.found && getConfidenceBadge(digitalPresence.whatsapp.confidence)}
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
+                  <Card className="border-2 border-green-500/50 bg-gradient-to-r from-green-50/50 to-emerald-50/50 dark:from-green-950/20 dark:to-emerald-950/20">
+                    <CardContent className="py-4">
                       {digitalPresence.whatsapp.found && digitalPresence.whatsapp.number ? (
-                        <div className="flex items-center justify-between">
-                          <div>
+                        <div className="flex items-center gap-4">
+                          <div className="shrink-0">
+                            <img src={whatsappIcon} alt="WhatsApp" className="h-10 w-10" />
+                          </div>
+                          <div className="flex-1 min-w-0">
                             <p className="text-xl font-bold text-green-700 dark:text-green-400">
                               {digitalPresence.whatsapp.number}
                             </p>
-                            <p className="text-xs text-muted-foreground">{digitalPresence.whatsapp.source}</p>
+                            <div className="flex items-center gap-2 mt-1">
+                              <p className="text-xs text-muted-foreground">{digitalPresence.whatsapp.source}</p>
+                              {getConfidenceBadge(digitalPresence.whatsapp.confidence)}
+                            </div>
                           </div>
-                          <div className="flex gap-2">
+                          <div className="flex gap-2 shrink-0">
                             <Button 
                               size="sm"
                               variant="outline"
@@ -206,18 +217,23 @@ export function AIAnalysisDialog({
                             </Button>
                             <Button 
                               size="sm"
-                              className="bg-green-600 hover:bg-green-700"
-                              onClick={() => window.open(`https://wa.me/${digitalPresence.whatsapp.number?.replace(/\D/g, '')}`, '_blank')}
+                              className="bg-green-600 hover:bg-green-700 gap-2"
+                              onClick={() => window.open(formatWhatsAppUrl(digitalPresence.whatsapp.number!), '_blank')}
                             >
-                              <MessageCircle className="h-4 w-4 mr-1" />
+                              <img src={whatsappIcon} alt="WhatsApp" className="h-4 w-4" />
                               Abrir
                             </Button>
                           </div>
                         </div>
                       ) : (
-                        <p className="text-muted-foreground text-sm">
-                          WhatsApp não identificado. {digitalPresence.contactSuggestions?.[0] || "Tente buscar no site da empresa."}
-                        </p>
+                        <div className="flex items-center gap-4">
+                          <div className="shrink-0 opacity-40">
+                            <img src={whatsappIcon} alt="WhatsApp" className="h-10 w-10" />
+                          </div>
+                          <p className="text-muted-foreground text-sm">
+                            WhatsApp não identificado. {digitalPresence.contactSuggestions?.[0] || "Tente buscar no site da empresa."}
+                          </p>
+                        </div>
                       )}
                     </CardContent>
                   </Card>
