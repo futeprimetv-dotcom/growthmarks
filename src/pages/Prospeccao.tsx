@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Search, BookmarkCheck, AlertCircle, FileSpreadsheet } from "lucide-react";
+import { Search, BookmarkCheck, AlertCircle, FileSpreadsheet, Globe, Database } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
@@ -11,6 +11,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ProspeccaoFilters } from "@/components/prospeccao/ProspeccaoFilters";
 import { ProspeccaoTable } from "@/components/prospeccao/ProspeccaoTable";
 import { ProspeccaoActions } from "@/components/prospeccao/ProspeccaoActions";
@@ -23,6 +24,7 @@ import { RecentFiltersSelect, saveRecentProspeccaoFilters } from "@/components/p
 import { useProspects, useSendToLeadsBase, useAddProspectFromCNPJ, type ProspectFilters } from "@/hooks/useProspects";
 import { useSavedSearches } from "@/hooks/useSavedSearches";
 import { useCNPJLookupManual, type CNPJLookupResult } from "@/hooks/useCNPJLookup";
+import { useCompanySearch, type CompanySearchResult } from "@/hooks/useCompanySearch";
 import { toast } from "@/hooks/use-toast";
 
 export default function Prospeccao() {
@@ -36,6 +38,11 @@ export default function Prospeccao() {
   const [sendCNPJToFunnelOpen, setSendCNPJToFunnelOpen] = useState(false);
   const [batchDialogOpen, setBatchDialogOpen] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
+  const [searchMode, setSearchMode] = useState<"api" | "database">("api");
+  
+  // API Search results
+  const [apiResults, setApiResults] = useState<CompanySearchResult[]>([]);
+  const [apiTotal, setApiTotal] = useState(0);
   
   // CNPJ Lookup State
   const [cnpjResult, setCnpjResult] = useState<CNPJLookupResult | null>(null);
@@ -43,7 +50,12 @@ export default function Prospeccao() {
   const [cnpjError, setCnpjError] = useState<string | null>(null);
   const [batchAdding, setBatchAdding] = useState(false);
 
-  const { data: prospects = [], isLoading, isError, refetch } = useProspects(filters, hasSearched);
+  // Database query (for "Minha Base")
+  const { data: prospects = [], isLoading: dbLoading, isError, refetch } = useProspects(filters, hasSearched && searchMode === "database");
+  
+  // API search mutation
+  const companySearch = useCompanySearch();
+  
   const { data: savedSearches = [] } = useSavedSearches();
   const sendToLeadsBase = useSendToLeadsBase();
   const addProspectFromCNPJ = useAddProspectFromCNPJ();
@@ -98,16 +110,61 @@ export default function Prospeccao() {
     setSelectedIds([]);
   }, [filters, setSearchParams, pageSize]);
 
-  const handleSearch = () => {
+  const handleSearch = async () => {
     saveRecentProspeccaoFilters(filters);
     setHasSearched(true);
-    refetch();
+    setApiResults([]);
+    setApiTotal(0);
+    
+    if (searchMode === "api") {
+      // Search via API (Casa dos Dados)
+      try {
+        const result = await companySearch.mutateAsync({
+          filters,
+          page: 1,
+          pageSize,
+        });
+        
+        setApiResults(result.companies);
+        setApiTotal(result.total);
+        
+        if (result.error) {
+          toast({
+            title: "Aviso",
+            description: result.error,
+            variant: "destructive",
+          });
+        } else if (result.companies.length === 0) {
+          toast({
+            title: "Nenhum resultado",
+            description: "Tente ajustar os filtros para encontrar empresas.",
+          });
+        } else {
+          toast({
+            title: "Busca concluída",
+            description: `${result.companies.length} empresa(s) encontrada(s) de ${result.total} total.`,
+          });
+        }
+      } catch (error) {
+        console.error("Search error:", error);
+        toast({
+          title: "Erro na busca",
+          description: error instanceof Error ? error.message : "Erro ao buscar empresas",
+          variant: "destructive",
+        });
+      }
+    } else {
+      // Search in database
+      refetch();
+    }
   };
 
   const handleClearFilters = () => {
     setFilters({});
     setHasSearched(false);
     setSelectedIds([]);
+    setApiResults([]);
+    setApiTotal(0);
   };
 
   const handleLoadSavedSearch = (searchId: string) => {
@@ -123,19 +180,19 @@ export default function Prospeccao() {
   };
 
   const handleExport = () => {
-    const selectedProspects = prospects.filter(p => selectedIds.includes(p.id));
+    const dataToExport = searchMode === "api" ? apiResults : prospects;
+    const selectedData = dataToExport.filter(p => selectedIds.includes(p.id || p.cnpj));
     
     // Create CSV content
-    const headers = ["Nome", "CNPJ", "Segmento", "Cidade", "Estado", "Emails", "Telefones", "Status"];
-    const rows = selectedProspects.map(p => [
+    const headers = ["Nome", "CNPJ", "Segmento", "Cidade", "Estado", "Emails", "Telefones"];
+    const rows = selectedData.map(p => [
       p.name,
       p.cnpj || "",
-      p.segment,
-      p.city,
-      p.state,
-      p.emails?.join("; ") || "",
-      p.phones?.join("; ") || "",
-      p.status
+      p.segment || "",
+      p.city || "",
+      p.state || "",
+      (p.emails || []).join("; "),
+      (p.phones || []).join("; "),
     ]);
     
     const csv = [headers.join(","), ...rows.map(r => r.map(cell => `"${cell}"`).join(","))].join("\n");
@@ -148,17 +205,105 @@ export default function Prospeccao() {
     
     toast({
       title: "Exportação concluída",
-      description: `${selectedProspects.length} prospecto(s) exportados.`
+      description: `${selectedData.length} prospecto(s) exportados.`
     });
   };
 
-  const handleSendToLeadsBase = () => {
-    const selectedProspects = prospects.filter(p => selectedIds.includes(p.id));
-    sendToLeadsBase.mutate(selectedProspects, {
-      onSuccess: () => {
-        setSelectedIds([]);
+  const handleSendToLeadsBase = async () => {
+    if (searchMode === "api") {
+      // Convert API results to prospects first
+      const selectedCompanies = apiResults.filter(c => selectedIds.includes(c.id || c.cnpj));
+      
+      for (const company of selectedCompanies) {
+        try {
+          // Create prospect-like object
+          const prospectData = {
+            id: company.cnpj,
+            name: company.name,
+            cnpj: company.cnpj,
+            segment: company.segment,
+            cnae_code: company.cnae_code,
+            cnae_description: company.cnae_description,
+            company_size: company.company_size,
+            city: company.city,
+            state: company.state,
+            neighborhood: company.neighborhood,
+            has_website: company.has_website,
+            website_url: undefined,
+            has_phone: company.has_phone,
+            has_email: company.has_email,
+            emails_count: company.emails.length,
+            phones_count: company.phones.length,
+            data_revealed: true,
+            emails: company.emails,
+            phones: company.phones,
+            social_links: undefined,
+            status: "novo" as const,
+            tags: ["api-search"],
+            source: "casadosdados",
+          };
+          
+          await sendToLeadsBase.mutateAsync([prospectData as any]);
+        } catch (error) {
+          console.error("Error sending to leads:", error);
+        }
       }
+      
+      setSelectedIds([]);
+    } else {
+      const selectedProspects = prospects.filter(p => selectedIds.includes(p.id));
+      sendToLeadsBase.mutate(selectedProspects, {
+        onSuccess: () => {
+          setSelectedIds([]);
+        }
+      });
+    }
+  };
+
+  // Add API results to local prospects database
+  const handleAddToMyBase = async () => {
+    const selectedCompanies = apiResults.filter(c => selectedIds.includes(c.id || c.cnpj));
+    let successCount = 0;
+    
+    for (const company of selectedCompanies) {
+      try {
+        // Convert to CNPJ lookup format for the hook
+        const cnpjData: CNPJLookupResult = {
+          cnpj: company.cnpj,
+          razaoSocial: company.razao_social || company.name,
+          nomeFantasia: company.name,
+          situacaoCadastral: company.situacao || "ATIVA",
+          cnaeFiscal: parseInt(company.cnae_code.replace(/\D/g, "")) || 0,
+          cnaeFiscalDescricao: company.cnae_description,
+          uf: company.state,
+          cidade: company.city,
+          bairro: company.neighborhood || "",
+          cep: company.zip_code || "",
+          endereco: [company.address, company.number, company.complement].filter(Boolean).join(" "),
+          telefone1: company.phones[0] || null,
+          telefone2: company.phones[1] || null,
+          email: company.emails[0] || null,
+          porte: company.company_size,
+          naturezaJuridica: "",
+          capitalSocial: company.capital_social || 0,
+          dataSituacaoCadastral: "",
+          dataInicioAtividade: company.data_abertura || "",
+          socios: [],
+        };
+        
+        await addProspectFromCNPJ.mutateAsync(cnpjData);
+        successCount++;
+      } catch (error) {
+        console.error("Error adding to base:", error);
+      }
+    }
+    
+    toast({
+      title: "Adicionados à base",
+      description: `${successCount} de ${selectedCompanies.length} empresa(s) adicionadas à sua base.`,
     });
+    
+    setSelectedIds([]);
   };
 
   // CNPJ Lookup handlers
@@ -259,6 +404,36 @@ export default function Prospeccao() {
     });
   };
 
+  // Transform API results to the same format as prospects for the table
+  const displayData = searchMode === "api" ? apiResults.map(c => ({
+    id: c.id || c.cnpj,
+    name: c.name,
+    cnpj: c.cnpj,
+    segment: c.segment,
+    cnae_code: c.cnae_code,
+    cnae_description: c.cnae_description,
+    company_size: c.company_size,
+    city: c.city,
+    state: c.state,
+    neighborhood: c.neighborhood,
+    has_website: c.has_website,
+    website_url: undefined,
+    has_phone: c.has_phone,
+    has_email: c.has_email,
+    emails_count: c.emails.length,
+    phones_count: c.phones.length,
+    data_revealed: true,
+    emails: c.emails,
+    phones: c.phones,
+    social_links: undefined,
+    status: "novo" as const,
+    tags: [],
+    source: "casadosdados",
+  })) : prospects;
+
+  const isLoading = searchMode === "api" ? companySearch.isPending : dbLoading;
+  const totalResults = searchMode === "api" ? apiTotal : prospects.length;
+
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)]">
       {/* Header */}
@@ -270,7 +445,7 @@ export default function Prospeccao() {
               Prospecção
             </h1>
             <p className="text-muted-foreground">
-              Encontre empresas para prospectar e envie para sua base de leads
+              Encontre empresas ativas para prospectar e envie para sua base de leads
             </p>
           </div>
           
@@ -347,6 +522,35 @@ export default function Prospeccao() {
 
         <Separator className="my-4" />
 
+        {/* Search Mode Tabs */}
+        <Tabs value={searchMode} onValueChange={(v) => setSearchMode(v as "api" | "database")} className="mb-4">
+          <TabsList>
+            <TabsTrigger value="api" className="flex items-center gap-2">
+              <Globe className="h-4 w-4" />
+              Buscar na Internet
+            </TabsTrigger>
+            <TabsTrigger value="database" className="flex items-center gap-2">
+              <Database className="h-4 w-4" />
+              Minha Base
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+
+        {/* Search Mode Description */}
+        <div className="mb-4 text-sm text-muted-foreground">
+          {searchMode === "api" ? (
+            <span className="flex items-center gap-1">
+              <Globe className="h-4 w-4" />
+              Busca empresas ativas diretamente na base de CNPJs do Brasil (API Casa dos Dados)
+            </span>
+          ) : (
+            <span className="flex items-center gap-1">
+              <Database className="h-4 w-4" />
+              Busca apenas nos prospectos que você já salvou na sua base local
+            </span>
+          )}
+        </div>
+
         {/* Filters - Horizontal Bar */}
         <ProspeccaoFilters
           filters={filters}
@@ -367,7 +571,10 @@ export default function Prospeccao() {
                 {selectedIds.length} selecionado(s) •
               </span>
             )}{" "}
-            {prospects.length} resultado(s) encontrado(s)
+            {displayData.length} resultado(s) encontrado(s)
+            {searchMode === "api" && totalResults > displayData.length && (
+              <span className="text-muted-foreground"> de {totalResults} total</span>
+            )}
           </div>
 
           <div className="flex items-center gap-3">
@@ -383,6 +590,17 @@ export default function Prospeccao() {
               </SelectContent>
             </Select>
 
+            {searchMode === "api" && selectedIds.length > 0 && (
+              <Button
+                variant="outline"
+                onClick={handleAddToMyBase}
+                disabled={addProspectFromCNPJ.isPending}
+              >
+                <Database className="h-4 w-4 mr-2" />
+                Salvar na Minha Base
+              </Button>
+            )}
+
             <ProspeccaoActions
               selectedCount={selectedIds.length}
               onSendToFunnel={() => setSendToFunnelOpen(true)}
@@ -396,7 +614,7 @@ export default function Prospeccao() {
 
       {/* Content */}
       <div className="flex-1 overflow-auto p-6">
-        {isError ? (
+        {isError && searchMode === "database" ? (
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
@@ -411,12 +629,14 @@ export default function Prospeccao() {
             <Search className="h-16 w-16 text-muted-foreground/30 mb-4" />
             <h3 className="text-lg font-semibold">Encontre empresas para prospectar</h3>
             <p className="text-muted-foreground mt-1 max-w-md">
-              Consulte um CNPJ específico acima ou utilize os filtros e clique em "Buscar" para encontrar empresas.
+              {searchMode === "api" 
+                ? "Utilize os filtros acima para buscar empresas ativas diretamente na base de CNPJs do Brasil."
+                : "Consulte um CNPJ específico ou utilize os filtros para encontrar empresas na sua base."}
             </p>
           </div>
         ) : (
           <ProspeccaoTable
-            prospects={prospects}
+            prospects={displayData}
             isLoading={isLoading}
             selectedIds={selectedIds}
             onSelectChange={setSelectedIds}
@@ -431,7 +651,7 @@ export default function Prospeccao() {
         open={saveSearchOpen}
         onOpenChange={setSaveSearchOpen}
         filters={filters}
-        resultsCount={prospects.length}
+        resultsCount={displayData.length}
       />
 
       <SendToFunnelDialog
