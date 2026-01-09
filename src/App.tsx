@@ -25,6 +25,7 @@ import NotFound from "./pages/NotFound";
 import CRM from "./pages/CRM";
 import Leads from "./pages/Leads";
 import MetricasComerciais from "./pages/MetricasComerciais";
+import Prospeccao from "./pages/Prospeccao";
 
 const queryClient = new QueryClient();
 
@@ -59,6 +60,7 @@ const App = () => (
                     <Route path="/metas" element={<Metas />} />
                     <Route path="/crm" element={<CRM />} />
                     <Route path="/leads" element={<Leads />} />
+                    <Route path="/prospeccao" element={<Prospeccao />} />
                     <Route path="/metricas-comerciais" element={<MetricasComerciais />} />
                     <Route path="*" element={<NotFound />} />
                   </Routes>
