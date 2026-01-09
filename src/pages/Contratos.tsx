@@ -4,7 +4,8 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ChevronDown, ChevronUp, FileText, Calendar, DollarSign, Plus, Pencil, Trash2, Loader2, FileWarning, Eye, Layout, Send, CheckCircle2, Mail } from "lucide-react";
+import { ChevronDown, ChevronUp, FileText, Calendar, DollarSign, Plus, Pencil, Trash2, Loader2, FileWarning, Eye, Layout, Send, CheckCircle2, Mail, BarChart3 } from "lucide-react";
+import { ContractsDashboard } from "@/components/contratos/ContractsDashboard";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { ContractFormDialog } from "@/components/contratos/ContractFormDialog";
@@ -19,7 +20,7 @@ export default function Contratos() {
   const deleteContract = useDeleteContract();
   const queryClient = useQueryClient();
   
-  const [activeTab, setActiveTab] = useState("contracts");
+  const [activeTab, setActiveTab] = useState("dashboard");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -132,8 +133,8 @@ export default function Contratos() {
           <h1 className="text-3xl font-bold">Contratos</h1>
           <p className="text-muted-foreground">Gerencie contratos, pacotes de serviços e templates</p>
         </div>
-        {activeTab === "contracts" && (
-          <Button onClick={() => { setSelectedContract(null); setFormOpen(true); }}>
+        {(activeTab === "contracts" || activeTab === "dashboard") && (
+          <Button onClick={() => { setSelectedContract(null); setActiveTab("contracts"); setFormOpen(true); }}>
             <Plus className="h-4 w-4 mr-2" />
             Novo Contrato
           </Button>
@@ -142,6 +143,10 @@ export default function Contratos() {
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
+          <TabsTrigger value="dashboard" className="flex items-center gap-2">
+            <BarChart3 className="h-4 w-4" />
+            Dashboard
+          </TabsTrigger>
           <TabsTrigger value="contracts" className="flex items-center gap-2">
             <FileText className="h-4 w-4" />
             Contratos
@@ -151,6 +156,10 @@ export default function Contratos() {
             Templates
           </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="dashboard" className="mt-6">
+          <ContractsDashboard contracts={contracts || []} />
+        </TabsContent>
 
         <TabsContent value="contracts" className="mt-6">
           {(!contracts || contracts.length === 0) ? (
