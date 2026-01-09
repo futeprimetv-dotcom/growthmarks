@@ -62,11 +62,7 @@ const temperatureIcons = {
   hot: { icon: Flame, color: 'text-red-400' },
 };
 
-interface LeadsListProps {
-  funnelId?: string | null;
-}
-
-export function LeadsList({ funnelId }: LeadsListProps) {
+export function LeadsList() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [originFilter, setOriginFilter] = useState<string>("all");
@@ -87,8 +83,6 @@ export function LeadsList({ funnelId }: LeadsListProps) {
 
   const filteredLeads = (leads || []).filter(lead => {
     if ((lead as any).is_archived) return false;
-    // Filter by funnel
-    if (funnelId && (lead as any).funnel_id !== funnelId) return false;
     const matchesSearch = 
       lead.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (lead.company?.toLowerCase().includes(searchTerm.toLowerCase()) || false);
@@ -324,7 +318,6 @@ export function LeadsList({ funnelId }: LeadsListProps) {
         open={formOpen} 
         onOpenChange={setFormOpen} 
         lead={editingLead}
-        defaultFunnelId={funnelId}
       />
       
       <LeadHistoryDialog 

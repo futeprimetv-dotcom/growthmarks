@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useCreateLead, useLeads } from "@/hooks/useLeads";
+import { useSalesFunnels } from "@/hooks/useSalesFunnels";
 import { Upload, FileSpreadsheet, ArrowRight, ArrowLeft, Check, AlertTriangle, X } from "lucide-react";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
@@ -55,9 +56,14 @@ export function LeadImportDialog({ open, onOpenChange }: LeadImportDialogProps) 
   const [validationErrors, setValidationErrors] = useState<ValidationError[]>([]);
   const [duplicates, setDuplicates] = useState<number[]>([]);
   const [importing, setImporting] = useState(false);
+  const [selectedFunnelId, setSelectedFunnelId] = useState<string>("");
 
   const { data: existingLeads } = useLeads();
+  const { data: funnels = [] } = useSalesFunnels();
   const createLead = useCreateLead();
+  
+  // Get default funnel
+  const defaultFunnel = funnels.find(f => f.is_default) || funnels[0];
 
   const handleFileUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const uploadedFile = e.target.files?.[0];
@@ -189,7 +195,8 @@ export function LeadImportDialog({ open, onOpenChange }: LeadImportDialogProps) 
         });
 
         if (leadData.name) {
-          await createLead.mutateAsync(leadData);
+          const funnelToUse = selectedFunnelId || defaultFunnel?.id;
+          await createLead.mutateAsync({ ...leadData, funnel_id: funnelToUse });
           successCount++;
         }
       } catch (error) {
@@ -216,6 +223,7 @@ export function LeadImportDialog({ open, onOpenChange }: LeadImportDialogProps) 
     setColumnMapping({});
     setValidationErrors([]);
     setDuplicates([]);
+    setSelectedFunnelId("");
   };
 
   const handleClose = () => {
@@ -261,13 +269,45 @@ export function LeadImportDialog({ open, onOpenChange }: LeadImportDialogProps) 
         <div className="flex-1 overflow-y-auto">
           {/* Step 1: Upload */}
           {step === "upload" && (
-            <div className="flex flex-col items-center justify-center py-12">
-              <div className="w-full max-w-md">
+            <div className="flex flex-col items-center justify-center py-8">
+              <div className="w-full max-w-md space-y-6">
+                {/* Seleção de Funil */}
+                <div className="space-y-2">
+                  <Label>Funil de Vendas *</Label>
+                  <Select 
+                    value={selectedFunnelId || defaultFunnel?.id || ""} 
+                    onValueChange={setSelectedFunnelId}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione o funil" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {funnels.map((funnel) => (
+                        <SelectItem key={funnel.id} value={funnel.id}>
+                          <div className="flex items-center gap-2">
+                            <div 
+                              className="w-3 h-3 rounded-full" 
+                              style={{ backgroundColor: funnel.color || '#3b82f6' }} 
+                            />
+                            {funnel.name}
+                            {funnel.is_default && (
+                              <span className="text-xs text-muted-foreground">(padrão)</span>
+                            )}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Todos os leads importados serão adicionados a este funil
+                  </p>
+                </div>
+
                 <Label 
                   htmlFor="file-upload" 
-                  className="flex flex-col items-center justify-center w-full h-48 border-2 border-dashed rounded-lg cursor-pointer hover:border-primary/50 transition-colors"
+                  className="flex flex-col items-center justify-center w-full h-40 border-2 border-dashed rounded-lg cursor-pointer hover:border-primary/50 transition-colors"
                 >
-                  <Upload className="h-12 w-12 text-muted-foreground mb-4" />
+                  <Upload className="h-10 w-10 text-muted-foreground mb-4" />
                   <span className="text-lg font-medium mb-1">Arraste ou clique para upload</span>
                   <span className="text-sm text-muted-foreground">Formatos aceitos: .xlsx, .xls, .csv</span>
                   <Input
@@ -279,7 +319,7 @@ export function LeadImportDialog({ open, onOpenChange }: LeadImportDialogProps) 
                   />
                 </Label>
                 {file && (
-                  <div className="mt-4 p-3 bg-secondary rounded-lg flex items-center gap-2">
+                  <div className="p-3 bg-secondary rounded-lg flex items-center gap-2">
                     <FileSpreadsheet className="h-5 w-5 text-primary" />
                     <span className="text-sm">{file.name}</span>
                   </div>
