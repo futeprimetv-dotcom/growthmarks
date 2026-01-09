@@ -42,7 +42,7 @@ export function ProspeccaoTable({
   onSelectChange,
   page,
   onPageChange,
-  pageSize = 25
+  pageSize = 10
 }: Props) {
   const totalPages = Math.ceil(prospects.length / pageSize);
   const paginatedProspects = prospects.slice((page - 1) * pageSize, page * pageSize);

@@ -56,68 +56,87 @@ export function useProspects(filters: ProspectFilters = {}, enabled: boolean = t
   return useQuery({
     queryKey: ["prospects", filters],
     queryFn: async () => {
-      // For now, use mock data - later integrate with Supabase
-      let filteredProspects = [...mockProspects];
+      // Fetch from database (not mock) so filters reflect real imported/consulted companies
+      let query = supabase
+        .from("prospects")
+        .select(
+          "id,name,cnpj,segment,cnae_code,cnae_description,company_size,city,state,neighborhood,zip_code,has_website,website_url,has_phone,has_email,emails,phones,emails_count,phones_count,data_revealed,social_links,status,tags,source,is_archived,created_at,updated_at,cnpj_situacao"
+        )
+        .eq("is_archived", false)
+        .eq("cnpj_situacao", "ATIVA");
 
       if (filters.search) {
-        const searchLower = filters.search.toLowerCase();
-        filteredProspects = filteredProspects.filter(
-          p => p.name.toLowerCase().includes(searchLower) ||
-               p.cnpj?.includes(filters.search || '')
-        );
+        const search = filters.search.trim();
+        if (search) {
+          // search by name or cnpj
+          query = query.or(`name.ilike.%${search}%,cnpj.ilike.%${search}%`);
+        }
       }
 
-      if (filters.segments && filters.segments.length > 0) {
-        filteredProspects = filteredProspects.filter(
-          p => filters.segments!.includes(p.segment)
-        );
+      if (filters.segments?.length) {
+        query = query.in("segment", filters.segments);
       }
 
-      if (filters.states && filters.states.length > 0) {
-        filteredProspects = filteredProspects.filter(
-          p => filters.states!.includes(p.state)
-        );
+      if (filters.states?.length) {
+        query = query.in("state", filters.states);
       }
 
-      if (filters.cities && filters.cities.length > 0) {
-        filteredProspects = filteredProspects.filter(
-          p => filters.cities!.includes(p.city)
-        );
+      if (filters.cities?.length) {
+        query = query.in("city", filters.cities);
       }
 
-      if (filters.companySizes && filters.companySizes.length > 0) {
-        filteredProspects = filteredProspects.filter(
-          p => filters.companySizes!.includes(p.company_size)
-        );
+      if (filters.companySizes?.length) {
+        query = query.in("company_size", filters.companySizes);
       }
 
       if (filters.hasWebsite !== undefined) {
-        filteredProspects = filteredProspects.filter(
-          p => p.has_website === filters.hasWebsite
-        );
+        query = query.eq("has_website", filters.hasWebsite);
       }
 
       if (filters.hasPhone !== undefined) {
-        filteredProspects = filteredProspects.filter(
-          p => p.has_phone === filters.hasPhone
-        );
+        query = query.eq("has_phone", filters.hasPhone);
       }
 
       if (filters.hasEmail !== undefined) {
-        filteredProspects = filteredProspects.filter(
-          p => p.has_email === filters.hasEmail
-        );
+        query = query.eq("has_email", filters.hasEmail);
       }
 
-      if (filters.status && filters.status.length > 0) {
-        filteredProspects = filteredProspects.filter(
-          p => filters.status!.includes(p.status)
-        );
+      if (filters.status?.length) {
+        query = query.in("status", filters.status);
       }
 
-      return filteredProspects;
+      const { data, error } = await query.order("created_at", { ascending: false }).limit(1000);
+      if (error) throw error;
+
+      // Map DB rows to the same shape used in the UI (MockProspect)
+      return (data || []).map((p) => ({
+        id: p.id,
+        name: p.name,
+        cnpj: p.cnpj || "",
+        segment: p.segment || "",
+        cnae_code: p.cnae_code || "",
+        cnae_description: p.cnae_description || "",
+        company_size: p.company_size || "",
+        city: p.city || "",
+        state: p.state || "",
+        neighborhood: p.neighborhood || undefined,
+        zip_code: p.zip_code || undefined,
+        has_website: !!p.has_website,
+        website_url: p.website_url || undefined,
+        has_phone: !!p.has_phone,
+        has_email: !!p.has_email,
+        emails_count: p.emails_count || 0,
+        phones_count: p.phones_count || 0,
+        data_revealed: !!p.data_revealed,
+        emails: (p.emails || []) as string[],
+        phones: (p.phones || []) as string[],
+        social_links: (p.social_links || undefined) as any,
+        status: (p.status || "novo") as any,
+        tags: (p.tags || []) as string[],
+        source: p.source || "",
+      })) as MockProspect[];
     },
-    enabled
+    enabled,
   });
 }
 
@@ -237,6 +256,11 @@ export function useAddProspectFromCNPJ() {
 
   return useMutation({
     mutationFn: async (cnpjData: CNPJLookupResult): Promise<MockProspect> => {
+      // Regra do sistema: SOMENTE CNPJs ATIVOS
+      if ((cnpjData.situacaoCadastral || "").toUpperCase() !== "ATIVA") {
+        throw new Error(`CNPJ não está ativo (situação: ${cnpjData.situacaoCadastral || "N/D"}).`);
+      }
+
       // Map porte to company_size
       const getCompanySize = (porte: string): string => {
         if (porte.includes("MICRO")) return "MEI";
@@ -271,10 +295,10 @@ export function useAddProspectFromCNPJ() {
         social_links: undefined,
         status: "novo",
         tags: ["cnpj-api"],
-        source: "brasilapi"
+        source: "brasilapi",
       };
 
-      // Save to Supabase prospects table
+      // Save to database prospects table
       const { error } = await supabase.from("prospects").insert({
         id: prospect.id,
         name: prospect.name,
@@ -288,6 +312,7 @@ export function useAddProspectFromCNPJ() {
         neighborhood: prospect.neighborhood,
         zip_code: cnpjData.cep,
         has_website: prospect.has_website,
+        website_url: prospect.website_url,
         has_phone: prospect.has_phone,
         has_email: prospect.has_email,
         emails: prospect.emails,
@@ -298,7 +323,8 @@ export function useAddProspectFromCNPJ() {
         tags: prospect.tags,
         source: "brasilapi",
         data_revealed: true,
-        revealed_at: new Date().toISOString()
+        revealed_at: new Date().toISOString(),
+        cnpj_situacao: "ATIVA",
       });
 
       if (error) {
@@ -318,10 +344,10 @@ export function useAddProspectFromCNPJ() {
       console.error("Error adding prospect:", error);
       toast({
         title: "Erro",
-        description: "Não foi possível adicionar o prospecto.",
-        variant: "destructive"
+        description: error instanceof Error ? error.message : "Não foi possível adicionar o prospecto.",
+        variant: "destructive",
       });
-    }
+    },
   });
 }
 

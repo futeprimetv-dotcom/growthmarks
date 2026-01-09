@@ -1372,6 +1372,7 @@ export type Database = {
           cnae_code: string | null
           cnae_description: string | null
           cnpj: string | null
+          cnpj_situacao: string | null
           company_size: string | null
           created_at: string | null
           data_revealed: boolean | null
@@ -1402,6 +1403,7 @@ export type Database = {
           cnae_code?: string | null
           cnae_description?: string | null
           cnpj?: string | null
+          cnpj_situacao?: string | null
           company_size?: string | null
           created_at?: string | null
           data_revealed?: boolean | null
@@ -1432,6 +1434,7 @@ export type Database = {
           cnae_code?: string | null
           cnae_description?: string | null
           cnpj?: string | null
+          cnpj_situacao?: string | null
           company_size?: string | null
           created_at?: string | null
           data_revealed?: boolean | null

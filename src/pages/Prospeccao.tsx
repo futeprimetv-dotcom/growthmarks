@@ -19,6 +19,7 @@ import { SendToFunnelDialog } from "@/components/prospeccao/SendToFunnelDialog";
 import { CNPJSearchInput } from "@/components/prospeccao/CNPJSearchInput";
 import { CNPJResultCard } from "@/components/prospeccao/CNPJResultCard";
 import { CNPJBatchDialog } from "@/components/prospeccao/CNPJBatchDialog";
+import { RecentFiltersSelect, saveRecentProspeccaoFilters } from "@/components/prospeccao/RecentFiltersSelect";
 import { useProspects, useSendToLeadsBase, useAddProspectFromCNPJ, type ProspectFilters } from "@/hooks/useProspects";
 import { useSavedSearches } from "@/hooks/useSavedSearches";
 import { useCNPJLookupManual, type CNPJLookupResult } from "@/hooks/useCNPJLookup";
@@ -29,6 +30,7 @@ export default function Prospeccao() {
   const [filters, setFilters] = useState<ProspectFilters>({});
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [saveSearchOpen, setSaveSearchOpen] = useState(false);
   const [sendToFunnelOpen, setSendToFunnelOpen] = useState(false);
   const [sendCNPJToFunnelOpen, setSendCNPJToFunnelOpen] = useState(false);
@@ -94,9 +96,10 @@ export default function Prospeccao() {
     setSearchParams(params, { replace: true });
     setPage(1);
     setSelectedIds([]);
-  }, [filters, setSearchParams]);
+  }, [filters, setSearchParams, pageSize]);
 
   const handleSearch = () => {
+    saveRecentProspeccaoFilters(filters);
     setHasSearched(true);
     refetch();
   };
@@ -271,21 +274,34 @@ export default function Prospeccao() {
             </p>
           </div>
           
-          {savedSearches.length > 0 && (
-            <Select onValueChange={handleLoadSavedSearch}>
-              <SelectTrigger className="w-[220px]">
-                <BookmarkCheck className="h-4 w-4 mr-2" />
-                <SelectValue placeholder="Pesquisas salvas" />
-              </SelectTrigger>
-              <SelectContent>
-                {savedSearches.map((search) => (
-                  <SelectItem key={search.id} value={search.id}>
-                    {search.name} ({search.results_count})
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
+          <div className="flex items-center gap-3">
+            <RecentFiltersSelect
+              onApply={(recent) => {
+                setFilters(recent);
+                setHasSearched(true);
+                toast({
+                  title: "Filtros recentes aplicados",
+                  description: "Você pode clicar em Buscar para atualizar os resultados.",
+                });
+              }}
+            />
+
+            {savedSearches.length > 0 && (
+              <Select onValueChange={handleLoadSavedSearch}>
+                <SelectTrigger className="w-[220px]">
+                  <BookmarkCheck className="h-4 w-4 mr-2" />
+                  <SelectValue placeholder="Pesquisas salvas" />
+                </SelectTrigger>
+                <SelectContent>
+                  {savedSearches.map((search) => (
+                    <SelectItem key={search.id} value={search.id}>
+                      {search.name} ({search.results_count})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
         </div>
 
         {/* CNPJ Search */}
@@ -348,18 +364,33 @@ export default function Prospeccao() {
           <div className="text-sm text-muted-foreground">
             {selectedIds.length > 0 && (
               <span className="font-medium text-foreground">
-                {selectedIds.length} selecionado(s) • 
+                {selectedIds.length} selecionado(s) •
               </span>
             )}{" "}
             {prospects.length} resultado(s) encontrado(s)
           </div>
-          <ProspeccaoActions
-            selectedCount={selectedIds.length}
-            onSendToFunnel={() => setSendToFunnelOpen(true)}
-            onSendToLeadsBase={handleSendToLeadsBase}
-            onExport={handleExport}
-            isSendingToBase={sendToLeadsBase.isPending}
-          />
+
+          <div className="flex items-center gap-3">
+            <Select value={String(pageSize)} onValueChange={(v) => setPageSize(Number(v))}>
+              <SelectTrigger className="w-[130px]">
+                <SelectValue placeholder="Resultados" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="10">10</SelectItem>
+                <SelectItem value="25">25</SelectItem>
+                <SelectItem value="50">50</SelectItem>
+                <SelectItem value="100">100</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <ProspeccaoActions
+              selectedCount={selectedIds.length}
+              onSendToFunnel={() => setSendToFunnelOpen(true)}
+              onSendToLeadsBase={handleSendToLeadsBase}
+              onExport={handleExport}
+              isSendingToBase={sendToLeadsBase.isPending}
+            />
+          </div>
         </div>
       )}
 
@@ -391,6 +422,7 @@ export default function Prospeccao() {
             onSelectChange={setSelectedIds}
             page={page}
             onPageChange={setPage}
+            pageSize={pageSize}
           />
         )}
       </div>
