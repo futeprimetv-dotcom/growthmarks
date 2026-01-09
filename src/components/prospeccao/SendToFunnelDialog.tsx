@@ -20,16 +20,18 @@ import { Label } from "@/components/ui/label";
 import { useSalesFunnels } from "@/hooks/useSalesFunnels";
 import { useSendProspectsToFunnel, useSendCNPJToFunnel } from "@/hooks/useProspects";
 import type { CNPJLookupResult } from "@/hooks/useCNPJLookup";
+import type { MockProspect } from "@/data/mockProspects";
 
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   selectedProspects: string[];
+  prospects?: MockProspect[];
   cnpjData?: CNPJLookupResult;
   onSuccess: () => void;
 }
 
-export function SendToFunnelDialog({ open, onOpenChange, selectedProspects, cnpjData, onSuccess }: Props) {
+export function SendToFunnelDialog({ open, onOpenChange, selectedProspects, prospects = [], cnpjData, onSuccess }: Props) {
   const [funnelId, setFunnelId] = useState<string>("");
   const { data: funnels } = useSalesFunnels();
   const sendMutation = useSendProspectsToFunnel();
@@ -48,7 +50,8 @@ export function SendToFunnelDialog({ open, onOpenChange, selectedProspects, cnpj
       // Send selected prospects to funnel
       await sendMutation.mutateAsync({
         prospectIds: selectedProspects,
-        funnelId
+        funnelId,
+        prospects
       });
     }
     

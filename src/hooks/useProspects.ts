@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { mockProspects, type MockProspect } from "@/data/mockProspects";
+import type { MockProspect } from "@/data/mockProspects";
 import type { CNPJLookupResult } from "@/hooks/useCNPJLookup";
 
 export interface Prospect {
@@ -163,11 +163,11 @@ export function useSendProspectsToFunnel() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ prospectIds, funnelId }: { prospectIds: string[]; funnelId: string }) => {
-      // This will create leads from prospects
-      const prospects = mockProspects.filter(p => prospectIds.includes(p.id));
+    mutationFn: async ({ prospectIds, funnelId, prospects }: { prospectIds: string[]; funnelId: string; prospects: MockProspect[] }) => {
+      // Filter the prospects that match the selected IDs
+      const selectedProspects = prospects.filter(p => prospectIds.includes(p.id));
       
-      for (const prospect of prospects) {
+      for (const prospect of selectedProspects) {
         const { error } = await supabase.from("leads").insert({
           name: prospect.name,
           company: prospect.name,
@@ -187,7 +187,7 @@ export function useSendProspectsToFunnel() {
         if (error) throw error;
       }
 
-      return { count: prospects.length };
+      return { count: selectedProspects.length };
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["leads"] });

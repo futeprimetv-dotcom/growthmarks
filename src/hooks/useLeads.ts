@@ -15,6 +15,7 @@ export function useLeads() {
       const { data, error } = await supabase
         .from("leads")
         .select("*")
+        .eq("is_archived", false)
         .order("created_at", { ascending: false });
       
       if (error) throw error;

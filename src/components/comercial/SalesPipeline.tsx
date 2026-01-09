@@ -1,10 +1,10 @@
 import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useLeads, useUpdateLead, useDeleteLead } from "@/hooks/useLeads";
 import { useTeamMembers } from "@/hooks/useTeamMembers";
-import { DollarSign, Phone, Calendar, User, Flame, Snowflake, ThermometerSun, Plus, Edit2, Trash2, GripVertical, ArrowRightLeft } from "lucide-react";
+import { DollarSign, Calendar, User, Flame, Snowflake, ThermometerSun, Plus, Edit2, Trash2, GripVertical, ArrowRightLeft } from "lucide-react";
 import {
   DndContext,
   DragEndEvent,
@@ -22,6 +22,7 @@ import { LeadFormDialog } from "./LeadFormDialog";
 import { LeadScoreBadge } from "./LeadScoreBadge";
 import { WhatsAppButton } from "./WhatsAppButton";
 import { MoveFunnelDialog } from "./MoveFunnelDialog";
+import { LeadConvertDialog } from "./LeadConvertDialog";
 import { Tables } from "@/integrations/supabase/types";
 import {
   AlertDialog,
@@ -243,6 +244,8 @@ export function SalesPipeline({ funnelId }: SalesPipelineProps) {
   const [deleteConfirm, setDeleteConfirm] = useState<Lead | null>(null);
   const [moveFunnelOpen, setMoveFunnelOpen] = useState(false);
   const [leadToMove, setLeadToMove] = useState<Lead | null>(null);
+  const [convertDialogOpen, setConvertDialogOpen] = useState(false);
+  const [leadToConvert, setLeadToConvert] = useState<Lead | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -288,8 +291,8 @@ export function SalesPipeline({ funnelId }: SalesPipelineProps) {
             action: {
               label: "Converter",
               onClick: () => {
-                // TODO: Implement conversion
-                toast.info("Conversão de lead para cliente em desenvolvimento");
+                setLeadToConvert(lead);
+                setConvertDialogOpen(true);
               }
             }
           });
@@ -406,6 +409,12 @@ export function SalesPipeline({ funnelId }: SalesPipelineProps) {
         open={moveFunnelOpen}
         onOpenChange={setMoveFunnelOpen}
         lead={leadToMove}
+      />
+
+      <LeadConvertDialog
+        open={convertDialogOpen}
+        onOpenChange={setConvertDialogOpen}
+        lead={leadToConvert}
       />
 
       <AlertDialog open={!!deleteConfirm} onOpenChange={() => setDeleteConfirm(null)}>

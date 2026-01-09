@@ -595,6 +595,7 @@ export default function Prospeccao() {
           open={sendToFunnelOpen}
           onOpenChange={setSendToFunnelOpen}
           selectedProspects={selectedIds}
+          prospects={displayData}
           onSuccess={() => setSelectedIds([])}
         />
         </div>
@@ -883,6 +884,7 @@ export default function Prospeccao() {
         open={sendToFunnelOpen}
         onOpenChange={setSendToFunnelOpen}
         selectedProspects={selectedIds}
+        prospects={displayData}
         onSuccess={() => setSelectedIds([])}
       />
       
