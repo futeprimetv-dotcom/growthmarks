@@ -130,15 +130,31 @@ Retorne SEMPRE um JSON válido com exatamente esta estrutura:
 
     "digital-presence": `${baseContext}
 
-Sua tarefa é analisar a presença digital de uma empresa e descobrir informações de contato.
-Com base no nome da empresa, segmento, cidade e outras informações disponíveis, você deve:
-1. Identificar se a empresa possui um website e qual seria o domínio provável
-2. Identificar possíveis perfis em redes sociais (Instagram, Facebook, LinkedIn)
-3. Identificar possível número de WhatsApp comercial
-4. Avaliar a maturidade digital da empresa
+Sua tarefa é analisar a presença digital de uma empresa e descobrir informações de contato CORRETAS.
 
-IMPORTANTE: Use seu conhecimento para inferir informações prováveis baseado no nome e segmento da empresa.
-Se já houver informações fornecidas (website, instagram, telefones), valide e complemente.
+ATENÇÃO CRÍTICA - VALIDAÇÃO DE DADOS:
+- Os dados fornecidos podem conter ERROS ou informações de OUTRAS EMPRESAS misturadas.
+- Você DEVE validar se cada informação (Instagram, website, etc.) realmente pertence à empresa analisada.
+- Compare o nome/segmento da empresa com o conteúdo dos perfis sociais informados.
+- Se um Instagram ou rede social não corresponder ao nome da empresa, IGNORE e busque o correto.
+- Exemplo: Se a empresa é "MAIS SAUDE CENTRO MEDICO" mas o Instagram informado é de outra empresa, descarte essa informação.
+
+Com base no nome da empresa, segmento, cidade e outras informações disponíveis, você deve:
+1. VALIDAR se as informações já fornecidas realmente pertencem a esta empresa
+2. Identificar se a empresa possui um website e qual seria o domínio provável (baseado no nome)
+3. Identificar possíveis perfis em redes sociais que CORRESPONDAM ao nome da empresa
+4. Identificar possível número de WhatsApp comercial (geralmente o primeiro telefone fixo ou celular)
+5. Avaliar a maturidade digital da empresa
+
+REGRAS PARA WHATSAPP:
+- Se houver telefones listados, o WhatsApp comercial geralmente é o primeiro telefone celular (começando com 9)
+- Formato brasileiro: (DDD) 9XXXX-XXXX
+- Se só houver telefones fixos, indique isso como "possível WhatsApp fixo"
+
+REGRAS PARA REDES SOCIAIS:
+- O handle do Instagram deve ter relação com o NOME da empresa
+- Se o Instagram fornecido não tiver relação com o nome da empresa, retorne null e sugira buscar manualmente
+- Priorize encontrar perfis que façam sentido para o segmento da empresa
 
 Retorne SEMPRE um JSON válido com exatamente esta estrutura:
 {
@@ -146,16 +162,20 @@ Retorne SEMPRE um JSON válido com exatamente esta estrutura:
     "found": true | false,
     "url": "<url do website ou null>",
     "confidence": "alta" | "média" | "baixa",
-    "notes": "<observação sobre o website>"
+    "notes": "<observação sobre o website>",
+    "validated": true | false
   },
   "whatsapp": {
     "found": true | false,
     "number": "<número formatado ou null>",
     "confidence": "alta" | "média" | "baixa",
-    "source": "<de onde veio a informação>"
+    "source": "<de onde veio a informação>",
+    "isMobile": true | false
   },
   "socialMedia": {
-    "instagram": "<url ou @handle ou null>",
+    "instagram": "<url ou @handle ou null - APENAS se corresponder ao nome da empresa>",
+    "instagramValidated": true | false,
+    "instagramNote": "<se invalidado, explicar por quê>",
     "facebook": "<url ou null>",
     "linkedin": "<url ou null>",
     "tiktok": "<url ou @handle ou null>"
@@ -165,6 +185,9 @@ Retorne SEMPRE um JSON válido com exatamente esta estrutura:
     "score": <número de 0 a 100>,
     "analysis": "<análise breve da presença digital>"
   },
+  "dataQualityWarnings": [
+    "<alerta sobre dados inconsistentes, se houver>"
+  ],
   "contactSuggestions": [
     "<sugestão 1 para encontrar contatos>",
     "<sugestão 2>"

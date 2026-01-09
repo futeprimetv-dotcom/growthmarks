@@ -253,6 +253,28 @@ export function AIAnalysisDialog({
                     </CardContent>
                   </Card>
 
+                  {/* Data Quality Warnings */}
+                  {digitalPresence.dataQualityWarnings && digitalPresence.dataQualityWarnings.length > 0 && (
+                    <Card className="border-yellow-500/50 bg-yellow-50/50 dark:bg-yellow-950/20">
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm flex items-center gap-2 text-yellow-700 dark:text-yellow-400">
+                          <AlertCircle className="h-4 w-4" />
+                          Alertas de Qualidade dos Dados
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <ul className="space-y-1">
+                          {digitalPresence.dataQualityWarnings.map((warning, i) => (
+                            <li key={i} className="text-sm text-yellow-700 dark:text-yellow-400 flex items-start gap-2">
+                              <span>⚠️</span>
+                              {warning}
+                            </li>
+                          ))}
+                        </ul>
+                      </CardContent>
+                    </Card>
+                  )}
+
                   {/* Social Media */}
                   <Card>
                     <CardHeader className="pb-2">
@@ -260,17 +282,30 @@ export function AIAnalysisDialog({
                     </CardHeader>
                     <CardContent>
                       <div className="grid grid-cols-2 gap-3">
-                        {digitalPresence.socialMedia.instagram && (
-                          <a 
-                            href={digitalPresence.socialMedia.instagram.startsWith('http') ? digitalPresence.socialMedia.instagram : `https://instagram.com/${digitalPresence.socialMedia.instagram.replace('@', '')}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center gap-2 p-2 rounded-md bg-gradient-to-r from-purple-500/10 to-pink-500/10 hover:from-purple-500/20 hover:to-pink-500/20 transition-colors"
-                          >
-                            <Instagram className="h-5 w-5 text-pink-600" />
-                            <span className="text-sm truncate">{digitalPresence.socialMedia.instagram}</span>
-                          </a>
-                        )}
+                        {digitalPresence.socialMedia.instagram ? (
+                          <div className="space-y-1">
+                            <a 
+                              href={digitalPresence.socialMedia.instagram.startsWith('http') ? digitalPresence.socialMedia.instagram : `https://instagram.com/${digitalPresence.socialMedia.instagram.replace('@', '')}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-2 p-2 rounded-md bg-gradient-to-r from-purple-500/10 to-pink-500/10 hover:from-purple-500/20 hover:to-pink-500/20 transition-colors"
+                            >
+                              <Instagram className="h-5 w-5 text-pink-600" />
+                              <span className="text-sm truncate">{digitalPresence.socialMedia.instagram}</span>
+                              {digitalPresence.socialMedia.instagramValidated && (
+                                <Check className="h-4 w-4 text-green-500" />
+                              )}
+                            </a>
+                            {digitalPresence.socialMedia.instagramNote && (
+                              <p className="text-xs text-muted-foreground px-2">{digitalPresence.socialMedia.instagramNote}</p>
+                            )}
+                          </div>
+                        ) : digitalPresence.socialMedia.instagramNote ? (
+                          <div className="flex items-center gap-2 p-2 rounded-md bg-yellow-500/10 col-span-2">
+                            <AlertCircle className="h-4 w-4 text-yellow-600" />
+                            <span className="text-sm text-yellow-700 dark:text-yellow-400">{digitalPresence.socialMedia.instagramNote}</span>
+                          </div>
+                        ) : null}
                         {digitalPresence.socialMedia.facebook && (
                           <a 
                             href={digitalPresence.socialMedia.facebook.startsWith('http') ? digitalPresence.socialMedia.facebook : `https://facebook.com/${digitalPresence.socialMedia.facebook}`}
@@ -305,7 +340,8 @@ export function AIAnalysisDialog({
                           </a>
                         )}
                         {!digitalPresence.socialMedia.instagram && !digitalPresence.socialMedia.facebook && 
-                         !digitalPresence.socialMedia.linkedin && !digitalPresence.socialMedia.tiktok && (
+                         !digitalPresence.socialMedia.linkedin && !digitalPresence.socialMedia.tiktok && 
+                         !digitalPresence.socialMedia.instagramNote && (
                           <p className="text-muted-foreground text-sm col-span-2">Nenhuma rede social identificada</p>
                         )}
                       </div>

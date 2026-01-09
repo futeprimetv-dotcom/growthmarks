@@ -79,15 +79,19 @@ export interface DigitalPresenceAnalysis {
     url: string | null;
     confidence: "alta" | "média" | "baixa";
     notes: string;
+    validated?: boolean;
   };
   whatsapp: {
     found: boolean;
     number: string | null;
     confidence: "alta" | "média" | "baixa";
     source: string;
+    isMobile?: boolean;
   };
   socialMedia: {
     instagram: string | null;
+    instagramValidated?: boolean;
+    instagramNote?: string;
     facebook: string | null;
     linkedin: string | null;
     tiktok: string | null;
@@ -97,6 +101,7 @@ export interface DigitalPresenceAnalysis {
     score: number;
     analysis: string;
   };
+  dataQualityWarnings?: string[];
   contactSuggestions: string[];
 }
 
