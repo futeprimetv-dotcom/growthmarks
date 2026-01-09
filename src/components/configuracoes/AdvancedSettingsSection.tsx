@@ -46,12 +46,18 @@ import {
   Trash2,
   Plus,
   Eye,
+  Zap,
+  RefreshCw,
+  HardDrive,
+  Database,
 } from "lucide-react";
 import { useNotificationSettings } from "@/hooks/useNotificationSettings";
 import { useActivityLogs, ActivityLog } from "@/hooks/useActivityLogs";
 import { useDataExport } from "@/hooks/useDataExport";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 
 const actionTypeLabels: Record<string, { label: string; color: string; icon: typeof Plus }> = {
   create: { label: 'Criação', color: 'bg-green-500/20 text-green-500', icon: Plus },
@@ -80,6 +86,7 @@ const entityTypeIcons: Record<string, typeof Users> = {
 type ExportEntity = 'clients' | 'leads' | 'demands' | 'contracts' | 'expenses' | 'receivables' | 'payables' | 'team_members' | 'goals';
 
 export function AdvancedSettingsSection() {
+  const queryClient = useQueryClient();
   const { settings, isLoading: settingsLoading, updateSettings } = useNotificationSettings();
   const { logs, isLoading: logsLoading } = useActivityLogs(50);
   const { isExporting, exportProgress, exportEntity, exportAll, entityLabels } = useDataExport();
@@ -87,8 +94,10 @@ export function AdvancedSettingsSection() {
   const [notificationsOpen, setNotificationsOpen] = useState(true);
   const [logsOpen, setLogsOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
+  const [cacheOpen, setCacheOpen] = useState(false);
   const [pendingChanges, setPendingChanges] = useState<Record<string, boolean>>({});
   const [userFilter, setUserFilter] = useState<string>("all");
+  const [isClearing, setIsClearing] = useState(false);
 
   // Get unique users from logs
   const uniqueUsers = useMemo(() => {
@@ -121,6 +130,86 @@ export function AdvancedSettingsSection() {
   const getSettingValue = (key: string) => {
     if (key in pendingChanges) return pendingChanges[key];
     return settings[key as keyof typeof settings];
+  };
+
+  // Cache clearing functions
+  const clearAllCaches = async () => {
+    setIsClearing(true);
+    try {
+      // 1. Clear React Query cache
+      queryClient.clear();
+      
+      // 2. Clear localStorage caches (but not auth/settings)
+      const keysToKeep = ['supabase.auth.token', 'theme', 'sidebar'];
+      const keysToRemove: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && !keysToKeep.some(k => key.includes(k))) {
+          keysToRemove.push(key);
+        }
+      }
+      keysToRemove.forEach(key => localStorage.removeItem(key));
+      
+      // 3. Clear sessionStorage
+      sessionStorage.clear();
+      
+      // 4. Refetch critical queries
+      await queryClient.invalidateQueries();
+      
+      toast.success("Cache limpo com sucesso! O sistema está otimizado.", {
+        description: "Todas as consultas foram renovadas."
+      });
+    } catch (error) {
+      console.error("Erro ao limpar cache:", error);
+      toast.error("Erro ao limpar cache");
+    } finally {
+      setIsClearing(false);
+    }
+  };
+
+  const clearQueryCache = async () => {
+    setIsClearing(true);
+    try {
+      queryClient.clear();
+      await queryClient.invalidateQueries();
+      toast.success("Cache de consultas limpo!");
+    } catch (error) {
+      toast.error("Erro ao limpar cache de consultas");
+    } finally {
+      setIsClearing(false);
+    }
+  };
+
+  const clearProspectingCache = () => {
+    // Clear prospecting-specific caches from localStorage/sessionStorage
+    const prospectingKeys = ['enriched', 'aiAnalysis', 'digitalPresence', 'searchCache', 'prospect'];
+    let cleared = 0;
+    
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const key = localStorage.key(i);
+      if (key && prospectingKeys.some(pk => key.toLowerCase().includes(pk))) {
+        localStorage.removeItem(key);
+        cleared++;
+      }
+    }
+    
+    // Invalidate prospecting-related queries
+    queryClient.invalidateQueries({ queryKey: ['prospects'] });
+    queryClient.invalidateQueries({ queryKey: ['savedSearches'] });
+    queryClient.invalidateQueries({ queryKey: ['prospectLists'] });
+    
+    toast.success(`Cache de prospecção limpo! (${cleared} itens removidos)`);
+  };
+
+  const getEstimatedCacheSize = () => {
+    let totalSize = 0;
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key) {
+        totalSize += (localStorage.getItem(key)?.length || 0) * 2; // UTF-16 = 2 bytes per char
+      }
+    }
+    return (totalSize / 1024).toFixed(1); // KB
   };
 
   return (
@@ -357,6 +446,151 @@ export function AdvancedSettingsSection() {
                   </div>
                 </ScrollArea>
               )}
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
+      </Card>
+
+      {/* Cache Management Section */}
+      <Card className="overflow-hidden">
+        <Collapsible open={cacheOpen} onOpenChange={setCacheOpen}>
+          <CollapsibleTrigger asChild>
+            <div className="p-6 flex items-center justify-between cursor-pointer hover:bg-secondary/30 transition-colors">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-orange-500/10">
+                  <Zap className="h-5 w-5 text-orange-500" />
+                </div>
+                <div>
+                  <h3 className="font-semibold">Otimização e Cache</h3>
+                  <p className="text-sm text-muted-foreground">Limpe caches para melhorar a performance</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <Badge variant="outline" className="text-xs">
+                  ~{getEstimatedCacheSize()} KB em cache
+                </Badge>
+                {cacheOpen ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+              </div>
+            </div>
+          </CollapsibleTrigger>
+          
+          <CollapsibleContent>
+            <Separator />
+            <div className="p-6 space-y-6">
+              {/* Quick Clean */}
+              <div className="p-4 rounded-lg bg-gradient-to-r from-orange-500/10 to-red-500/10 border border-orange-500/20">
+                <div className="flex items-start gap-4">
+                  <div className="p-3 rounded-full bg-orange-500/20">
+                    <Zap className="h-6 w-6 text-orange-500" />
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="font-semibold text-lg">Limpeza Rápida</h4>
+                    <p className="text-sm text-muted-foreground mb-3">
+                      Remove todos os caches temporários, mantendo suas configurações e dados seguros.
+                      Ideal quando o sistema está lento ou travando.
+                    </p>
+                    <Button 
+                      onClick={clearAllCaches} 
+                      disabled={isClearing}
+                      className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600"
+                    >
+                      {isClearing ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <RefreshCw className="h-4 w-4 mr-2" />
+                      )}
+                      Limpar Tudo e Otimizar
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* Specific Cleanups */}
+              <div>
+                <Label className="text-base font-medium">Limpeza Específica</Label>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Limpe apenas partes específicas do cache
+                </p>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <Button 
+                    variant="outline" 
+                    onClick={clearQueryCache}
+                    disabled={isClearing}
+                    className="justify-start h-auto py-3"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Database className="h-5 w-5 text-blue-500" />
+                      <div className="text-left">
+                        <p className="font-medium">Cache de Consultas</p>
+                        <p className="text-xs text-muted-foreground">Dados carregados do banco</p>
+                      </div>
+                    </div>
+                  </Button>
+
+                  <Button 
+                    variant="outline" 
+                    onClick={clearProspectingCache}
+                    disabled={isClearing}
+                    className="justify-start h-auto py-3"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Target className="h-5 w-5 text-purple-500" />
+                      <div className="text-left">
+                        <p className="font-medium">Cache de Prospecção</p>
+                        <p className="text-xs text-muted-foreground">Buscas e análises IA</p>
+                      </div>
+                    </div>
+                  </Button>
+
+                  <Button 
+                    variant="outline" 
+                    onClick={() => {
+                      sessionStorage.clear();
+                      toast.success("Sessão limpa com sucesso!");
+                    }}
+                    disabled={isClearing}
+                    className="justify-start h-auto py-3"
+                  >
+                    <div className="flex items-center gap-3">
+                      <HardDrive className="h-5 w-5 text-green-500" />
+                      <div className="text-left">
+                        <p className="font-medium">Dados da Sessão</p>
+                        <p className="text-xs text-muted-foreground">Estados temporários</p>
+                      </div>
+                    </div>
+                  </Button>
+
+                  <Button 
+                    variant="outline" 
+                    onClick={() => {
+                      window.location.reload();
+                    }}
+                    disabled={isClearing}
+                    className="justify-start h-auto py-3"
+                  >
+                    <div className="flex items-center gap-3">
+                      <RefreshCw className="h-5 w-5 text-orange-500" />
+                      <div className="text-left">
+                        <p className="font-medium">Recarregar Sistema</p>
+                        <p className="text-xs text-muted-foreground">Reiniciar aplicação</p>
+                      </div>
+                    </div>
+                  </Button>
+                </div>
+              </div>
+
+              <div className="p-3 rounded-lg bg-green-500/10 border border-green-500/30">
+                <div className="flex items-start gap-2">
+                  <CheckCircle className="h-4 w-4 text-green-500 mt-0.5" />
+                  <div className="text-sm text-green-700 dark:text-green-400">
+                    <p className="font-medium">Dados seguros</p>
+                    <p>A limpeza de cache não afeta seus dados salvos no banco. Apenas remove informações temporárias para melhorar a performance.</p>
+                  </div>
+                </div>
+              </div>
             </div>
           </CollapsibleContent>
         </Collapsible>
