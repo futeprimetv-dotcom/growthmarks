@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ServicosTab } from "@/components/financeiro/ServicosTab";
 import { ProdutosTab } from "@/components/financeiro/ProdutosTab";
@@ -10,6 +10,7 @@ import { FinanceiroDashboard } from "@/components/financeiro/FinanceiroDashboard
 import { PeriodSelector } from "@/components/financeiro/PeriodSelector";
 import { useReceivables } from "@/hooks/useReceivables";
 import { usePayables } from "@/hooks/usePayables";
+import { useCopyRecurringPayables } from "@/hooks/useCopyRecurringPayables";
 import { 
   DollarSign, 
   Package, 
@@ -24,9 +25,39 @@ export default function Financeiro() {
   const today = new Date();
   const [selectedMonth, setSelectedMonth] = useState(today.getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(today.getFullYear());
+  const previousPeriodRef = useRef({ month: selectedMonth, year: selectedYear });
 
   const { data: receivables = [] } = useReceivables(selectedMonth, selectedYear);
   const { data: payables = [] } = usePayables(selectedMonth, selectedYear);
+  const copyRecurringPayables = useCopyRecurringPayables();
+
+  // Copy recurring payables when navigating to a new period
+  useEffect(() => {
+    const prevMonth = previousPeriodRef.current.month;
+    const prevYear = previousPeriodRef.current.year;
+
+    // Check if period changed
+    if (prevMonth !== selectedMonth || prevYear !== selectedYear) {
+      // Calculate previous month relative to the new selection
+      let fromMonth = selectedMonth - 1;
+      let fromYear = selectedYear;
+      if (fromMonth === 0) {
+        fromMonth = 12;
+        fromYear = selectedYear - 1;
+      }
+
+      // Copy recurring from previous month
+      copyRecurringPayables.mutate({
+        fromMonth,
+        fromYear,
+        toMonth: selectedMonth,
+        toYear: selectedYear,
+      });
+
+      // Update ref
+      previousPeriodRef.current = { month: selectedMonth, year: selectedYear };
+    }
+  }, [selectedMonth, selectedYear]);
 
   const handlePeriodChange = (month: number, year: number) => {
     setSelectedMonth(month);
