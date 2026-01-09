@@ -11,7 +11,9 @@ import {
   CalendarDays,
   TrendingUp,
   LogOut,
-  Eye
+  Eye,
+  List,
+  BarChart3
 } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import {
@@ -46,10 +48,18 @@ interface MenuSection {
 
 const menuSections: MenuSection[] = [
   {
-    label: "Vendas",
+    label: "Gestão",
     items: [
       { title: "Dashboard", url: "/", icon: LayoutDashboard, permission: 'vendedor' },
-      { title: "Comercial", url: "/comercial", icon: Target, permission: 'vendedor' },
+      { title: "Metas & OKRs", url: "/metas", icon: TrendingUp, permission: 'gestao' },
+    ]
+  },
+  {
+    label: "Comercial",
+    items: [
+      { title: "CRM", url: "/crm", icon: Target, permission: 'vendedor' },
+      { title: "Leads", url: "/leads", icon: List, permission: 'vendedor' },
+      { title: "Métricas", url: "/metricas-comerciais", icon: BarChart3, permission: 'vendedor' },
     ]
   },
   {
@@ -65,12 +75,6 @@ const menuSections: MenuSection[] = [
     items: [
       { title: "Contratos", url: "/contratos", icon: FileText, permission: 'vendedor' },
       { title: "Financeiro", url: "/financeiro", icon: DollarSign, permission: 'gestao' },
-    ]
-  },
-  {
-    label: "Gestão",
-    items: [
-      { title: "Metas & OKRs", url: "/metas", icon: TrendingUp, permission: 'gestao' },
     ]
   },
   {
