@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Search, BookmarkCheck, AlertCircle, FileSpreadsheet, Globe, Database, ArrowLeft, Loader2 } from "lucide-react";
+import { Search, BookmarkCheck, AlertCircle, FileSpreadsheet, Globe, Database, ArrowLeft, Loader2, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
@@ -31,6 +31,7 @@ import { SearchStatsPanel, type SearchDebugStats } from "@/components/prospeccao
 import { BackgroundSearchBanner } from "@/components/prospeccao/BackgroundSearchBanner";
 import { ICPSettingsDialog } from "@/components/prospeccao/ICPSettingsDialog";
 import { ICPIndicator } from "@/components/prospeccao/ICPIndicator";
+import { CNPJPullTab } from "@/components/prospeccao/CNPJPullTab";
 import { useProspects, useSendToLeadsBase, useAddProspectFromCNPJ, type ProspectFilters } from "@/hooks/useProspects";
 import { useSavedSearches } from "@/hooks/useSavedSearches";
 import { useCNPJLookupManual, type CNPJLookupResult } from "@/hooks/useCNPJLookup";
@@ -55,7 +56,7 @@ export default function Prospeccao() {
   const [hasSearched, setHasSearched] = useState(false);
   const [showResultsPanel, setShowResultsPanel] = useState(false);
   const [isSearchMinimized, setIsSearchMinimized] = useState(false);
-  const [searchMode, setSearchMode] = useState<"internet" | "cnpj" | "database">("internet");
+  const [searchMode, setSearchMode] = useState<"internet" | "cnpj" | "database" | "pull-cnpjs">("internet");
   
   // API Search results
   const [apiResults, setApiResults] = useState<CompanySearchResult[]>([]);
@@ -750,10 +751,9 @@ export default function Prospeccao() {
           </div>
         </div>
 
-
-        {/* Search Mode Tabs - 3 modos principais */}
-        <Tabs value={searchMode} onValueChange={(v) => setSearchMode(v as "internet" | "cnpj" | "database")} className="mb-4">
-          <TabsList className="grid w-full grid-cols-3 max-w-lg">
+        {/* Search Mode Tabs - 4 modos principais */}
+        <Tabs value={searchMode} onValueChange={(v) => setSearchMode(v as "internet" | "cnpj" | "database" | "pull-cnpjs")} className="mb-4">
+          <TabsList className="grid w-full grid-cols-4 max-w-2xl">
             <TabsTrigger value="internet" className="flex items-center gap-2">
               <Globe className="h-4 w-4" />
               <span className="hidden sm:inline">Buscar na</span> Internet
@@ -761,6 +761,10 @@ export default function Prospeccao() {
             <TabsTrigger value="cnpj" className="flex items-center gap-2">
               <Search className="h-4 w-4" />
               Consulta CNPJ
+            </TabsTrigger>
+            <TabsTrigger value="pull-cnpjs" className="flex items-center gap-2">
+              <FileText className="h-4 w-4" />
+              Puxar CNPJs
             </TabsTrigger>
             <TabsTrigger value="database" className="flex items-center gap-2">
               <Database className="h-4 w-4" />
@@ -836,6 +840,10 @@ export default function Prospeccao() {
               </Alert>
             )}
           </div>
+        )}
+
+        {searchMode === "pull-cnpjs" && (
+          <CNPJPullTab />
         )}
 
         {searchMode === "database" && (
