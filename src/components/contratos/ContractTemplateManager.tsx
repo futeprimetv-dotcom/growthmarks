@@ -11,11 +11,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Pencil, Trash2, FileText, Loader2 } from "lucide-react";
+import { Plus, Pencil, Trash2, FileText, Loader2, Eye, Code } from "lucide-react";
+import { RichTextEditor } from "./RichTextEditor";
 
 const SERVICE_TYPES = [
   { value: "social_media", label: "Social Media" },
@@ -85,6 +87,7 @@ export function ContractTemplateManager() {
     service_type: "social_media",
     content: defaultContent,
   });
+  const [editorMode, setEditorMode] = useState<"visual" | "html">("visual");
 
   const handleCreate = () => {
     setSelectedTemplate(null);
@@ -94,6 +97,7 @@ export function ContractTemplateManager() {
       service_type: "social_media",
       content: defaultContent,
     });
+    setEditorMode("visual");
     setDialogOpen(true);
   };
 
@@ -105,6 +109,7 @@ export function ContractTemplateManager() {
       service_type: template.service_type,
       content: template.content,
     });
+    setEditorMode("visual");
     setDialogOpen(true);
   };
 
@@ -258,17 +263,39 @@ export function ContractTemplateManager() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="content">Conteúdo do Contrato (HTML) *</Label>
+              <div className="flex items-center justify-between">
+                <Label>Conteúdo do Contrato *</Label>
+                <Tabs value={editorMode} onValueChange={(v) => setEditorMode(v as "visual" | "html")}>
+                  <TabsList className="h-8">
+                    <TabsTrigger value="visual" className="text-xs px-3 h-6 gap-1">
+                      <Eye className="h-3 w-3" />
+                      Visual
+                    </TabsTrigger>
+                    <TabsTrigger value="html" className="text-xs px-3 h-6 gap-1">
+                      <Code className="h-3 w-3" />
+                      HTML
+                    </TabsTrigger>
+                  </TabsList>
+                </Tabs>
+              </div>
               <p className="text-xs text-muted-foreground">
                 Variáveis disponíveis: {`{{cliente_nome}}, {{cliente_cnpj}}, {{cliente_endereco}}, {{empresa_nome}}, {{empresa_cnpj}}, {{empresa_endereco}}, {{valor}}, {{data_inicio}}, {{data_fim}}, {{cidade}}, {{data_atual}}`}
               </p>
-              <Textarea
-                id="content"
-                value={formData.content}
-                onChange={(e) => setFormData({ ...formData, content: e.target.value })}
-                rows={15}
-                className="font-mono text-sm"
-              />
+              
+              {editorMode === "visual" ? (
+                <RichTextEditor
+                  value={formData.content}
+                  onChange={(content) => setFormData({ ...formData, content })}
+                />
+              ) : (
+                <Textarea
+                  id="content"
+                  value={formData.content}
+                  onChange={(e) => setFormData({ ...formData, content: e.target.value })}
+                  rows={15}
+                  className="font-mono text-sm"
+                />
+              )}
             </div>
           </div>
 
