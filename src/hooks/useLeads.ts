@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
 import { toast } from "sonner";
+import { logLeadActivity } from "@/lib/activityLogger";
 
 export type Lead = Tables<"leads">;
 export type LeadInsert = TablesInsert<"leads">;
@@ -52,10 +53,19 @@ export function useCreateLead() {
         .single();
       
       if (error) throw error;
+
+      // Log activity
+      await logLeadActivity("create", data.id, data.name, {
+        status: lead.status,
+        temperature: lead.temperature,
+        estimated_value: lead.estimated_value,
+      });
+
       return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["leads"] });
+      queryClient.invalidateQueries({ queryKey: ["activity-logs"] });
       toast.success("Lead criado com sucesso!");
     },
     onError: (error) => {
@@ -77,10 +87,15 @@ export function useUpdateLead() {
         .single();
       
       if (error) throw error;
+
+      // Log activity
+      await logLeadActivity("update", data.id, data.name, { updates });
+
       return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["leads"] });
+      queryClient.invalidateQueries({ queryKey: ["activity-logs"] });
       toast.success("Lead atualizado com sucesso!");
     },
     onError: (error) => {
@@ -93,16 +108,20 @@ export function useDeleteLead() {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: async (id: string) => {
+    mutationFn: async ({ id, name }: { id: string; name: string }) => {
       const { error } = await supabase
         .from("leads")
         .delete()
         .eq("id", id);
       
       if (error) throw error;
+
+      // Log activity
+      await logLeadActivity("delete", id, name);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["leads"] });
+      queryClient.invalidateQueries({ queryKey: ["activity-logs"] });
       toast.success("Lead excluído com sucesso!");
     },
     onError: (error) => {

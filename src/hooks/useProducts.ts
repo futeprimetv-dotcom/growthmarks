@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
 import { toast } from "sonner";
+import { logProductActivity } from "@/lib/activityLogger";
 
 export type Product = Tables<"products">;
 export type ProductInsert = TablesInsert<"products">;
@@ -34,10 +35,18 @@ export function useCreateProduct() {
         .single();
       
       if (error) throw error;
+
+      // Log activity
+      await logProductActivity("create", data.id, data.name, {
+        value: product.value,
+        client_id: product.client_id,
+      });
+
       return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["products"] });
+      queryClient.invalidateQueries({ queryKey: ["activity-logs"] });
       toast.success("Produto criado com sucesso!");
     },
     onError: (error) => {
@@ -59,10 +68,15 @@ export function useUpdateProduct() {
         .single();
       
       if (error) throw error;
+
+      // Log activity
+      await logProductActivity("update", data.id, data.name, { updates: product });
+
       return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["products"] });
+      queryClient.invalidateQueries({ queryKey: ["activity-logs"] });
       toast.success("Produto atualizado com sucesso!");
     },
     onError: (error) => {
@@ -75,16 +89,20 @@ export function useDeleteProduct() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (id: string) => {
+    mutationFn: async ({ id, name }: { id: string; name: string }) => {
       const { error } = await supabase
         .from("products")
         .delete()
         .eq("id", id);
       
       if (error) throw error;
+
+      // Log activity
+      await logProductActivity("delete", id, name);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["products"] });
+      queryClient.invalidateQueries({ queryKey: ["activity-logs"] });
       toast.success("Produto excluído com sucesso!");
     },
     onError: (error) => {

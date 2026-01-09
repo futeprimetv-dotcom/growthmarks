@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
 import { toast } from "sonner";
+import { logTeamMemberActivity } from "@/lib/activityLogger";
 
 export type TeamMember = Tables<"team_members">;
 export type TeamMemberInsert = TablesInsert<"team_members">;
@@ -52,10 +53,18 @@ export function useCreateTeamMember() {
         .single();
       
       if (error) throw error;
+
+      // Log activity
+      await logTeamMemberActivity("create", data.id, data.name, {
+        role: member.role,
+        email: member.email,
+      });
+
       return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["team_members"] });
+      queryClient.invalidateQueries({ queryKey: ["activity-logs"] });
       toast.success("Membro criado com sucesso!");
     },
     onError: (error) => {
@@ -77,10 +86,15 @@ export function useUpdateTeamMember() {
         .single();
       
       if (error) throw error;
+
+      // Log activity
+      await logTeamMemberActivity("update", data.id, data.name, { updates: member });
+
       return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["team_members"] });
+      queryClient.invalidateQueries({ queryKey: ["activity-logs"] });
       toast.success("Membro atualizado com sucesso!");
     },
     onError: (error) => {
@@ -93,16 +107,20 @@ export function useDeleteTeamMember() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (id: string) => {
+    mutationFn: async ({ id, name }: { id: string; name: string }) => {
       const { error } = await supabase
         .from("team_members")
         .delete()
         .eq("id", id);
       
       if (error) throw error;
+
+      // Log activity
+      await logTeamMemberActivity("delete", id, name);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["team_members"] });
+      queryClient.invalidateQueries({ queryKey: ["activity-logs"] });
       toast.success("Membro excluído com sucesso!");
     },
     onError: (error) => {

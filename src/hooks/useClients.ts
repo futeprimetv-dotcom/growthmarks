@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
 import { toast } from "sonner";
+import { logClientActivity } from "@/lib/activityLogger";
 
 export type Client = Tables<"clients">;
 export type ClientInsert = TablesInsert<"clients">;
@@ -72,15 +73,21 @@ export function useCreateClient() {
 
         if (contractError) {
           console.error("Error creating contract:", contractError);
-          // Don't throw - client was created successfully
         }
       }
+
+      // Log activity
+      await logClientActivity("create", clientData.id, clientData.name, {
+        monthly_value: client.monthly_value,
+        contract_type: client.contract_type,
+      });
 
       return clientData;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["clients"] });
       queryClient.invalidateQueries({ queryKey: ["contracts"] });
+      queryClient.invalidateQueries({ queryKey: ["activity-logs"] });
       toast.success("Cliente criado com sucesso!");
     },
     onError: (error) => {
@@ -102,10 +109,15 @@ export function useUpdateClient() {
         .single();
       
       if (error) throw error;
+
+      // Log activity
+      await logClientActivity("update", data.id, data.name, { updates });
+
       return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["clients"] });
+      queryClient.invalidateQueries({ queryKey: ["activity-logs"] });
       toast.success("Cliente atualizado com sucesso!");
     },
     onError: (error) => {
@@ -118,16 +130,20 @@ export function useDeleteClient() {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: async (id: string) => {
+    mutationFn: async ({ id, name }: { id: string; name: string }) => {
       const { error } = await supabase
         .from("clients")
         .delete()
         .eq("id", id);
       
       if (error) throw error;
+
+      // Log activity
+      await logClientActivity("delete", id, name);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["clients"] });
+      queryClient.invalidateQueries({ queryKey: ["activity-logs"] });
       toast.success("Cliente excluído com sucesso!");
     },
     onError: (error) => {

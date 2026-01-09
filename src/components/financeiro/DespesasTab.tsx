@@ -61,7 +61,7 @@ export function DespesasTab() {
 
   const handleDeleteConfirm = () => {
     if (expenseToDelete) {
-      deleteExpense.mutate(expenseToDelete.id);
+      deleteExpense.mutate({ id: expenseToDelete.id, description: expenseToDelete.description });
       setDeleteDialogOpen(false);
       setExpenseToDelete(null);
     }

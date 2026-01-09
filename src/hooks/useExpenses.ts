@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
 import { toast } from "sonner";
+import { logExpenseActivity } from "@/lib/activityLogger";
 
 export type Expense = Tables<"expenses">;
 export type ExpenseInsert = TablesInsert<"expenses">;
@@ -34,10 +35,18 @@ export function useCreateExpense() {
         .single();
       
       if (error) throw error;
+
+      // Log activity
+      await logExpenseActivity("create", data.id, data.description, {
+        value: expense.value,
+        category: expense.category,
+      });
+
       return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["expenses"] });
+      queryClient.invalidateQueries({ queryKey: ["activity-logs"] });
       toast.success("Despesa criada com sucesso!");
     },
     onError: (error) => {
@@ -59,10 +68,15 @@ export function useUpdateExpense() {
         .single();
       
       if (error) throw error;
+
+      // Log activity
+      await logExpenseActivity("update", data.id, data.description, { updates: expense });
+
       return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["expenses"] });
+      queryClient.invalidateQueries({ queryKey: ["activity-logs"] });
       toast.success("Despesa atualizada com sucesso!");
     },
     onError: (error) => {
@@ -75,16 +89,20 @@ export function useDeleteExpense() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (id: string) => {
+    mutationFn: async ({ id, description }: { id: string; description: string }) => {
       const { error } = await supabase
         .from("expenses")
         .delete()
         .eq("id", id);
       
       if (error) throw error;
+
+      // Log activity
+      await logExpenseActivity("delete", id, description);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["expenses"] });
+      queryClient.invalidateQueries({ queryKey: ["activity-logs"] });
       toast.success("Despesa excluída com sucesso!");
     },
     onError: (error) => {

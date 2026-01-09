@@ -299,7 +299,7 @@ export function SalesPipeline() {
 
   const confirmDelete = () => {
     if (deleteConfirm) {
-      deleteLead.mutate(deleteConfirm.id);
+      deleteLead.mutate({ id: deleteConfirm.id, name: deleteConfirm.name });
       setDeleteConfirm(null);
     }
   };

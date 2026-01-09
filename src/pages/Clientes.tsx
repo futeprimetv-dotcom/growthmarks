@@ -17,7 +17,7 @@ export default function Clientes() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
-  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [clientToDelete, setClientToDelete] = useState<{ id: string; name: string } | null>(null);
   
   const { data: clients, isLoading } = useClients();
   const { data: teamMembers } = useTeamMembers();
@@ -38,9 +38,9 @@ export default function Clientes() {
   };
 
   const handleDelete = async () => {
-    if (deleteId) {
-      await deleteClient.mutateAsync(deleteId);
-      setDeleteId(null);
+    if (clientToDelete) {
+      await deleteClient.mutateAsync(clientToDelete);
+      setClientToDelete(null);
     }
   };
 
@@ -148,7 +148,7 @@ export default function Clientes() {
                           <Button size="sm" variant="outline" onClick={() => handleEdit(client)}>
                             <Pencil className="h-4 w-4 mr-1" /> Editar
                           </Button>
-                          <Button size="sm" variant="destructive" onClick={() => setDeleteId(client.id)}>
+                          <Button size="sm" variant="destructive" onClick={() => setClientToDelete({ id: client.id, name: client.name })}>
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
@@ -164,7 +164,7 @@ export default function Clientes() {
 
       <ClientFormDialog open={formOpen} onOpenChange={setFormOpen} client={editingClient} />
       
-      <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
+      <AlertDialog open={!!clientToDelete} onOpenChange={() => setClientToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir cliente?</AlertDialogTitle>
