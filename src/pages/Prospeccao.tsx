@@ -45,6 +45,9 @@ export default function Prospeccao() {
     const states = searchParams.get("states");
     if (states) urlFilters.states = states.split(",");
     
+    const cities = searchParams.get("cities");
+    if (cities) urlFilters.cities = cities.split(",");
+    
     const sizes = searchParams.get("sizes");
     if (sizes) urlFilters.companySizes = sizes.split(",");
     
@@ -67,6 +70,7 @@ export default function Prospeccao() {
     if (filters.search) params.set("search", filters.search);
     if (filters.segments?.length) params.set("segments", filters.segments.join(","));
     if (filters.states?.length) params.set("states", filters.states.join(","));
+    if (filters.cities?.length) params.set("cities", filters.cities.join(","));
     if (filters.companySizes?.length) params.set("sizes", filters.companySizes.join(","));
     if (filters.hasWebsite) params.set("hasWebsite", "true");
     if (filters.hasPhone) params.set("hasPhone", "true");
