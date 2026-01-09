@@ -21,11 +21,13 @@ export interface CompanySearchResult {
   has_phone: boolean;
   has_email: boolean;
   has_website: boolean;
+  website_url?: string;
   phones: string[];
   emails: string[];
   situacao: string;
   capital_social: number | null;
   data_abertura: string | null;
+  enriched?: boolean;
 }
 
 export interface CompanySearchResponse {
