@@ -214,7 +214,11 @@ function PipelineColumn({ column, leads, totalValue, teamMembers, onEditLead, on
   );
 }
 
-export function SalesPipeline() {
+interface SalesPipelineProps {
+  funnelId?: string | null;
+}
+
+export function SalesPipeline({ funnelId }: SalesPipelineProps) {
   const { data: leads = [], isLoading } = useLeads();
   const { data: teamMembers = [] } = useTeamMembers();
   const updateLead = useUpdateLead();
@@ -233,8 +237,12 @@ export function SalesPipeline() {
     })
   );
 
-  // Filter out archived leads
-  const activeLeads = leads.filter((l: Lead & { is_archived?: boolean }) => !l.is_archived);
+  // Filter out archived leads and filter by funnel
+  const activeLeads = leads.filter((l: Lead & { is_archived?: boolean; funnel_id?: string }) => {
+    if (l.is_archived) return false;
+    if (funnelId && l.funnel_id !== funnelId) return false;
+    return true;
+  });
 
   const handleDragStart = (event: DragStartEvent) => {
     setActiveId(event.active.id as string);
@@ -370,6 +378,7 @@ export function SalesPipeline() {
         open={isFormOpen}
         onOpenChange={setIsFormOpen}
         lead={editingLead}
+        defaultFunnelId={funnelId}
       />
 
       <AlertDialog open={!!deleteConfirm} onOpenChange={() => setDeleteConfirm(null)}>

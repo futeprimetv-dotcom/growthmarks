@@ -78,6 +78,7 @@ interface LeadFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   lead?: Lead | null;
+  defaultFunnelId?: string | null;
 }
 
 const statusLabels: Record<string, string> = {
@@ -169,7 +170,7 @@ const brazilianStates = [
   "RS", "RO", "RR", "SC", "SP", "SE", "TO"
 ];
 
-export function LeadFormDialog({ open, onOpenChange, lead }: LeadFormDialogProps) {
+export function LeadFormDialog({ open, onOpenChange, lead, defaultFunnelId }: LeadFormDialogProps) {
   const createLead = useCreateLead();
   const updateLead = useUpdateLead();
   const { data: teamMembers } = useTeamMembers();
@@ -360,7 +361,11 @@ export function LeadFormDialog({ open, onOpenChange, lead }: LeadFormDialogProps
     if (lead?.id) {
       await updateLead.mutateAsync({ id: lead.id, ...payload });
     } else {
-      await createLead.mutateAsync(payload);
+      // Add funnel_id for new leads
+      const payloadWithFunnel = defaultFunnelId 
+        ? { ...payload, funnel_id: defaultFunnelId } 
+        : payload;
+      await createLead.mutateAsync(payloadWithFunnel as any);
     }
     onOpenChange(false);
   };

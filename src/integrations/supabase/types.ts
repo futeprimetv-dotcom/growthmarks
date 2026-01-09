@@ -813,6 +813,7 @@ export type Database = {
           email: string | null
           estimated_value: number | null
           expected_close_date: string | null
+          funnel_id: string | null
           id: string
           instagram: string | null
           invests_in_marketing: boolean | null
@@ -859,6 +860,7 @@ export type Database = {
           email?: string | null
           estimated_value?: number | null
           expected_close_date?: string | null
+          funnel_id?: string | null
           id?: string
           instagram?: string | null
           invests_in_marketing?: boolean | null
@@ -905,6 +907,7 @@ export type Database = {
           email?: string | null
           estimated_value?: number | null
           expected_close_date?: string | null
+          funnel_id?: string | null
           id?: string
           instagram?: string | null
           invests_in_marketing?: boolean | null
@@ -940,6 +943,13 @@ export type Database = {
             columns: ["converted_to_client_id"]
             isOneToOne: false
             referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leads_funnel_id_fkey"
+            columns: ["funnel_id"]
+            isOneToOne: false
+            referencedRelation: "sales_funnels"
             referencedColumns: ["id"]
           },
           {
@@ -1354,6 +1364,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      sales_funnels: {
+        Row: {
+          color: string | null
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean | null
+          is_default: boolean | null
+          name: string
+          position: number | null
+          updated_at: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_default?: boolean | null
+          name: string
+          position?: number | null
+          updated_at?: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_default?: boolean | null
+          name?: string
+          position?: number | null
+          updated_at?: string
+        }
+        Relationships: []
       }
       services: {
         Row: {
