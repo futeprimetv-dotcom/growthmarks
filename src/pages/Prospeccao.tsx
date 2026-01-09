@@ -163,6 +163,14 @@ export default function Prospeccao() {
     }
   };
 
+  const handleCancelSearch = () => {
+    companySearch.cancel();
+    toast({
+      title: "Busca cancelada",
+      description: "A busca foi interrompida.",
+    });
+  };
+
   const handleClearFilters = () => {
     setFilters({});
     setHasSearched(false);
@@ -447,7 +455,7 @@ export default function Prospeccao() {
   if (showResultsPanel && searchMode === "api") {
     return (
       <>
-        <SearchLoadingOverlay isVisible={companySearch.isPending} filters={filters} />
+        <SearchLoadingOverlay isVisible={companySearch.isPending} filters={filters} onCancel={handleCancelSearch} />
         <div className="flex flex-col h-[calc(100vh-4rem)]">
         {/* Results Header with Actions */}
         <div className="px-6 py-3 border-b shrink-0 flex items-center justify-between bg-muted/30">
@@ -526,7 +534,7 @@ export default function Prospeccao() {
   // Default view with filters
   return (
     <>
-      <SearchLoadingOverlay isVisible={companySearch.isPending} filters={filters} />
+      <SearchLoadingOverlay isVisible={companySearch.isPending} filters={filters} onCancel={handleCancelSearch} />
       <div className="flex flex-col h-[calc(100vh-4rem)]">
       {/* Header */}
       <div className="p-6 border-b shrink-0">

@@ -40,13 +40,18 @@ export interface CompanySearchResponse {
 }
 
 export function useCompanySearch() {
-  return useMutation({
+  const abortControllerRef = { current: null as AbortController | null };
+
+  const mutation = useMutation({
     mutationFn: async (params: {
       filters: ProspectFilters;
       page?: number;
       pageSize?: number;
     }): Promise<CompanySearchResponse> => {
       const { filters, page = 1, pageSize = 10 } = params;
+
+      // Create new abort controller for this request
+      abortControllerRef.current = new AbortController();
 
       const { data, error } = await supabase.functions.invoke<CompanySearchResponse>(
         "search-companies",
@@ -74,4 +79,16 @@ export function useCompanySearch() {
       return data || { companies: [], total: 0, page: 1, pageSize, source: "unknown" };
     },
   });
+
+  const cancel = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    mutation.reset();
+  };
+
+  return {
+    ...mutation,
+    cancel,
+  };
 }
