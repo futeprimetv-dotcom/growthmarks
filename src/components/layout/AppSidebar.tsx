@@ -30,7 +30,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserRole } from "@/hooks/useUserRole";
-import logo from "@/assets/logo-growth-marks.png";
+import { useAppearance } from "@/contexts/AppearanceContext";
 
 interface MenuItem {
   title: string;
@@ -89,6 +89,7 @@ export function AppSidebar() {
   const { state } = useSidebar();
   const { user, signOut } = useAuth();
   const { isGestao, isProducao, isCliente, isVendedor, loading: roleLoading } = useUserRole();
+  const { logoSrc } = useAppearance();
   const isCollapsed = state === "collapsed";
 
   const canViewItem = (permission?: string) => {
@@ -113,7 +114,7 @@ export function AppSidebar() {
       <SidebarHeader className="p-4">
         <div className="flex items-center gap-2">
           {!isCollapsed && (
-            <img src={logo} alt="Growth Marks" className="h-8 w-auto" />
+            <img src={logoSrc} alt="Logo" className="h-8 w-auto" />
           )}
           {isCollapsed && (
             <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-primary-foreground font-bold text-sm">
