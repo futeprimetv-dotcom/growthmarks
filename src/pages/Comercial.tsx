@@ -3,6 +3,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SalesPipeline } from "@/components/comercial/SalesPipeline";
 import { LeadsList } from "@/components/comercial/LeadsList";
 import { ComercialMetrics } from "@/components/comercial/ComercialMetrics";
+import { LeadRemindersAlert } from "@/components/comercial/LeadRemindersAlert";
+import { SalesFunnel } from "@/components/comercial/SalesFunnel";
 import { Target, List, BarChart3 } from "lucide-react";
 
 export default function Comercial() {
@@ -14,6 +16,8 @@ export default function Comercial() {
         <h1 className="text-3xl font-bold">Comercial</h1>
         <p className="text-muted-foreground">CRM e prospecção de clientes</p>
       </div>
+
+      <LeadRemindersAlert />
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList className="grid w-full max-w-md grid-cols-3">
@@ -40,7 +44,14 @@ export default function Comercial() {
         </TabsContent>
 
         <TabsContent value="metricas" className="space-y-6">
-          <ComercialMetrics />
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2">
+              <ComercialMetrics />
+            </div>
+            <div>
+              <SalesFunnel />
+            </div>
+          </div>
         </TabsContent>
       </Tabs>
     </div>

@@ -19,6 +19,8 @@ import {
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { LeadFormDialog } from "./LeadFormDialog";
+import { LeadScoreBadge } from "./LeadScoreBadge";
+import { WhatsAppButton } from "./WhatsAppButton";
 import { Tables } from "@/integrations/supabase/types";
 import {
   AlertDialog,
@@ -99,7 +101,10 @@ function LeadCard({ lead, teamMembers, onEdit, onDelete, isDragging }: LeadCardP
               <p className="font-medium">{lead.name}</p>
               <p className="text-sm text-muted-foreground">{lead.company}</p>
             </div>
-            <TempIcon className={`h-5 w-5 ${tempColor}`} />
+            <div className="flex items-center gap-2">
+              <LeadScoreBadge lead={lead} size="sm" />
+              <TempIcon className={`h-5 w-5 ${tempColor}`} />
+            </div>
           </div>
 
           {lead.estimated_value && lead.estimated_value > 0 && (
@@ -130,6 +135,13 @@ function LeadCard({ lead, teamMembers, onEdit, onDelete, isDragging }: LeadCardP
               {responsible?.name || 'Sem responsável'}
             </div>
             <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+              <WhatsAppButton 
+                phone={lead.whatsapp || lead.phone} 
+                leadId={lead.id}
+                leadName={lead.name}
+                size="icon"
+                className="h-6 w-6"
+              />
               <Button 
                 variant="ghost" 
                 size="icon" 
