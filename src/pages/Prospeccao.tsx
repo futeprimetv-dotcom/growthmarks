@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Search, BookmarkCheck, AlertCircle } from "lucide-react";
+import { Search, BookmarkCheck, AlertCircle, FileSpreadsheet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
@@ -18,6 +18,7 @@ import { SaveSearchDialog } from "@/components/prospeccao/SaveSearchDialog";
 import { SendToFunnelDialog } from "@/components/prospeccao/SendToFunnelDialog";
 import { CNPJSearchInput } from "@/components/prospeccao/CNPJSearchInput";
 import { CNPJResultCard } from "@/components/prospeccao/CNPJResultCard";
+import { CNPJBatchDialog } from "@/components/prospeccao/CNPJBatchDialog";
 import { useProspects, useSendToLeadsBase, useAddProspectFromCNPJ, type ProspectFilters } from "@/hooks/useProspects";
 import { useSavedSearches } from "@/hooks/useSavedSearches";
 import { useCNPJLookupManual, type CNPJLookupResult } from "@/hooks/useCNPJLookup";
@@ -31,12 +32,14 @@ export default function Prospeccao() {
   const [saveSearchOpen, setSaveSearchOpen] = useState(false);
   const [sendToFunnelOpen, setSendToFunnelOpen] = useState(false);
   const [sendCNPJToFunnelOpen, setSendCNPJToFunnelOpen] = useState(false);
+  const [batchDialogOpen, setBatchDialogOpen] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   
   // CNPJ Lookup State
   const [cnpjResult, setCnpjResult] = useState<CNPJLookupResult | null>(null);
   const [cnpjLoading, setCnpjLoading] = useState(false);
   const [cnpjError, setCnpjError] = useState<string | null>(null);
+  const [batchAdding, setBatchAdding] = useState(false);
 
   const { data: prospects = [], isLoading, isError, refetch } = useProspects(filters, hasSearched);
   const { data: savedSearches = [] } = useSavedSearches();
@@ -211,6 +214,48 @@ export default function Prospeccao() {
     });
   };
 
+  // Batch handlers
+  const handleBatchAddToProspects = async (results: CNPJLookupResult[]) => {
+    setBatchAdding(true);
+    let successCount = 0;
+    
+    for (const data of results) {
+      try {
+        await addProspectFromCNPJ.mutateAsync(data);
+        successCount++;
+      } catch (error) {
+        console.error("Error adding prospect:", error);
+      }
+    }
+    
+    setBatchAdding(false);
+    toast({
+      title: "Prospectos adicionados",
+      description: `${successCount} de ${results.length} empresa(s) adicionadas à lista.`
+    });
+  };
+
+  const handleBatchSendToLeads = async (results: CNPJLookupResult[]) => {
+    setBatchAdding(true);
+    let successCount = 0;
+    
+    for (const data of results) {
+      try {
+        const prospect = await addProspectFromCNPJ.mutateAsync(data);
+        await sendToLeadsBase.mutateAsync([prospect]);
+        successCount++;
+      } catch (error) {
+        console.error("Error sending to leads:", error);
+      }
+    }
+    
+    setBatchAdding(false);
+    toast({
+      title: "Leads criados",
+      description: `${successCount} de ${results.length} lead(s) adicionados à base.`
+    });
+  };
+
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)]">
       {/* Header */}
@@ -246,12 +291,22 @@ export default function Prospeccao() {
         {/* CNPJ Search */}
         <div className="mb-4">
           <p className="text-sm font-medium mb-2">Consultar empresa por CNPJ (BrasilAPI)</p>
-          <CNPJSearchInput
-            onSearch={handleCNPJSearch}
-            onClear={handleCNPJClear}
-            isLoading={cnpjLoading}
-            hasResult={!!cnpjResult}
-          />
+          <div className="flex items-center gap-4">
+            <CNPJSearchInput
+              onSearch={handleCNPJSearch}
+              onClear={handleCNPJClear}
+              isLoading={cnpjLoading}
+              hasResult={!!cnpjResult}
+            />
+            <Button 
+              variant="outline" 
+              onClick={() => setBatchDialogOpen(true)}
+              className="shrink-0"
+            >
+              <FileSpreadsheet className="h-4 w-4 mr-2" />
+              Consulta em Lote
+            </Button>
+          </div>
         </div>
         
         {/* CNPJ Result */}
@@ -369,6 +424,15 @@ export default function Prospeccao() {
           }}
         />
       )}
+
+      {/* Batch CNPJ Dialog */}
+      <CNPJBatchDialog
+        open={batchDialogOpen}
+        onOpenChange={setBatchDialogOpen}
+        onAddToProspects={handleBatchAddToProspects}
+        onSendToLeads={handleBatchSendToLeads}
+        isAdding={batchAdding}
+      />
     </div>
   );
 }
