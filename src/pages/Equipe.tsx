@@ -1,102 +1,295 @@
 import { useState } from "react";
-import { teamMembers, getDemandsByResponsible, demands } from "@/data/mockData";
-import { StatusBadge } from "@/components/ui/status-badge";
 import { Card } from "@/components/ui/card";
-import { ChevronDown, ChevronUp, Briefcase, Kanban } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { TeamMemberFormDialog } from "@/components/equipe/TeamMemberFormDialog";
+import { useTeamMembers, useDeleteTeamMember, TeamMember } from "@/hooks/useTeamMembers";
+import { useDemands } from "@/hooks/useDemands";
+import { 
+  ChevronDown, 
+  ChevronUp, 
+  Briefcase, 
+  Kanban, 
+  Plus, 
+  Pencil, 
+  Trash2,
+  Users,
+  Mail,
+  Shield
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PriorityBadge } from "@/components/ui/priority-badge";
+import { StatusBadge } from "@/components/ui/status-badge";
 
 export default function Equipe() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingMember, setEditingMember] = useState<TeamMember | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [memberToDelete, setMemberToDelete] = useState<TeamMember | null>(null);
+
+  const { data: teamMembers, isLoading } = useTeamMembers();
+  const { data: demands } = useDemands();
+  const deleteMember = useDeleteTeamMember();
 
   const toggleExpand = (id: string) => {
     setExpandedId(expandedId === id ? null : id);
   };
 
+  const handleEdit = (member: TeamMember, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingMember(member);
+    setDialogOpen(true);
+  };
+
+  const handleDeleteClick = (member: TeamMember, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setMemberToDelete(member);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = () => {
+    if (memberToDelete) {
+      deleteMember.mutate(memberToDelete.id);
+      setDeleteDialogOpen(false);
+      setMemberToDelete(null);
+    }
+  };
+
+  const handleAddNew = () => {
+    setEditingMember(null);
+    setDialogOpen(true);
+  };
+
+  const getMemberDemands = (memberId: string) => {
+    return demands?.filter(
+      d => d.assigned_to === memberId && d.status !== 'done' && d.status !== 'cancelled' && !d.is_archived
+    ) || [];
+  };
+
+  const getRoleBadgeColor = (role: string) => {
+    const lowerRole = role.toLowerCase();
+    if (lowerRole.includes('gestão') || lowerRole.includes('gestor') || lowerRole.includes('diretor') || lowerRole.includes('gerente')) {
+      return 'bg-primary/20 text-primary border-primary/30';
+    }
+    if (lowerRole.includes('design') || lowerRole.includes('criativo')) {
+      return 'bg-purple-500/20 text-purple-500 border-purple-500/30';
+    }
+    if (lowerRole.includes('dev') || lowerRole.includes('programador')) {
+      return 'bg-blue-500/20 text-blue-500 border-blue-500/30';
+    }
+    return 'bg-secondary text-secondary-foreground';
+  };
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold">Equipe</h1>
+            <p className="text-muted-foreground">Gerencie a equipe e suas demandas</p>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {[1, 2, 3, 4].map((i) => (
+            <Skeleton key={i} className="h-40" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  const activeMembers = teamMembers?.filter(m => !m.is_archived) || [];
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Equipe</h1>
-        <p className="text-muted-foreground">Gerencie a equipe e suas demandas</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold">Equipe</h1>
+          <p className="text-muted-foreground">Gerencie a equipe e suas demandas</p>
+        </div>
+        <Button onClick={handleAddNew}>
+          <Plus className="h-4 w-4 mr-2" />
+          Novo Membro
+        </Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {teamMembers.map((member) => {
-          const isExpanded = expandedId === member.id;
-          const memberDemands = getDemandsByResponsible(member.id).filter(d => d.status !== 'entregue');
+      {activeMembers.length === 0 ? (
+        <Card className="p-12">
+          <div className="text-center">
+            <Users className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+            <h3 className="text-lg font-semibold mb-2">Nenhum membro cadastrado</h3>
+            <p className="text-muted-foreground mb-4">
+              Comece adicionando membros à sua equipe
+            </p>
+            <Button onClick={handleAddNew}>
+              <Plus className="h-4 w-4 mr-2" />
+              Adicionar Primeiro Membro
+            </Button>
+          </div>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {activeMembers.map((member) => {
+            const isExpanded = expandedId === member.id;
+            const memberDemands = getMemberDemands(member.id);
 
-          return (
-            <Card
-              key={member.id}
-              className={cn(
-                "overflow-hidden transition-all cursor-pointer hover:shadow-lg",
-                isExpanded && "ring-2 ring-primary"
-              )}
-              onClick={() => toggleExpand(member.id)}
-            >
-              {/* Header */}
-              <div className="p-6">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-4">
-                    {/* Avatar */}
-                    <div className="w-14 h-14 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-xl">
-                      {member.name.charAt(0)}
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-semibold">{member.name}</h3>
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Briefcase className="h-4 w-4" />
-                        {member.role}
+            return (
+              <Card
+                key={member.id}
+                className={cn(
+                  "overflow-hidden transition-all cursor-pointer hover:shadow-lg",
+                  isExpanded && "ring-2 ring-primary"
+                )}
+                onClick={() => toggleExpand(member.id)}
+              >
+                {/* Header */}
+                <div className="p-6">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-4">
+                      {/* Avatar */}
+                      {member.avatar ? (
+                        <img 
+                          src={member.avatar} 
+                          alt={member.name}
+                          className="w-14 h-14 rounded-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-14 h-14 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-xl">
+                          {member.name.charAt(0)}
+                        </div>
+                      )}
+                      <div>
+                        <h3 className="text-lg font-semibold">{member.name}</h3>
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <Briefcase className="h-4 w-4" />
+                          <Badge variant="outline" className={getRoleBadgeColor(member.role)}>
+                            {member.role}
+                          </Badge>
+                        </div>
+                        <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
+                          <Mail className="h-3 w-3" />
+                          {member.email}
+                        </div>
                       </div>
                     </div>
+                    <div className="flex items-center gap-2">
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        onClick={(e) => handleEdit(member, e)}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        onClick={(e) => handleDeleteClick(member, e)}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                      {isExpanded ? (
+                        <ChevronUp className="h-5 w-5 text-muted-foreground" />
+                      ) : (
+                        <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                      )}
+                    </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <StatusBadge status={member.status} />
-                    {isExpanded ? (
-                      <ChevronUp className="h-5 w-5 text-muted-foreground" />
-                    ) : (
-                      <ChevronDown className="h-5 w-5 text-muted-foreground" />
+
+                  {/* Quick Stats */}
+                  <div className="mt-4 flex items-center gap-4">
+                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-secondary">
+                      <Kanban className="h-4 w-4 text-primary" />
+                      <span className="text-sm font-medium">{memberDemands.length} demandas</span>
+                    </div>
+                    {member.user_id && (
+                      <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-green-500/10">
+                        <Shield className="h-4 w-4 text-green-500" />
+                        <span className="text-sm font-medium text-green-500">Vinculado</span>
+                      </div>
                     )}
                   </div>
                 </div>
 
-                {/* Quick Stats */}
-                <div className="mt-4 flex items-center gap-4">
-                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-secondary">
-                    <Kanban className="h-4 w-4 text-primary" />
-                    <span className="text-sm font-medium">{memberDemands.length} demandas</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Expanded Content - Demands List */}
-              {isExpanded && memberDemands.length > 0 && (
-                <div className="border-t bg-secondary/30 p-6" onClick={(e) => e.stopPropagation()}>
-                  <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-4">
-                    Demandas Atribuídas
-                  </h4>
-                  <div className="space-y-3">
-                    {memberDemands.map((demand) => (
-                      <div
-                        key={demand.id}
-                        className="p-4 rounded-lg bg-card border flex items-center justify-between"
-                      >
-                        <div className="flex-1">
-                          <p className="font-medium text-sm">{demand.title}</p>
-                          <p className="text-xs text-muted-foreground">
-                            Prazo: {new Date(demand.deadline).toLocaleDateString('pt-BR')}
-                          </p>
+                {/* Expanded Content - Demands List */}
+                {isExpanded && (
+                  <div className="border-t bg-secondary/30 p-6" onClick={(e) => e.stopPropagation()}>
+                    {memberDemands.length > 0 ? (
+                      <>
+                        <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-4">
+                          Demandas Atribuídas
+                        </h4>
+                        <div className="space-y-3">
+                          {memberDemands.map((demand) => (
+                            <div
+                              key={demand.id}
+                              className="p-4 rounded-lg bg-card border flex items-center justify-between"
+                            >
+                              <div className="flex-1">
+                                <p className="font-medium text-sm">{demand.title}</p>
+                                <div className="flex items-center gap-2 mt-1">
+                                  <StatusBadge status={demand.status} />
+                                  {demand.deadline && (
+                                    <p className="text-xs text-muted-foreground">
+                                      Prazo: {new Date(demand.deadline).toLocaleDateString('pt-BR')}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                              <PriorityBadge priority={demand.priority} />
+                            </div>
+                          ))}
                         </div>
-                        <PriorityBadge priority={demand.priority} />
-                      </div>
-                    ))}
+                      </>
+                    ) : (
+                      <p className="text-sm text-muted-foreground text-center py-4">
+                        Nenhuma demanda atribuída no momento
+                      </p>
+                    )}
                   </div>
-                </div>
-              )}
-            </Card>
-          );
-        })}
-      </div>
+                )}
+              </Card>
+            );
+          })}
+        </div>
+      )}
+
+      <TeamMemberFormDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        member={editingMember}
+      />
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remover membro?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja remover "{memberToDelete?.name}" da equipe? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDeleteConfirm} 
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Remover
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -9,15 +9,31 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useUserRole } from "@/hooks/useUserRole";
+import { Lock } from "lucide-react";
 
 export function RevenueChart() {
   const { data: chartData, isLoading } = useRevenueChartData();
+  const { canViewValues } = useUserRole();
 
   if (isLoading) {
     return (
       <div className="bg-card rounded-xl border p-6">
         <Skeleton className="h-6 w-48 mb-4" />
         <Skeleton className="h-[300px] w-full" />
+      </div>
+    );
+  }
+
+  // Don't show revenue chart to users without permission
+  if (!canViewValues) {
+    return (
+      <div className="bg-card rounded-xl border p-6">
+        <h3 className="text-lg font-semibold mb-4">Evolução de Faturamento</h3>
+        <div className="h-[300px] flex flex-col items-center justify-center text-muted-foreground">
+          <Lock className="h-12 w-12 mb-4" />
+          <p>Você não tem permissão para visualizar dados financeiros</p>
+        </div>
       </div>
     );
   }

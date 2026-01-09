@@ -10,6 +10,7 @@ import { useDashboardStats } from "@/hooks/useDashboardStats";
 import { useDashboardLayout, useUpdateDashboardLayout } from "@/hooks/useDashboardLayout";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useUserRole } from "@/hooks/useUserRole";
+import { useProtectedCurrency } from "@/components/ui/protected-value";
 import { Navigate } from "react-router-dom";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import {
@@ -36,6 +37,7 @@ const DEFAULT_VISIBLE = ['stats', 'urgentDemands', 'todayDeadlines', 'weeklyChar
 
 export default function Dashboard() {
   const { canViewDashboard, loading: roleLoading } = useUserRole();
+  const { formatCurrency } = useProtectedCurrency();
   const { data: stats, isLoading: statsLoading } = useDashboardStats();
   const { data: layoutData, isLoading: layoutLoading } = useDashboardLayout();
   const updateLayout = useUpdateDashboardLayout();
@@ -114,13 +116,13 @@ export default function Dashboard() {
         />
         <StatCard
           title="Faturamento Mensal"
-          value={`R$ ${(stats?.totalRevenue || 0).toLocaleString('pt-BR')}`}
+          value={formatCurrency(stats?.totalRevenue || 0)}
           icon={DollarSign}
           variant="success"
         />
         <StatCard
           title="Receita Líquida"
-          value={`R$ ${(stats?.netRevenue || 0).toLocaleString('pt-BR')}`}
+          value={formatCurrency(stats?.netRevenue || 0)}
           icon={CheckCircle}
         />
       </div>
