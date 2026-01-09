@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
-import { Loader2, Search, Building2, MapPin, Globe, CheckCircle } from "lucide-react";
+import { Loader2, Search, Building2, MapPin, Globe, CheckCircle, X } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
+import { Button } from "@/components/ui/button";
 
 interface Props {
   isVisible: boolean;
@@ -13,6 +14,7 @@ interface Props {
     hasPhone?: boolean;
     hasEmail?: boolean;
   };
+  onCancel?: () => void;
 }
 
 const searchSteps = [
@@ -23,7 +25,7 @@ const searchSteps = [
   { icon: CheckCircle, label: "Finalizando busca...", duration: 2000 },
 ];
 
-export function SearchLoadingOverlay({ isVisible, filters }: Props) {
+export function SearchLoadingOverlay({ isVisible, filters, onCancel }: Props) {
   const [currentStep, setCurrentStep] = useState(0);
   const [progress, setProgress] = useState(0);
   const [elapsedTime, setElapsedTime] = useState(0);
@@ -143,6 +145,16 @@ export function SearchLoadingOverlay({ isVisible, filters }: Props) {
           <span>Tempo decorrido: {elapsedTime}s</span>
           <span>Estimado: {estimatedTime}</span>
         </div>
+
+        {/* Cancel Button */}
+        <Button 
+          variant="outline" 
+          onClick={onCancel}
+          className="w-full"
+        >
+          <X className="h-4 w-4 mr-2" />
+          Cancelar Busca
+        </Button>
 
         {/* Tips */}
         <p className="text-xs text-center text-muted-foreground">
