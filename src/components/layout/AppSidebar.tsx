@@ -10,7 +10,8 @@ import {
   Target,
   CalendarDays,
   TrendingUp,
-  LogOut
+  LogOut,
+  Eye
 } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import {
@@ -78,6 +79,7 @@ const menuSections: MenuSection[] = [
       { title: "Equipe", url: "/equipe", icon: UserCircle, permission: 'gestao' },
       { title: "Arquivados", url: "/arquivados", icon: Archive, permission: 'gestao' },
       { title: "Configurações", url: "/configuracoes", icon: Settings, permission: 'gestao' },
+      { title: "Supervisão", url: "/supervisao", icon: Eye, permission: 'gestao' },
     ]
   },
 ];

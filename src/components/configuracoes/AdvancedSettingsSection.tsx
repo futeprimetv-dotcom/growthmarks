@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -81,13 +81,31 @@ type ExportEntity = 'clients' | 'leads' | 'demands' | 'contracts' | 'expenses' |
 
 export function AdvancedSettingsSection() {
   const { settings, isLoading: settingsLoading, updateSettings } = useNotificationSettings();
-  const { logs, isLoading: logsLoading } = useActivityLogs(20);
+  const { logs, isLoading: logsLoading } = useActivityLogs(50);
   const { isExporting, exportProgress, exportEntity, exportAll, entityLabels } = useDataExport();
 
   const [notificationsOpen, setNotificationsOpen] = useState(true);
   const [logsOpen, setLogsOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const [pendingChanges, setPendingChanges] = useState<Record<string, boolean>>({});
+  const [userFilter, setUserFilter] = useState<string>("all");
+
+  // Get unique users from logs
+  const uniqueUsers = useMemo(() => {
+    const userMap = new Map<string, { id: string; email: string }>();
+    logs.forEach(log => {
+      if (log.user_id && log.user_email && !userMap.has(log.user_id)) {
+        userMap.set(log.user_id, { id: log.user_id, email: log.user_email });
+      }
+    });
+    return Array.from(userMap.values());
+  }, [logs]);
+
+  // Filtered logs
+  const filteredLogs = useMemo(() => {
+    if (userFilter === "all") return logs;
+    return logs.filter(log => log.user_id === userFilter);
+  }, [logs, userFilter]);
 
   const handleToggle = (key: string, value: boolean) => {
     setPendingChanges(prev => ({ ...prev, [key]: value }));
@@ -265,7 +283,7 @@ export function AdvancedSettingsSection() {
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                <Badge variant="secondary">{logs.length} registros</Badge>
+                <Badge variant="secondary">{filteredLogs.length} registros</Badge>
                 {logsOpen ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
               </div>
             </div>
@@ -273,14 +291,31 @@ export function AdvancedSettingsSection() {
           
           <CollapsibleContent>
             <Separator />
-            <div className="p-6">
+            <div className="p-6 space-y-4">
+              {/* User Filter */}
+              <div className="flex items-center gap-4">
+                <Select value={userFilter} onValueChange={setUserFilter}>
+                  <SelectTrigger className="w-[220px]">
+                    <SelectValue placeholder="Filtrar por usuário" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos os usuários</SelectItem>
+                    {uniqueUsers.map((user) => (
+                      <SelectItem key={user.id} value={user.id}>
+                        {user.email}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
               {logsLoading ? (
                 <div className="space-y-3">
                   <Skeleton className="h-16 w-full" />
                   <Skeleton className="h-16 w-full" />
                   <Skeleton className="h-16 w-full" />
                 </div>
-              ) : logs.length === 0 ? (
+              ) : filteredLogs.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
                   <Activity className="h-12 w-12 mx-auto mb-4 opacity-50" />
                   <p>Nenhuma atividade registrada ainda</p>
@@ -289,7 +324,7 @@ export function AdvancedSettingsSection() {
               ) : (
                 <ScrollArea className="h-[300px] pr-4">
                   <div className="space-y-3">
-                    {logs.map((log) => {
+                    {filteredLogs.map((log) => {
                       const actionInfo = actionTypeLabels[log.action_type] || { label: log.action_type, color: 'bg-gray-500/20 text-gray-500', icon: Activity };
                       const EntityIcon = entityTypeIcons[log.entity_type] || FileText;
                       const ActionIcon = actionInfo.icon;
