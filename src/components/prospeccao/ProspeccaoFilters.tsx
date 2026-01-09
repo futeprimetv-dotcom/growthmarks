@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Search, X, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,6 +11,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Toggle } from "@/components/ui/toggle";
+import { CityCombobox } from "./CityCombobox";
 import { segments, companySizes, brazilianStates } from "@/data/mockProspects";
 import type { ProspectFilters } from "@/hooks/useProspects";
 
@@ -34,10 +36,25 @@ export function ProspeccaoFilters({
     onFiltersChange({ ...filters, [key]: value });
   };
 
+  const handleStateChange = (value: string) => {
+    if (value === "_all") {
+      // Clear both state and city when "all" is selected
+      onFiltersChange({ ...filters, states: undefined, cities: undefined });
+    } else {
+      // Clear city when state changes
+      onFiltersChange({ ...filters, states: [value], cities: undefined });
+    }
+  };
+
+  const handleCityChange = (city: string | undefined) => {
+    updateFilter("cities", city ? [city] : undefined);
+  };
+
   const activeFiltersCount = [
     filters.search,
     filters.segments?.length,
     filters.states?.length,
+    filters.cities?.length,
     filters.companySizes?.length,
     filters.hasWebsite,
     filters.hasPhone,
@@ -78,7 +95,7 @@ export function ProspeccaoFilters({
 
         <Select
           value={filters.states?.[0] || "_all"}
-          onValueChange={(value) => updateFilter("states", value === "_all" ? undefined : [value])}
+          onValueChange={handleStateChange}
         >
           <SelectTrigger className="w-[140px]">
             <SelectValue placeholder="UF" />
@@ -92,6 +109,13 @@ export function ProspeccaoFilters({
             ))}
           </SelectContent>
         </Select>
+
+        <CityCombobox
+          selectedState={filters.states?.[0]}
+          selectedCity={filters.cities?.[0]}
+          onCityChange={handleCityChange}
+          placeholder="Cidade"
+        />
 
         <Select
           value={filters.companySizes?.[0] || "_all"}
