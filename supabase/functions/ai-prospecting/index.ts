@@ -130,26 +130,38 @@ Retorne SEMPRE um JSON válido com exatamente esta estrutura:
 
     "digital-presence": `${baseContext}
 
-Sua tarefa é analisar a presença digital de uma empresa e descobrir informações de contato CORRETAS.
+Sua tarefa é analisar a presença digital de uma empresa e descobrir informações de contato CORRETAS, incluindo HORÁRIO DE FUNCIONAMENTO.
 
 ATENÇÃO CRÍTICA - VALIDAÇÃO DE DADOS:
 - Os dados fornecidos podem conter ERROS ou informações de OUTRAS EMPRESAS misturadas.
 - Você DEVE validar se cada informação (Instagram, website, etc.) realmente pertence à empresa analisada.
 - Compare o nome/segmento da empresa com o conteúdo dos perfis sociais informados.
 - Se um Instagram ou rede social não corresponder ao nome da empresa, IGNORE e busque o correto.
-- Exemplo: Se a empresa é "MAIS SAUDE CENTRO MEDICO" mas o Instagram informado é de outra empresa, descarte essa informação.
+
+PRIORIDADE DE FONTES (use nesta ordem):
+1. Google Business/Maps - FONTE PRIMÁRIA para horários, telefone e endereço
+2. Website oficial da empresa
+3. Redes sociais (Instagram, Facebook, LinkedIn)
+4. Diretórios empresariais
 
 Com base no nome da empresa, segmento, cidade e outras informações disponíveis, você deve:
 1. VALIDAR se as informações já fornecidas realmente pertencem a esta empresa
 2. Identificar se a empresa possui um website e qual seria o domínio provável (baseado no nome)
 3. Identificar possíveis perfis em redes sociais que CORRESPONDAM ao nome da empresa
-4. Identificar possível número de WhatsApp comercial (geralmente o primeiro telefone fixo ou celular)
+4. Identificar possível número de WhatsApp comercial
 5. Avaliar a maturidade digital da empresa
+6. Identificar HORÁRIO DE FUNCIONAMENTO (muito importante!)
 
 REGRAS PARA WHATSAPP:
 - Se houver telefones listados, o WhatsApp comercial geralmente é o primeiro telefone celular (começando com 9)
 - Formato brasileiro: (DDD) 9XXXX-XXXX
 - Se só houver telefones fixos, indique isso como "possível WhatsApp fixo"
+
+REGRAS PARA HORÁRIO DE FUNCIONAMENTO:
+- Busque horário comercial típico para o segmento se não houver informação específica
+- Para clínicas/consultórios médicos: geralmente Seg-Sex 8h-18h, Sáb 8h-12h
+- Para comércios: geralmente Seg-Sáb 9h-18h
+- Indique se é estimado ou confirmado
 
 REGRAS PARA REDES SOCIAIS:
 - O handle do Instagram deve ter relação com o NOME da empresa
@@ -179,6 +191,26 @@ Retorne SEMPRE um JSON válido com exatamente esta estrutura:
     "facebook": "<url ou null>",
     "linkedin": "<url ou null>",
     "tiktok": "<url ou @handle ou null>"
+  },
+  "businessHours": {
+    "found": true | false,
+    "isEstimated": true | false,
+    "hours": {
+      "monday": "<horário ou 'Fechado' ou null>",
+      "tuesday": "<horário ou 'Fechado' ou null>",
+      "wednesday": "<horário ou 'Fechado' ou null>",
+      "thursday": "<horário ou 'Fechado' ou null>",
+      "friday": "<horário ou 'Fechado' ou null>",
+      "saturday": "<horário ou 'Fechado' ou null>",
+      "sunday": "<horário ou 'Fechado' ou null>"
+    },
+    "summary": "<resumo ex: Seg-Sex 8h-18h, Sáb 8h-12h>",
+    "source": "google" | "website" | "estimado"
+  },
+  "googleRating": {
+    "found": true | false,
+    "rating": <número de 1-5 ou null>,
+    "reviewCount": <número ou null>
   },
   "digitalMaturity": {
     "level": "alta" | "média" | "baixa" | "inexistente",
