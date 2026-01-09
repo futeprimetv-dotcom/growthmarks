@@ -63,7 +63,13 @@ async function quickLookupCNPJ(cnpj: string): Promise<any | null> {
       signal: AbortSignal.timeout(5000) // 5 second timeout
     });
     if (!response.ok) return null;
-    return await response.json();
+    const data = await response.json();
+    // BrasilAPI returns descricao_situacao_cadastral as text (e.g., "ATIVA", "BAIXADA")
+    // and situacao_cadastral as numeric code
+    return {
+      ...data,
+      situacao_cadastral: data.descricao_situacao_cadastral || data.situacao_cadastral
+    };
   } catch {
     return null;
   }
@@ -215,10 +221,12 @@ serve(async (req) => {
       console.log("   - Limite de API do Firecrawl atingido");
     }
 
-    // Lookup CNPJs in parallel batches
+    // Lookup CNPJs in parallel batches - process more to find active ones
     const pageSize = filters.pageSize || 10;
-    const cnpjArray = [...allCNPJs].slice(0, pageSize * 3);
-    console.log(`🔄 Processando ${cnpjArray.length} CNPJs (limite: ${pageSize * 3})`);
+    // Process up to 10x more CNPJs since many will be inactive
+    const cnpjArray = [...allCNPJs].slice(0, Math.min(pageSize * 10, 200));
+    console.log(`🔄 Processando ${cnpjArray.length} CNPJs (limite: ${Math.min(pageSize * 10, 200)})`);
+    
     
     const companies: any[] = [];
     const batchSize = 5;
