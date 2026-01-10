@@ -578,6 +578,7 @@ export function useProspeccaoState() {
     handleApplyTemplate,
     handleCancelSearch,
     handleClearFilters,
+    handleClearStats,
     handleBackFromResults,
     handleLoadSavedSearch,
     handleDeleteSavedSearch,
@@ -590,7 +591,6 @@ export function useProspeccaoState() {
     handleSendCNPJToLeads,
     handleBatchAddToProspects,
     handleBatchSendToLeads,
-    handleClearStats,
     
     // Refetch
     refetch,
