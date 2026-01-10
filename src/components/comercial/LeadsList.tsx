@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Table,
   TableBody,
@@ -12,7 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { useLeads, Lead, useDeleteLead } from "@/hooks/useLeads";
+import { useLeads, Lead, useDeleteLead, useDeleteLeadsBulk, useArchiveLeadsBulk } from "@/hooks/useLeads";
 import { useProspects } from "@/hooks/useProspects";
 import { useTeamMembers } from "@/hooks/useTeamMembers";
 import { LeadFormDialog } from "./LeadFormDialog";
@@ -27,11 +28,13 @@ import { MoveFunnelDialog } from "./MoveFunnelDialog";
 import { PullLeadDialog } from "./PullLeadDialog";
 import { 
   Search, Flame, Snowflake, ThermometerSun, Calendar, 
-  Plus, Upload, History, Pencil, Trash2, UserPlus, CheckSquare, ArrowRightLeft, Database
+  Plus, Upload, History, Pencil, Trash2, UserPlus, CheckSquare, ArrowRightLeft, Database,
+  Download, Archive, X
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useSalesFunnels } from "@/hooks/useSalesFunnels";
+import { toast } from "@/hooks/use-toast";
 
 const statusConfig: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
   novo: { label: "Novo", variant: "outline" },
@@ -68,6 +71,7 @@ export function LeadsList() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [originFilter, setOriginFilter] = useState<string>("all");
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [formOpen, setFormOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [pullOpen, setPullOpen] = useState(false);
@@ -77,6 +81,7 @@ export function LeadsList() {
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [leadToDelete, setLeadToDelete] = useState<{ id: string; name: string } | null>(null);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [convertLead, setConvertLead] = useState<Lead | null>(null);
   const [leadToMove, setLeadToMove] = useState<Lead | null>(null);
   const { data: leads, isLoading } = useLeads();
@@ -84,10 +89,12 @@ export function LeadsList() {
   const { data: funnels = [] } = useSalesFunnels();
   const { data: prospects = [] } = useProspects();
   const deleteLead = useDeleteLead();
+  const deleteLeadsBulk = useDeleteLeadsBulk();
+  const archiveLeadsBulk = useArchiveLeadsBulk();
 
   const availableProspectsCount = prospects.filter(p => p.data_revealed).length;
 
-  const filteredLeads = (leads || []).filter(lead => {
+  const filteredLeads = useMemo(() => (leads || []).filter(lead => {
     if ((lead as any).is_archived) return false;
     const matchesSearch = 
       lead.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -95,7 +102,64 @@ export function LeadsList() {
     const matchesStatus = statusFilter === "all" || lead.status === statusFilter;
     const matchesOrigin = originFilter === "all" || lead.origin === originFilter;
     return matchesSearch && matchesStatus && matchesOrigin;
-  });
+  }), [leads, searchTerm, statusFilter, originFilter]);
+
+  // Selection handlers
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => 
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    );
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.length === filteredLeads.length) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(filteredLeads.map(l => l.id));
+    }
+  };
+
+  const clearSelection = () => setSelectedIds([]);
+
+  // Bulk actions
+  const handleBulkExport = () => {
+    const selectedLeads = filteredLeads.filter(l => selectedIds.includes(l.id));
+    const headers = ["Nome", "Empresa", "Email", "Telefone", "Status", "Origem", "Valor Estimado", "Serviço"];
+    const rows = selectedLeads.map(l => [
+      l.name,
+      l.company || "",
+      l.email || "",
+      l.phone || "",
+      statusConfig[l.status]?.label || l.status,
+      originLabels[l.origin || ""] || l.origin || "",
+      (l.estimated_value || 0).toString(),
+      l.service_interest || "",
+    ]);
+    
+    const csv = [headers.join(","), ...rows.map(r => r.map(cell => `"${cell}"`).join(","))].join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `leads-${new Date().toISOString().split("T")[0]}.csv`;
+    a.click();
+    
+    toast({
+      title: "Exportação concluída",
+      description: `${selectedLeads.length} lead(s) exportados.`,
+    });
+  };
+
+  const handleBulkArchive = async () => {
+    await archiveLeadsBulk.mutateAsync(selectedIds);
+    setSelectedIds([]);
+  };
+
+  const handleBulkDelete = async () => {
+    await deleteLeadsBulk.mutateAsync(selectedIds);
+    setSelectedIds([]);
+    setBulkDeleteOpen(false);
+  };
 
   const handleEdit = (lead: Lead) => {
     setEditingLead(lead);
@@ -214,11 +278,46 @@ export function LeadsList() {
             </Select>
           </div>
 
+          {/* Bulk Actions Bar */}
+          {selectedIds.length > 0 && (
+            <div className="flex items-center justify-between bg-muted/50 border rounded-lg px-4 py-3">
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-medium">
+                  {selectedIds.length} lead(s) selecionado(s)
+                </span>
+                <Button variant="ghost" size="sm" onClick={clearSelection}>
+                  <X className="h-4 w-4 mr-1" />
+                  Limpar
+                </Button>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" onClick={handleBulkExport}>
+                  <Download className="h-4 w-4 mr-2" />
+                  Exportar
+                </Button>
+                <Button variant="outline" size="sm" onClick={handleBulkArchive} disabled={archiveLeadsBulk.isPending}>
+                  <Archive className="h-4 w-4 mr-2" />
+                  Arquivar
+                </Button>
+                <Button variant="destructive" size="sm" onClick={() => setBulkDeleteOpen(true)}>
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Excluir
+                </Button>
+              </div>
+            </div>
+          )}
+
           {/* Table */}
           <div className="rounded-md border">
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-12">
+                    <Checkbox
+                      checked={selectedIds.length === filteredLeads.length && filteredLeads.length > 0}
+                      onCheckedChange={toggleSelectAll}
+                    />
+                  </TableHead>
                   <TableHead>Lead</TableHead>
                   <TableHead className="text-center">Score</TableHead>
                   <TableHead>Funil</TableHead>
@@ -238,7 +337,13 @@ export function LeadsList() {
                   const tempColor = temperatureIcons[lead.temperature]?.color || 'text-muted-foreground';
                   
                   return (
-                    <TableRow key={lead.id}>
+                    <TableRow key={lead.id} className={selectedIds.includes(lead.id) ? "bg-muted/30" : ""}>
+                      <TableCell>
+                        <Checkbox
+                          checked={selectedIds.includes(lead.id)}
+                          onCheckedChange={() => toggleSelect(lead.id)}
+                        />
+                      </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-3">
                           <TempIcon className={`h-4 w-4 ${tempColor}`} />
@@ -397,6 +502,27 @@ export function LeadsList() {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={handleDelete}>Excluir</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Bulk Delete Confirmation */}
+      <AlertDialog open={bulkDeleteOpen} onOpenChange={setBulkDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir {selectedIds.length} lead(s)?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Você está prestes a excluir {selectedIds.length} lead(s) permanentemente. Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleBulkDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Excluir {selectedIds.length} lead(s)
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

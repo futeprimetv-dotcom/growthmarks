@@ -131,3 +131,52 @@ export function useDeleteLead() {
     },
   });
 }
+
+export function useDeleteLeadsBulk() {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async (leadIds: string[]) => {
+      const { error } = await supabase
+        .from("leads")
+        .delete()
+        .in("id", leadIds);
+      
+      if (error) throw error;
+      
+      return leadIds.length;
+    },
+    onSuccess: (count) => {
+      queryClient.invalidateQueries({ queryKey: ["leads"] });
+      queryClient.invalidateQueries({ queryKey: ["activity-logs"] });
+      toast.success(`${count} lead(s) excluído(s) com sucesso!`);
+    },
+    onError: (error) => {
+      toast.error("Erro ao excluir leads: " + error.message);
+    },
+  });
+}
+
+export function useArchiveLeadsBulk() {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async (leadIds: string[]) => {
+      const { error } = await supabase
+        .from("leads")
+        .update({ is_archived: true })
+        .in("id", leadIds);
+      
+      if (error) throw error;
+      
+      return leadIds.length;
+    },
+    onSuccess: (count) => {
+      queryClient.invalidateQueries({ queryKey: ["leads"] });
+      toast.success(`${count} lead(s) arquivado(s) com sucesso!`);
+    },
+    onError: (error) => {
+      toast.error("Erro ao arquivar leads: " + error.message);
+    },
+  });
+}
