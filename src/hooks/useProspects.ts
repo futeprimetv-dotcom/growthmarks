@@ -212,8 +212,9 @@ export function useSendToLeadsBase() {
 
   return useMutation({
     mutationFn: async (prospects: MockProspect[]) => {
+      const results = [];
       for (const prospect of prospects) {
-        const { error } = await supabase.from("leads").insert({
+        const { data, error } = await supabase.from("leads").insert({
           name: prospect.name,
           company: prospect.name,
           email: prospect.emails?.[0] || null,
@@ -225,16 +226,20 @@ export function useSendToLeadsBase() {
           status: "novo",
           temperature: "cold",
           origin: "prospeccao",
-          tags: prospect.tags
-        });
+          tags: prospect.tags,
+          is_archived: false
+        }).select();
 
         if (error) throw error;
+        if (data) results.push(...data);
       }
 
-      return { count: prospects.length };
+      return { count: results.length };
     },
     onSuccess: (data) => {
+      // Force immediate refetch of leads
       queryClient.invalidateQueries({ queryKey: ["leads"] });
+      queryClient.refetchQueries({ queryKey: ["leads"] });
       toast({
         title: "Leads criados",
         description: `${data.count} lead(s) foram adicionados à base.`
