@@ -53,6 +53,20 @@ export function useProspeccaoState() {
     deleteSavedSearch.mutate(searchId);
   }, [deleteSavedSearch]);
 
+  // Sync results with active background search in real-time
+  useEffect(() => {
+    if (activeSearch && activeSearch.status === "running" && activeSearch.results.length > 0) {
+      // Update results in real-time as they come in
+      setApiResults(activeSearch.results);
+      setApiTotal(activeSearch.results.length);
+      setHasSearched(true);
+      // Automatically show results panel when first results arrive
+      if (!showResultsPanel && activeSearch.results.length > 0) {
+        setShowResultsPanel(true);
+      }
+    }
+  }, [activeSearch?.results, activeSearch?.status, showResultsPanel]);
+
   // Check for completed background search results on mount
   useEffect(() => {
     if (activeSearch?.status === "completed" && activeSearch.results) {
@@ -65,7 +79,7 @@ export function useProspeccaoState() {
       }
       clearSearch();
     }
-  }, [activeSearch, clearSearch]);
+  }, [activeSearch?.status, clearSearch]);
 
   // Sync filters with URL params - only on mount
   useEffect(() => {
