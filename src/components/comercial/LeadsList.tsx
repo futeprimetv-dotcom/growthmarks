@@ -23,9 +23,10 @@ import { LeadActivitiesDialog } from "./LeadActivitiesDialog";
 import { LeadScoreBadge } from "./LeadScoreBadge";
 import { WhatsAppButton } from "./WhatsAppButton";
 import { MoveFunnelDialog } from "./MoveFunnelDialog";
+import { PullLeadDialog } from "./PullLeadDialog";
 import { 
   Search, Flame, Snowflake, ThermometerSun, Calendar, 
-  Plus, Upload, History, Pencil, Trash2, UserPlus, CheckSquare, ArrowRightLeft
+  Plus, Upload, History, Pencil, Trash2, UserPlus, CheckSquare, ArrowRightLeft, Database
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -68,6 +69,7 @@ export function LeadsList() {
   const [originFilter, setOriginFilter] = useState<string>("all");
   const [formOpen, setFormOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [pullOpen, setPullOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [activitiesOpen, setActivitiesOpen] = useState(false);
   const [moveFunnelOpen, setMoveFunnelOpen] = useState(false);
@@ -150,6 +152,10 @@ export function LeadsList() {
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Lista de Leads</CardTitle>
           <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setPullOpen(true)}>
+              <Database className="h-4 w-4 mr-2" />
+              Puxar Lead
+            </Button>
             <Button variant="outline" onClick={() => setImportOpen(true)}>
               <Upload className="h-4 w-4 mr-2" />
               Importar
@@ -348,6 +354,11 @@ export function LeadsList() {
       <LeadImportDialog 
         open={importOpen} 
         onOpenChange={setImportOpen} 
+      />
+
+      <PullLeadDialog
+        open={pullOpen}
+        onOpenChange={setPullOpen}
       />
 
       <LeadConvertDialog
