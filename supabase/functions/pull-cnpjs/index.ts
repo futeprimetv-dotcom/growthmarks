@@ -27,7 +27,6 @@ const stateAbbreviations: Record<string, string> = {
 
 // Segment synonyms for better search coverage
 const segmentSynonyms: Record<string, string[]> = {
-  // === NICHOS PRINCIPAIS - EDUCAÇÃO ===
   "Educação - Escolas e Colégios": [
     "escola particular", "colégio particular", "escola privada", "colégio privado",
     "escola infantil", "educação infantil", "escola fundamental", "colégio ensino médio",
@@ -41,8 +40,6 @@ const segmentSynonyms: Record<string, string[]> = {
     "escola de idiomas", "curso de inglês", "curso de espanhol", "escola de línguas",
     "curso de idiomas", "centro de idiomas", "english school", "instituto de idiomas"
   ],
-  
-  // === NICHOS PRINCIPAIS - VEÍCULOS ===
   "Veículos - Lojas de Carros": [
     "loja de carros", "revenda de veículos", "seminovos", "carros usados", "multimarcas",
     "veículos usados", "revenda de carros", "loja de automóveis", "carros seminovos"
@@ -59,15 +56,11 @@ const segmentSynonyms: Record<string, string[]> = {
     "motorhome", "trailer", "camper", "veículo recreativo", "motor home",
     "food truck", "reboque", "carreta"
   ],
-  
-  // === NICHO PRINCIPAL - IMOBILIÁRIAS ===
   "Imobiliárias": [
     "imobiliária", "corretor de imóveis", "imóveis", "venda de imóveis",
     "aluguel de imóveis", "corretora de imóveis", "administradora de imóveis",
     "construtora", "incorporadora", "empreendimentos imobiliários"
   ],
-  
-  // === OUTROS SEGMENTOS ===
   "Comércio Automotivo": ["concessionária", "revenda veículos", "loja carros", "seminovos", "multimarcas"],
   "Restaurantes": ["restaurante", "pizzaria", "hamburgueria", "lanchonete", "churrascaria"],
   "Clínicas e Consultórios": ["clínica médica", "consultório", "dentista", "laboratório", "fisioterapia"],
@@ -79,27 +72,26 @@ const segmentSynonyms: Record<string, string[]> = {
   "Construção Civil": ["construtora", "empreiteira", "engenharia", "obras"],
 };
 
-// Build search queries for CNPJs
+// Build search queries for CNPJs - OPTIMIZED for active companies
 function buildSearchQueries(filters: PullFilters): string[] {
   const queries: string[] = [];
   const segment = filters.segments?.[0] || "";
   const city = filters.cities?.[0] || "";
   const stateAbbr = filters.states?.[0] || "";
   const stateName = stateAbbreviations[stateAbbr] || stateAbbr;
-
   const synonyms = segmentSynonyms[segment] || [];
 
-  // CNPJ-focused queries
-  queries.push(`site:cnpj.biz "${city || stateName}" "${segment}" lista CNPJ`);
-  queries.push(`site:empresascnpj.com "${city}" ${stateAbbr} ${segment} CNPJ ativo`);
-  queries.push(`"${segment}" "${city || stateName}" ${stateAbbr} CNPJ lista empresas ativas`);
-  queries.push(`empresas ${segment} ${city || stateName} cadastro CNPJ ativas`);
+  // Focus on sites that typically list ACTIVE companies
+  queries.push(`site:cnpj.biz "${city || stateName}" "${segment}" CNPJ ativa situacao cadastral`);
+  queries.push(`site:empresascnpj.com "${city}" ${stateAbbr} ${segment} CNPJ ativa`);
+  queries.push(`site:casadosdados.com.br "${segment}" "${city || stateName}" empresa ativa`);
+  queries.push(`"${segment}" "${city || stateName}" CNPJ empresas ativas funcionando`);
   
   // Add synonym-based queries
   if (synonyms.length > 0) {
-    queries.push(`site:cnpj.biz "${city || stateName}" "${synonyms[0]}" CNPJ`);
+    queries.push(`site:cnpj.biz "${city || stateName}" "${synonyms[0]}" ativa`);
     if (synonyms.length > 1) {
-      queries.push(`"${synonyms[1]}" "${city}" ${stateAbbr} CNPJ empresas`);
+      queries.push(`"${synonyms[1]}" "${city}" ${stateAbbr} CNPJ empresa ativa`);
     }
   }
 
@@ -113,28 +105,88 @@ function extractCNPJs(text: string): string[] {
   return [...new Set(matches.map(cnpj => cnpj.replace(/\D/g, "")))];
 }
 
-// Quick CNPJ lookup
+// Validate CNPJ format
+function isValidCNPJFormat(cnpj: string): boolean {
+  if (cnpj.length !== 14) return false;
+  if (/^(\d)\1{13}$/.test(cnpj)) return false; // All same digit
+  return true;
+}
+
+// Quick CNPJ lookup using Brasil API with fallbacks - OPTIMIZED with timeout
 async function lookupCNPJ(cnpj: string): Promise<any | null> {
+  const timeout = 3000; // 3 seconds max per request
+  
+  // Try Brasil API first (fastest)
   try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+    
     const response = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cnpj}`, {
-      signal: AbortSignal.timeout(4000)
+      signal: controller.signal
     });
-    if (!response.ok) return null;
-    const data = await response.json();
-    return {
-      ...data,
-      situacao_cadastral: data.descricao_situacao_cadastral || data.situacao_cadastral
-    };
-  } catch {
-    // Fallback to CNPJ.ws
-    try {
-      const response = await fetch(`https://publica.cnpj.ws/cnpj/${cnpj}`, {
-        headers: { "Accept": "application/json" },
-        signal: AbortSignal.timeout(4000)
-      });
-      if (!response.ok) return null;
+    clearTimeout(timeoutId);
+    
+    if (response.ok) {
       const data = await response.json();
-      const situacao = data.estabelecimento?.situacao_cadastral;
+      const situacao = data.descricao_situacao_cadastral || data.situacao_cadastral || "";
+      return {
+        razao_social: data.razao_social,
+        nome_fantasia: data.nome_fantasia,
+        cnae_fiscal_descricao: data.cnae_fiscal_descricao,
+        porte: data.porte,
+        municipio: data.municipio,
+        uf: data.uf,
+        situacao_cadastral: situacao,
+        is_ativa: situacao.toLowerCase().includes("ativ"),
+      };
+    }
+  } catch (e) {
+    // Fallback to Minha Receita
+  }
+  
+  // Fallback: Minha Receita (open-source, reliable)
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+    
+    const response = await fetch(`https://minhareceita.org/${cnpj}`, {
+      headers: { "Accept": "application/json" },
+      signal: controller.signal
+    });
+    clearTimeout(timeoutId);
+    
+    if (response.ok) {
+      const data = await response.json();
+      const situacao = data.descricao_situacao_cadastral || "";
+      return {
+        razao_social: data.razao_social,
+        nome_fantasia: data.nome_fantasia,
+        cnae_fiscal_descricao: data.cnae_fiscal_descricao,
+        porte: data.porte,
+        municipio: data.municipio,
+        uf: data.uf,
+        situacao_cadastral: situacao,
+        is_ativa: situacao.toLowerCase().includes("ativ"),
+      };
+    }
+  } catch (e) {
+    // Continue to next fallback
+  }
+
+  // Last fallback: CNPJ.ws (public)
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+    
+    const response = await fetch(`https://publica.cnpj.ws/cnpj/${cnpj}`, {
+      headers: { "Accept": "application/json" },
+      signal: controller.signal
+    });
+    clearTimeout(timeoutId);
+    
+    if (response.ok) {
+      const data = await response.json();
+      const situacao = data.estabelecimento?.situacao_cadastral || "Ativa";
       return {
         razao_social: data.razao_social,
         nome_fantasia: data.estabelecimento?.nome_fantasia,
@@ -142,12 +194,15 @@ async function lookupCNPJ(cnpj: string): Promise<any | null> {
         porte: data.porte?.descricao,
         municipio: data.estabelecimento?.cidade?.nome,
         uf: data.estabelecimento?.estado?.sigla,
-        situacao_cadastral: situacao || "Ativa",
+        situacao_cadastral: situacao,
+        is_ativa: String(situacao).toLowerCase().includes("ativ"),
       };
-    } catch {
-      return null;
     }
+  } catch (e) {
+    // All APIs failed
   }
+
+  return null;
 }
 
 // Check cache
@@ -174,7 +229,7 @@ async function getCachedCNPJ(supabase: any, cnpj: string): Promise<any | null> {
 async function saveToCache(supabase: any, cnpj: string, data: any, situacao: string): Promise<void> {
   try {
     const isActive = situacao?.toLowerCase().includes('ativ');
-    const expiryDays = isActive ? 7 : 30;
+    const expiryDays = isActive ? 7 : 30; // Cache inactive longer
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + expiryDays);
 
@@ -196,7 +251,7 @@ async function saveToCache(supabase: any, cnpj: string, data: any, situacao: str
 // Check if CNPJ matches size filter
 function matchesSize(porte: string | undefined, sizesFilter: string[] | undefined): boolean {
   if (!sizesFilter || sizesFilter.length === 0) return true;
-  if (!porte) return false;
+  if (!porte) return true; // Allow if no porte info
 
   const porteNormalized = porte.toLowerCase();
   
@@ -205,11 +260,99 @@ function matchesSize(porte: string | undefined, sizesFilter: string[] | undefine
     if (sizeNorm === "mei" && porteNormalized.includes("mei")) return true;
     if (sizeNorm === "me" && (porteNormalized.includes("micro") || porteNormalized.includes("me "))) return true;
     if (sizeNorm === "epp" && (porteNormalized.includes("pequeno") || porteNormalized.includes("epp"))) return true;
-    if (sizeNorm === "medio" && porteNormalized.includes("médio")) return true;
+    if (sizeNorm === "medio" && (porteNormalized.includes("médio") || porteNormalized.includes("medio"))) return true;
     if (sizeNorm === "grande" && porteNormalized.includes("grande")) return true;
   }
   
   return false;
+}
+
+// Process batch of CNPJs in parallel - OPTIMIZED
+async function processBatch(
+  batch: string[],
+  supabase: any,
+  filters: PullFilters,
+  stats: any,
+  onResult: (result: any) => void
+): Promise<void> {
+  const results = await Promise.allSettled(
+    batch.map(async (cnpj) => {
+      // Check cache first
+      if (supabase) {
+        const cached = await getCachedCNPJ(supabase, cnpj);
+        if (cached) {
+          stats.cacheHits++;
+          return { cnpj, data: cached, fromCache: true };
+        }
+      }
+
+      // Lookup CNPJ
+      const data = await lookupCNPJ(cnpj);
+      if (data && supabase) {
+        await saveToCache(supabase, cnpj, data, data.situacao_cadastral || "");
+      }
+      return { cnpj, data, fromCache: false };
+    })
+  );
+
+  for (const result of results) {
+    stats.cnpjsProcessed++;
+    
+    if (result.status !== "fulfilled" || !result.value.data) continue;
+
+    const { cnpj, data } = result.value;
+
+    // Check if ACTIVE - early filter
+    const situacao = String(data.situacao_cadastral || "").toLowerCase();
+    const isActive = situacao === "ativa" || situacao === "02" || situacao.includes("ativ") || data.is_ativa;
+
+    if (!isActive) {
+      stats.skippedInactive++;
+      continue;
+    }
+
+    // Check location filter
+    if (filters.states?.length) {
+      const dataUF = data.uf?.toUpperCase();
+      if (!filters.states.some(s => s.toUpperCase() === dataUF)) {
+        stats.skippedLocation++;
+        continue;
+      }
+    }
+
+    if (filters.cities?.length) {
+      const dataMunicipio = (data.municipio || "").toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      const matchesCity = filters.cities.some(c => {
+        const normalizedFilter = c.toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        return dataMunicipio.includes(normalizedFilter) || normalizedFilter.includes(dataMunicipio);
+      });
+      if (!matchesCity) {
+        stats.skippedLocation++;
+        continue;
+      }
+    }
+
+    // Check size filter
+    if (!matchesSize(data.porte, filters.companySizes)) {
+      stats.skippedSize++;
+      continue;
+    }
+
+    // Format CNPJ
+    const formattedCNPJ = cnpj.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5");
+
+    stats.activeCount++;
+    onResult({
+      cnpj: formattedCNPJ,
+      razao_social: data.razao_social,
+      nome_fantasia: data.nome_fantasia,
+      porte: data.porte,
+      situacao: data.situacao_cadastral,
+      municipio: data.municipio,
+      uf: data.uf,
+      cnae_fiscal_descricao: data.cnae_fiscal_descricao,
+    });
+  }
 }
 
 serve(async (req) => {
@@ -225,7 +368,7 @@ serve(async (req) => {
     const streaming = body.streaming === true;
     
     console.log("═══════════════════════════════════════════════════════════");
-    console.log("🔍 PUXAR CNPJs ATIVOS" + (streaming ? " (STREAMING)" : ""));
+    console.log("🔍 PUXAR CNPJs ATIVOS (OTIMIZADO)" + (streaming ? " [STREAMING]" : ""));
     console.log("═══════════════════════════════════════════════════════════");
     console.log("📋 Filtros:", JSON.stringify(filters, null, 2));
 
@@ -259,13 +402,13 @@ serve(async (req) => {
             const searchQueries = buildSearchQueries(filters);
             console.log("🔎 Queries:", searchQueries);
 
-            send({ type: "status", message: "Buscando CNPJs na web..." });
+            send({ type: "status", message: "Buscando CNPJs ativos na web..." });
 
-            // Collect CNPJs from search
+            // Collect CNPJs from search - PARALLEL
             const allCNPJs: Set<string> = new Set();
             let queryCount = 0;
             
-            for (const query of searchQueries) {
+            const searchPromises = searchQueries.map(async (query) => {
               try {
                 const response = await fetch("https://api.firecrawl.dev/v1/search", {
                   method: "POST",
@@ -275,7 +418,7 @@ serve(async (req) => {
                   },
                   body: JSON.stringify({
                     query,
-                    limit: 30,
+                    limit: 25, // Reduced for speed
                     lang: "pt-BR",
                     country: "BR",
                     scrapeOptions: { formats: ["markdown"] },
@@ -290,23 +433,26 @@ serve(async (req) => {
                   
                   for (const result of results) {
                     const text = `${result.markdown || ""} ${result.title || ""} ${result.description || ""}`;
-                    extractCNPJs(text).forEach(c => allCNPJs.add(c));
+                    extractCNPJs(text).filter(isValidCNPJFormat).forEach(c => allCNPJs.add(c));
                   }
-
-                  send({ 
-                    type: "search_progress", 
-                    queriesCompleted: queryCount, 
-                    totalQueries: searchQueries.length,
-                    cnpjsFound: allCNPJs.size 
-                  });
                 }
               } catch (e) {
                 console.error(`  ✗ Query erro:`, e);
               }
-            }
+            });
+
+            await Promise.all(searchPromises);
+            
+            // Send progress updates after all queries complete
+            send({ 
+              type: "search_progress", 
+              queriesCompleted: searchQueries.length, 
+              totalQueries: searchQueries.length,
+              cnpjsFound: allCNPJs.size 
+            });
 
             console.log(`📊 CNPJs únicos encontrados: ${allCNPJs.size}`);
-            send({ type: "status", message: "Validando CNPJs..." });
+            send({ type: "status", message: "Validando CNPJs com Brasil API..." });
             send({ type: "search_complete", totalCNPJsFound: allCNPJs.size });
 
             const stats = {
@@ -327,117 +473,41 @@ serve(async (req) => {
               return;
             }
 
-            // Process CNPJs
+            // Process CNPJs - OPTIMIZED batch size for speed
             const cnpjArray = Array.from(allCNPJs);
-            const batchSize = 5;
+            const batchSize = 10; // Larger batches for parallel processing
             const maxResults = filters.limit || 100;
-            let activeCount = 0;
 
-            for (let i = 0; i < cnpjArray.length && activeCount < maxResults; i += batchSize) {
+            for (let i = 0; i < cnpjArray.length && stats.activeCount < maxResults; i += batchSize) {
               const batch = cnpjArray.slice(i, i + batchSize);
               
-              const batchResults = await Promise.all(batch.map(async (cnpj) => {
-                stats.cnpjsProcessed++;
-
-                // Check cache first
-                if (supabase) {
-                  const cached = await getCachedCNPJ(supabase, cnpj);
-                  if (cached) {
-                    stats.cacheHits++;
-                    return { cnpj, data: cached, fromCache: true };
-                  }
-                }
-
-                // Lookup CNPJ
-                const data = await lookupCNPJ(cnpj);
-                if (data && supabase) {
-                  await saveToCache(supabase, cnpj, data, data.situacao_cadastral || "");
-                }
-                return { cnpj, data, fromCache: false };
-              }));
-
-              for (const result of batchResults) {
-                if (!result.data) continue;
-
-                const { cnpj, data } = result;
-
-                // Check if ACTIVE
-                const situacao = String(data.situacao_cadastral || "").toLowerCase();
-                const isActive = situacao === "ativa" || situacao === "02" || situacao.includes("ativ");
-
-                if (!isActive) {
-                  stats.skippedInactive++;
-                  continue;
-                }
-
-                // Check location filter
-                if (filters.states?.length) {
-                  const dataUF = data.uf?.toUpperCase();
-                  if (!filters.states.some(s => s.toUpperCase() === dataUF)) {
-                    stats.skippedLocation++;
-                    continue;
-                  }
-                }
-
-                if (filters.cities?.length) {
-                  const dataMunicipio = (data.municipio || "").toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-                  const matchesCity = filters.cities.some(c => {
-                    const normalizedFilter = c.toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-                    return dataMunicipio.includes(normalizedFilter) || normalizedFilter.includes(dataMunicipio);
-                  });
-                  if (!matchesCity) {
-                    stats.skippedLocation++;
-                    continue;
-                  }
-                }
-
-                // Check size filter
-                if (!matchesSize(data.porte, filters.companySizes)) {
-                  stats.skippedSize++;
-                  continue;
-                }
-
-                // Format CNPJ
-                const formattedCNPJ = cnpj.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5");
-
-                activeCount++;
-                stats.activeCount = activeCount;
-
-                // Send CNPJ as it's found
+              await processBatch(batch, supabase, filters, stats, (result) => {
                 send({
                   type: "cnpj",
-                  cnpj: {
-                    cnpj: formattedCNPJ,
-                    razao_social: data.razao_social,
-                    nome_fantasia: data.nome_fantasia,
-                    porte: data.porte,
-                    situacao: data.situacao_cadastral,
-                    municipio: data.municipio,
-                    uf: data.uf,
-                    cnae_fiscal_descricao: data.cnae_fiscal_descricao,
-                  },
+                  cnpj: result,
                   progress: {
                     processed: stats.cnpjsProcessed,
                     total: allCNPJs.size,
-                    found: activeCount,
+                    found: stats.activeCount,
                     inactiveCount: stats.skippedInactive,
                   }
                 });
-
-                if (activeCount >= maxResults) {
-                  break;
-                }
-              }
+              });
 
               // Send progress update
               send({
                 type: "progress",
                 processed: stats.cnpjsProcessed,
                 total: allCNPJs.size,
-                found: activeCount,
+                found: stats.activeCount,
                 inactiveCount: stats.skippedInactive,
                 cacheHits: stats.cacheHits,
               });
+
+              // Stop if we have enough results
+              if (stats.activeCount >= maxResults) {
+                break;
+              }
             }
 
             stats.processingTimeMs = Date.now() - startTime;
@@ -469,11 +539,11 @@ serve(async (req) => {
       });
     }
 
-    // Non-streaming response (original code)
+    // Non-streaming response
     const searchQueries = buildSearchQueries(filters);
     console.log("🔎 Queries:", searchQueries);
 
-    // Collect CNPJs from search
+    // Collect CNPJs from search - PARALLEL
     const allCNPJs: Set<string> = new Set();
     
     const searchPromises = searchQueries.map(async (query, index) => {
@@ -486,7 +556,7 @@ serve(async (req) => {
           },
           body: JSON.stringify({
             query,
-            limit: 30,
+            limit: 25,
             lang: "pt-BR",
             country: "BR",
             scrapeOptions: { formats: ["markdown"] },
@@ -500,7 +570,7 @@ serve(async (req) => {
           
           for (const result of results) {
             const text = `${result.markdown || ""} ${result.title || ""} ${result.description || ""}`;
-            extractCNPJs(text).forEach(c => allCNPJs.add(c));
+            extractCNPJs(text).filter(isValidCNPJFormat).forEach(c => allCNPJs.add(c));
           }
         }
       } catch (e) {
@@ -533,92 +603,18 @@ serve(async (req) => {
     // Process CNPJs
     const activeCNPJs: any[] = [];
     const cnpjArray = Array.from(allCNPJs);
-    const batchSize = 5;
+    const batchSize = 10;
     const maxResults = filters.limit || 100;
 
     for (let i = 0; i < cnpjArray.length && activeCNPJs.length < maxResults; i += batchSize) {
       const batch = cnpjArray.slice(i, i + batchSize);
       
-      const batchResults = await Promise.all(batch.map(async (cnpj) => {
-        stats.cnpjsProcessed++;
+      await processBatch(batch, supabase, filters, stats, (result) => {
+        activeCNPJs.push(result);
+      });
 
-        // Check cache first
-        if (supabase) {
-          const cached = await getCachedCNPJ(supabase, cnpj);
-          if (cached) {
-            stats.cacheHits++;
-            return { cnpj, data: cached, fromCache: true };
-          }
-        }
-
-        // Lookup CNPJ
-        const data = await lookupCNPJ(cnpj);
-        if (data && supabase) {
-          await saveToCache(supabase, cnpj, data, data.situacao_cadastral || "");
-        }
-        return { cnpj, data, fromCache: false };
-      }));
-
-      for (const result of batchResults) {
-        if (!result.data) continue;
-
-        const { cnpj, data } = result;
-
-        // Check if ACTIVE
-        const situacao = String(data.situacao_cadastral || "").toLowerCase();
-        const isActive = situacao === "ativa" || situacao === "02" || situacao.includes("ativ");
-
-        if (!isActive) {
-          stats.skippedInactive++;
-          continue;
-        }
-
-        // Check location filter
-        if (filters.states?.length) {
-          const dataUF = data.uf?.toUpperCase();
-          if (!filters.states.some(s => s.toUpperCase() === dataUF)) {
-            stats.skippedLocation++;
-            continue;
-          }
-        }
-
-        if (filters.cities?.length) {
-          const dataMunicipio = (data.municipio || "").toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-          const matchesCity = filters.cities.some(c => {
-            const normalizedFilter = c.toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-            return dataMunicipio.includes(normalizedFilter) || normalizedFilter.includes(dataMunicipio);
-          });
-          if (!matchesCity) {
-            stats.skippedLocation++;
-            continue;
-          }
-        }
-
-        // Check size filter
-        if (!matchesSize(data.porte, filters.companySizes)) {
-          stats.skippedSize++;
-          continue;
-        }
-
-        // Format CNPJ
-        const formattedCNPJ = cnpj.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5");
-
-        activeCNPJs.push({
-          cnpj: formattedCNPJ,
-          razao_social: data.razao_social,
-          nome_fantasia: data.nome_fantasia,
-          porte: data.porte,
-          situacao: data.situacao_cadastral,
-          municipio: data.municipio,
-          uf: data.uf,
-          cnae_fiscal_descricao: data.cnae_fiscal_descricao,
-        });
-
-        stats.activeCount++;
-
-        if (activeCNPJs.length >= maxResults) {
-          break;
-        }
+      if (activeCNPJs.length >= maxResults) {
+        break;
       }
     }
 
