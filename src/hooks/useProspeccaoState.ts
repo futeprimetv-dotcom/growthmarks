@@ -252,6 +252,10 @@ export function useProspeccaoState() {
     setApiTotal(0);
   }, []);
 
+  const handleClearStats = useCallback(() => {
+    setSearchStats(null);
+  }, []);
+
   const handleBackFromResults = useCallback(() => {
     setShowResultsPanel(false);
   }, []);
@@ -586,6 +590,7 @@ export function useProspeccaoState() {
     handleSendCNPJToLeads,
     handleBatchAddToProspects,
     handleBatchSendToLeads,
+    handleClearStats,
     
     // Refetch
     refetch,

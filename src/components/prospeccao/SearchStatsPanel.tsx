@@ -1,7 +1,9 @@
-import { Clock, Database, Search, CheckCircle, XCircle, Zap, BarChart3 } from "lucide-react";
+import { Clock, Database, Search, CheckCircle, XCircle, Zap, BarChart3, X, ChevronDown, ChevronUp } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { Button } from "@/components/ui/button";
+import { useState } from "react";
 
 export interface SearchDebugStats {
   totalCNPJsFound: number;
@@ -18,9 +20,12 @@ export interface SearchDebugStats {
 interface SearchStatsPanelProps {
   stats: SearchDebugStats | null;
   isVisible: boolean;
+  onClose?: () => void;
 }
 
-export function SearchStatsPanel({ stats, isVisible }: SearchStatsPanelProps) {
+export function SearchStatsPanel({ stats, isVisible, onClose }: SearchStatsPanelProps) {
+  const [isCollapsed, setIsCollapsed] = useState(false);
+
   if (!isVisible || !stats) return null;
 
   const formatTime = (ms: number) => {
@@ -37,6 +42,42 @@ export function SearchStatsPanel({ stats, isVisible }: SearchStatsPanelProps) {
     ? Math.round((stats.cacheHits / stats.cnpjsProcessed) * 100)
     : 0;
 
+  if (isCollapsed) {
+    return (
+      <Card className="p-2 bg-muted/30 border-dashed mb-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <BarChart3 className="h-4 w-4 text-primary" />
+            <span className="text-sm text-muted-foreground">Estatísticas da Busca</span>
+            <Badge variant="secondary" className="text-xs">
+              {stats.companiesReturned} retornados
+            </Badge>
+          </div>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6"
+              onClick={() => setIsCollapsed(false)}
+            >
+              <ChevronDown className="h-4 w-4" />
+            </Button>
+            {onClose && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6"
+                onClick={onClose}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+        </div>
+      </Card>
+    );
+  }
+
   return (
     <Card className="p-4 bg-muted/30 border-dashed mb-4">
       <div className="flex items-center gap-2 mb-3">
@@ -46,6 +87,24 @@ export function SearchStatsPanel({ stats, isVisible }: SearchStatsPanelProps) {
           <Clock className="h-3 w-3 mr-1" />
           {formatTime(stats.processingTimeMs)}
         </Badge>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-6 w-6"
+          onClick={() => setIsCollapsed(true)}
+        >
+          <ChevronUp className="h-4 w-4" />
+        </Button>
+        {onClose && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6"
+            onClick={onClose}
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        )}
       </div>
       
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">

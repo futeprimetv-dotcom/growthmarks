@@ -32,6 +32,7 @@ interface InternetResultsViewProps {
   isAddingToBase: boolean;
   isSendingToBase: boolean;
   displayData: any[];
+  onClearStats?: () => void;
 }
 
 export function InternetResultsView({
@@ -52,6 +53,7 @@ export function InternetResultsView({
   isAddingToBase,
   isSendingToBase,
   displayData,
+  onClearStats,
 }: InternetResultsViewProps) {
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)]">
@@ -110,7 +112,7 @@ export function InternetResultsView({
       </div>
 
       <div className="px-6 pt-4">
-        <SearchStatsPanel stats={searchStats} isVisible={!isLoading && searchStats !== null} />
+        <SearchStatsPanel stats={searchStats} isVisible={!isLoading && searchStats !== null} onClose={onClearStats} />
       </div>
 
       <SearchResultsPanel
