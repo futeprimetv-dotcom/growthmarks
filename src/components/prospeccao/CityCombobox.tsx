@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Check, ChevronsUpDown, MapPin } from "lucide-react";
+import { Check, ChevronsUpDown, MapPin, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -9,6 +9,7 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
+  CommandSeparator,
 } from "@/components/ui/command";
 import {
   Popover,
@@ -23,6 +24,7 @@ interface Props {
   onCityChange: (city: string | undefined) => void;
   placeholder?: string;
   disabled?: boolean;
+  recentCities?: string[];
 }
 
 export function CityCombobox({ 
@@ -31,6 +33,7 @@ export function CityCombobox({
   onCityChange,
   placeholder = "Buscar cidade...",
   disabled = false,
+  recentCities = [],
 }: Props) {
   const [open, setOpen] = useState(false);
   const [searchValue, setSearchValue] = useState("");
@@ -48,15 +51,32 @@ export function CityCombobox({
     return allCitiesWithState;
   }, [selectedState]);
 
-  // Filter cities based on search
+  // Get recent cities that are in the available list
+  const recentAvailableCities = useMemo(() => {
+    return recentCities
+      .filter(city => availableCities.some(ac => ac.city === city))
+      .slice(0, 5);
+  }, [recentCities, availableCities]);
+
+  // Filter cities based on search, excluding recent ones when no search
   const filteredCities = useMemo(() => {
-    if (!searchValue) return availableCities.slice(0, 50); // Limit initial display
-    
     const search = searchValue.toLowerCase();
-    return availableCities
+    
+    let cities = availableCities;
+    
+    // If no search, exclude recent cities from main list
+    if (!searchValue && recentAvailableCities.length > 0) {
+      cities = availableCities.filter(
+        item => !recentAvailableCities.includes(item.city)
+      );
+    }
+    
+    if (!searchValue) return cities.slice(0, 50);
+    
+    return cities
       .filter(item => item.city.toLowerCase().startsWith(search) || item.city.toLowerCase().includes(search))
       .slice(0, 50);
-  }, [availableCities, searchValue]);
+  }, [availableCities, searchValue, recentAvailableCities]);
 
   const displayValue = selectedCity 
     ? (selectedState ? selectedCity : `${selectedCity}`)
@@ -90,8 +110,9 @@ export function CityCombobox({
           />
           <CommandList>
             <CommandEmpty>Nenhuma cidade encontrada.</CommandEmpty>
-            <CommandGroup>
-              {selectedCity && (
+            
+            {selectedCity && (
+              <CommandGroup>
                 <CommandItem
                   value="_clear"
                   onSelect={() => {
@@ -103,7 +124,44 @@ export function CityCombobox({
                 >
                   Limpar seleção
                 </CommandItem>
-              )}
+              </CommandGroup>
+            )}
+
+            {/* Recent cities */}
+            {!searchValue && recentAvailableCities.length > 0 && (
+              <>
+                <CommandGroup heading={
+                  <span className="flex items-center gap-1.5 text-xs">
+                    <Clock className="h-3 w-3" />
+                    Recentes
+                  </span>
+                }>
+                  {recentAvailableCities.map((city) => (
+                    <CommandItem
+                      key={`recent-${city}`}
+                      value={city}
+                      onSelect={() => {
+                        onCityChange(city);
+                        setOpen(false);
+                        setSearchValue("");
+                      }}
+                    >
+                      <Check
+                        className={cn(
+                          "mr-2 h-4 w-4",
+                          selectedCity === city ? "opacity-100" : "opacity-0"
+                        )}
+                      />
+                      {city}
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+                <CommandSeparator />
+              </>
+            )}
+
+            {/* All cities */}
+            <CommandGroup heading={!searchValue && recentAvailableCities.length > 0 ? "Todas" : undefined}>
               {filteredCities.map((item) => (
                 <CommandItem
                   key={`${item.city}-${item.state}`}
