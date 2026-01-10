@@ -523,7 +523,42 @@ serve(async (req) => {
     stats.totalCNPJsFound = allCNPJs.size;
     console.log(`📊 CNPJs únicos encontrados: ${allCNPJs.size}`);
 
-    if (allCNPJs.size === 0) {
+    // Filter out CNPJs that already exist in prospects table (Minha Base)
+    let existingCNPJs: Set<string> = new Set();
+    if (supabase && allCNPJs.size > 0) {
+      try {
+        const cnpjList = [...allCNPJs];
+        // Query in batches of 100 to avoid query size limits
+        for (let i = 0; i < cnpjList.length; i += 100) {
+          const batch = cnpjList.slice(i, i + 100);
+          // Format CNPJs to match stored format (XX.XXX.XXX/XXXX-XX)
+          const formattedBatch = batch.map(cnpj => 
+            cnpj.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5")
+          );
+          
+          const { data: existingProspects } = await supabase
+            .from('prospects')
+            .select('cnpj')
+            .in('cnpj', formattedBatch);
+          
+          if (existingProspects) {
+            existingProspects.forEach((p: { cnpj: string }) => {
+              // Store as raw CNPJ (numbers only) for comparison
+              existingCNPJs.add(p.cnpj.replace(/\D/g, ""));
+            });
+          }
+        }
+        console.log(`🚫 CNPJs já na base (excluídos): ${existingCNPJs.size}`);
+      } catch (e) {
+        console.log("Erro ao verificar CNPJs existentes:", e);
+      }
+    }
+
+    // Remove existing CNPJs from the search results
+    const filteredCNPJs = [...allCNPJs].filter(cnpj => !existingCNPJs.has(cnpj));
+    console.log(`✅ CNPJs restantes para processar: ${filteredCNPJs.length}`);
+
+    if (filteredCNPJs.length === 0) {
       stats.processingTimeMs = Date.now() - startTime;
       return new Response(
         JSON.stringify({
@@ -532,14 +567,17 @@ serve(async (req) => {
           page: filters.page || 1,
           pageSize: filters.pageSize || 10,
           source: "firecrawl",
-          debug: stats,
+          debug: { ...stats, skippedExisting: existingCNPJs.size },
+          message: existingCNPJs.size > 0 
+            ? `Todos os ${existingCNPJs.size} CNPJs encontrados já estão na sua base.`
+            : "Nenhuma empresa encontrada para esses filtros."
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     const pageSize = filters.pageSize || 10;
-    const cnpjArray = [...allCNPJs].slice(0, Math.min(pageSize * 15, 300));
+    const cnpjArray = filteredCNPJs.slice(0, Math.min(pageSize * 15, 300));
 
     // ==================== STREAMING MODE ====================
     if (isStreaming) {

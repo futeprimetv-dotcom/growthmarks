@@ -452,11 +452,46 @@ serve(async (req) => {
             });
 
             console.log(`📊 CNPJs únicos encontrados: ${allCNPJs.size}`);
+            send({ type: "status", message: "Verificando CNPJs já na base..." });
+
+            // Filter out CNPJs that already exist in prospects table (Minha Base)
+            let existingCNPJs: Set<string> = new Set();
+            if (supabase && allCNPJs.size > 0) {
+              try {
+                const cnpjList = [...allCNPJs];
+                for (let i = 0; i < cnpjList.length; i += 100) {
+                  const batch = cnpjList.slice(i, i + 100);
+                  const formattedBatch = batch.map(cnpj => 
+                    cnpj.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5")
+                  );
+                  
+                  const { data: existingProspects } = await supabase
+                    .from('prospects')
+                    .select('cnpj')
+                    .in('cnpj', formattedBatch);
+                  
+                  if (existingProspects) {
+                    existingProspects.forEach((p: { cnpj: string }) => {
+                      existingCNPJs.add(p.cnpj.replace(/\D/g, ""));
+                    });
+                  }
+                }
+                console.log(`🚫 CNPJs já na base (excluídos): ${existingCNPJs.size}`);
+              } catch (e) {
+                console.log("Erro ao verificar CNPJs existentes:", e);
+              }
+            }
+
+            // Remove existing CNPJs
+            const filteredCNPJs = [...allCNPJs].filter(cnpj => !existingCNPJs.has(cnpj));
+            console.log(`✅ CNPJs novos para processar: ${filteredCNPJs.length}`);
+            
             send({ type: "status", message: "Validando CNPJs com Brasil API..." });
-            send({ type: "search_complete", totalCNPJsFound: allCNPJs.size });
+            send({ type: "search_complete", totalCNPJsFound: allCNPJs.size, skippedExisting: existingCNPJs.size, newCNPJs: filteredCNPJs.length });
 
             const stats = {
               totalCNPJsFound: allCNPJs.size,
+              skippedExisting: existingCNPJs.size,
               cnpjsProcessed: 0,
               cacheHits: 0,
               skippedInactive: 0,
@@ -466,15 +501,21 @@ serve(async (req) => {
               processingTimeMs: 0,
             };
 
-            if (allCNPJs.size === 0) {
+            if (filteredCNPJs.length === 0) {
               stats.processingTimeMs = Date.now() - startTime;
-              send({ type: "complete", stats });
+              send({ 
+                type: "complete", 
+                stats,
+                message: existingCNPJs.size > 0 
+                  ? `Todos os ${existingCNPJs.size} CNPJs encontrados já estão na sua base.`
+                  : "Nenhuma empresa encontrada."
+              });
               controller.close();
               return;
             }
 
             // Process CNPJs - OPTIMIZED batch size for speed with CPU timeout protection
-            const cnpjArray = Array.from(allCNPJs);
+            const cnpjArray = filteredCNPJs;
             const batchSize = 5; // Smaller batches to prevent CPU timeout
             const maxResults = filters.limit || 100;
             const maxCNPJsToProcess = Math.min(cnpjArray.length, maxResults * 5); // Process at most 5x the limit
@@ -585,8 +626,41 @@ serve(async (req) => {
     await Promise.all(searchPromises);
     console.log(`📊 CNPJs únicos encontrados: ${allCNPJs.size}`);
 
+    // Filter out CNPJs that already exist in prospects table (Minha Base)
+    let existingCNPJs: Set<string> = new Set();
+    if (supabase && allCNPJs.size > 0) {
+      try {
+        const cnpjList = [...allCNPJs];
+        for (let i = 0; i < cnpjList.length; i += 100) {
+          const batch = cnpjList.slice(i, i + 100);
+          const formattedBatch = batch.map(cnpj => 
+            cnpj.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5")
+          );
+          
+          const { data: existingProspects } = await supabase
+            .from('prospects')
+            .select('cnpj')
+            .in('cnpj', formattedBatch);
+          
+          if (existingProspects) {
+            existingProspects.forEach((p: { cnpj: string }) => {
+              existingCNPJs.add(p.cnpj.replace(/\D/g, ""));
+            });
+          }
+        }
+        console.log(`🚫 CNPJs já na base (excluídos): ${existingCNPJs.size}`);
+      } catch (e) {
+        console.log("Erro ao verificar CNPJs existentes:", e);
+      }
+    }
+
+    // Remove existing CNPJs
+    const filteredCNPJs = [...allCNPJs].filter(cnpj => !existingCNPJs.has(cnpj));
+    console.log(`✅ CNPJs novos para processar: ${filteredCNPJs.length}`);
+
     const stats = {
       totalCNPJsFound: allCNPJs.size,
+      skippedExisting: existingCNPJs.size,
       cnpjsProcessed: 0,
       cacheHits: 0,
       skippedInactive: 0,
@@ -596,17 +670,23 @@ serve(async (req) => {
       processingTimeMs: 0,
     };
 
-    if (allCNPJs.size === 0) {
+    if (filteredCNPJs.length === 0) {
       stats.processingTimeMs = Date.now() - startTime;
       return new Response(
-        JSON.stringify({ cnpjs: [], stats }),
+        JSON.stringify({ 
+          cnpjs: [], 
+          stats,
+          message: existingCNPJs.size > 0 
+            ? `Todos os ${existingCNPJs.size} CNPJs encontrados já estão na sua base.`
+            : "Nenhuma empresa encontrada."
+        }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     // Process CNPJs - Limited to prevent CPU timeout
     const activeCNPJs: any[] = [];
-    const cnpjArray = Array.from(allCNPJs);
+    const cnpjArray = filteredCNPJs;
     const batchSize = 5;
     const maxResults = filters.limit || 100;
     const maxCNPJsToProcess = Math.min(cnpjArray.length, maxResults * 5);
