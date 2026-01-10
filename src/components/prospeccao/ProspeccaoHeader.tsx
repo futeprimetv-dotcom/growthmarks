@@ -12,7 +12,6 @@ import { SearchLimitSelector } from "./SearchLimitSelector";
 import { SearchTemplates } from "./SearchTemplates";
 import { SearchHistory } from "./SearchHistory";
 import { ICPSettingsDialog } from "./ICPSettingsDialog";
-import { ICPIndicator } from "./ICPIndicator";
 import type { ProspectFilters } from "@/hooks/useProspects";
 import type { CompanySearchResult } from "@/hooks/useCompanySearch";
 import type { CachedSearch } from "@/hooks/useSearchCache";
@@ -67,59 +66,51 @@ export function ProspeccaoHeader({
           </p>
         </div>
         
-        {/* Actions - reorganized in logical groups */}
-        <div className="flex items-center gap-3">
-          {/* ICP Group */}
-          <div className="flex items-center gap-2 bg-muted/30 rounded-lg p-1.5">
-            <ICPIndicator />
-            {searchMode === "internet" && <ICPSettingsDialog />}
-          </div>
-
-          {/* Search Tools (only for internet mode) */}
+        {/* Actions - simplified and organized */}
+        <div className="flex items-center gap-2">
           {searchMode === "internet" && (
-            <div className="flex items-center gap-2 bg-muted/30 rounded-lg p-1.5">
+            <>
+              <ICPSettingsDialog />
+              <div className="w-px h-6 bg-border" />
               <SearchLimitSelector 
                 value={pageSize} 
                 onChange={onPageSizeChange} 
               />
-              <div className="w-px h-6 bg-border" />
               <SearchTemplates onApply={onApplyTemplate} />
               <SearchHistory 
                 recentSearches={getRecentSearches()}
                 onApply={onApplyCachedSearch}
                 onClearHistory={clearCache}
               />
-            </div>
+              <div className="w-px h-6 bg-border" />
+            </>
           )}
 
-          {/* Saved Searches & Recent Filters */}
-          <div className="flex items-center gap-2">
-            <RecentFiltersSelect
-              onApply={(recent) => {
-                onApplyRecentFilters(recent);
-                toast({
-                  title: "Filtros recentes aplicados",
-                  description: "Clique em Buscar para ver os resultados.",
-                });
-              }}
-            />
+          <RecentFiltersSelect
+            onApply={(recent) => {
+              onApplyRecentFilters(recent);
+              toast({
+                title: "Filtros recentes aplicados",
+                description: "Clique em Buscar para ver os resultados.",
+              });
+            }}
+          />
 
-            {savedSearches.length > 0 && (
-              <Select onValueChange={onLoadSavedSearch}>
-                <SelectTrigger className="w-[180px]">
-                  <BookmarkCheck className="h-4 w-4 mr-2" />
-                  <SelectValue placeholder="Pesquisas salvas" />
-                </SelectTrigger>
-                <SelectContent>
-                  {savedSearches.map((search) => (
-                    <SelectItem key={search.id} value={search.id}>
-                      {search.name} ({search.results_count})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-          </div>
+          {savedSearches.length > 0 && (
+            <Select onValueChange={onLoadSavedSearch}>
+              <SelectTrigger className="w-[160px]">
+                <BookmarkCheck className="h-4 w-4 mr-2" />
+                <SelectValue placeholder="Salvas" />
+              </SelectTrigger>
+              <SelectContent>
+                {savedSearches.map((search) => (
+                  <SelectItem key={search.id} value={search.id}>
+                    {search.name} ({search.results_count})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
         </div>
       </div>
 
