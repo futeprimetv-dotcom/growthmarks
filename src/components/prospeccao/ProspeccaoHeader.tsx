@@ -1,11 +1,11 @@
-import { Search, BookmarkCheck, Globe, Database, FileText } from "lucide-react";
+import { Search, BookmarkCheck, Globe, Database, FileText, Trash2 } from "lucide-react";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RecentFiltersSelect } from "./RecentFiltersSelect";
 import { SearchLimitSelector } from "./SearchLimitSelector";
@@ -33,6 +33,7 @@ interface ProspeccaoHeaderProps {
   onPageSizeChange: (size: number) => void;
   savedSearches: SavedSearch[];
   onLoadSavedSearch: (searchId: string) => void;
+  onDeleteSavedSearch?: (searchId: string) => void;
   onApplyTemplate: (filters: ProspectFilters) => void;
   onApplyCachedSearch: (filters: ProspectFilters, results: CompanySearchResult[], total: number) => void;
   onApplyRecentFilters: (filters: ProspectFilters) => void;
@@ -47,6 +48,7 @@ export function ProspeccaoHeader({
   onPageSizeChange,
   savedSearches,
   onLoadSavedSearch,
+  onDeleteSavedSearch,
   onApplyTemplate,
   onApplyCachedSearch,
   onApplyRecentFilters,
@@ -56,15 +58,10 @@ export function ProspeccaoHeader({
   return (
     <div className="p-6 border-b shrink-0">
       <div className="flex items-start justify-between gap-4 mb-6">
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Search className="h-6 w-6" />
-            Prospecção
-          </h1>
-          <p className="text-muted-foreground">
-            Encontre empresas ativas para prospectar e envie para sua base de leads
-          </p>
-        </div>
+        <h1 className="text-2xl font-bold flex items-center gap-2">
+          <Search className="h-6 w-6" />
+          Prospecção
+        </h1>
         
         {/* Actions - simplified and organized */}
         <div className="flex items-center gap-2">
@@ -97,19 +94,40 @@ export function ProspeccaoHeader({
           />
 
           {savedSearches.length > 0 && (
-            <Select onValueChange={onLoadSavedSearch}>
-              <SelectTrigger className="w-[160px]">
-                <BookmarkCheck className="h-4 w-4 mr-2" />
-                <SelectValue placeholder="Salvas" />
-              </SelectTrigger>
-              <SelectContent>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="gap-2">
+                  <BookmarkCheck className="h-4 w-4" />
+                  Salvas
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
                 {savedSearches.map((search) => (
-                  <SelectItem key={search.id} value={search.id}>
-                    {search.name} ({search.results_count})
-                  </SelectItem>
+                  <DropdownMenuItem 
+                    key={search.id} 
+                    className="flex items-center justify-between group cursor-pointer"
+                    onClick={() => onLoadSavedSearch(search.id)}
+                  >
+                    <span className="truncate">
+                      {search.name} ({search.results_count})
+                    </span>
+                    {onDeleteSavedSearch && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive hover:bg-destructive/10"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDeleteSavedSearch(search.id);
+                        }}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                  </DropdownMenuItem>
                 ))}
-              </SelectContent>
-            </Select>
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
         </div>
       </div>

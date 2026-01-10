@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useProspects, useSendToLeadsBase, useAddProspectFromCNPJ, type ProspectFilters } from "@/hooks/useProspects";
-import { useSavedSearches } from "@/hooks/useSavedSearches";
+import { useSavedSearches, useDeleteSavedSearch } from "@/hooks/useSavedSearches";
 import { useCNPJLookupManual, type CNPJLookupResult } from "@/hooks/useCNPJLookup";
 import { useCompanySearch, type CompanySearchResult } from "@/hooks/useCompanySearch";
 import { useStreamingSearch } from "@/hooks/useStreamingSearch";
@@ -51,9 +51,14 @@ export function useProspeccaoState() {
   const { addNotification } = useNotifications();
   const { activeSearch, isSearching: isBackgroundSearching, startBackgroundSearch, cancelSearch: cancelBackgroundSearch, clearSearch } = useBackgroundSearch();
   const { data: savedSearches = [] } = useSavedSearches();
+  const deleteSavedSearch = useDeleteSavedSearch();
   const sendToLeadsBase = useSendToLeadsBase();
   const addProspectFromCNPJ = useAddProspectFromCNPJ();
   const { lookup } = useCNPJLookupManual();
+
+  const handleDeleteSavedSearch = useCallback((searchId: string) => {
+    deleteSavedSearch.mutate(searchId);
+  }, [deleteSavedSearch]);
 
   // Check for completed background search results on mount
   useEffect(() => {
@@ -572,6 +577,7 @@ export function useProspeccaoState() {
     handleClearFilters,
     handleBackFromResults,
     handleLoadSavedSearch,
+    handleDeleteSavedSearch,
     handleExport,
     handleSendToLeadsBase,
     handleAddToMyBase,
