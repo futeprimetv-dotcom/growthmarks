@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
-import { useProspects, useSendToLeadsBase, useAddProspectFromCNPJ, type ProspectFilters } from "@/hooks/useProspects";
+import { useProspects, useSendToLeadsBase, useAddProspectFromCNPJ, useAddProspectsFromInternet, type ProspectFilters } from "@/hooks/useProspects";
 import { useSavedSearches, useDeleteSavedSearch } from "@/hooks/useSavedSearches";
 import { useCNPJLookupManual, type CNPJLookupResult } from "@/hooks/useCNPJLookup";
 import { useCompanySearch, type CompanySearchResult } from "@/hooks/useCompanySearch";
@@ -47,6 +47,7 @@ export function useProspeccaoState() {
   const deleteSavedSearch = useDeleteSavedSearch();
   const sendToLeadsBase = useSendToLeadsBase();
   const addProspectFromCNPJ = useAddProspectFromCNPJ();
+  const addProspectsFromInternet = useAddProspectsFromInternet();
   const { lookup } = useCNPJLookupManual();
 
   const handleDeleteSavedSearch = useCallback((searchId: string) => {
@@ -352,47 +353,23 @@ export function useProspeccaoState() {
 
   const handleAddToMyBase = useCallback(async () => {
     const selectedCompanies = apiResults.filter(c => selectedIds.includes(c.id || c.cnpj));
-    let successCount = 0;
     
-    for (const company of selectedCompanies) {
-      try {
-        const cnpjData: CNPJLookupResult = {
-          cnpj: company.cnpj,
-          razaoSocial: company.razao_social || company.name,
-          nomeFantasia: company.name,
-          situacaoCadastral: company.situacao || "ATIVA",
-          cnaeFiscal: parseInt(company.cnae_code.replace(/\D/g, "")) || 0,
-          cnaeFiscalDescricao: company.cnae_description,
-          uf: company.state,
-          cidade: company.city,
-          bairro: company.neighborhood || "",
-          cep: company.zip_code || "",
-          endereco: [company.address, company.number, company.complement].filter(Boolean).join(" "),
-          telefone1: company.phones[0] || null,
-          telefone2: company.phones[1] || null,
-          email: company.emails[0] || null,
-          porte: company.company_size,
-          naturezaJuridica: "",
-          capitalSocial: company.capital_social || 0,
-          dataSituacaoCadastral: "",
-          dataInicioAtividade: company.data_abertura || "",
-          socios: [],
-        };
-        
-        await addProspectFromCNPJ.mutateAsync(cnpjData);
-        successCount++;
-      } catch (error) {
-        console.error("Error adding to base:", error);
-      }
+    if (selectedCompanies.length === 0) {
+      toast({
+        title: "Nenhuma empresa selecionada",
+        description: "Selecione ao menos uma empresa para adicionar.",
+        variant: "destructive",
+      });
+      return;
     }
     
-    toast({
-      title: "Adicionados à base",
-      description: `${successCount} de ${selectedCompanies.length} empresa(s) adicionadas à sua base.`,
-    });
-    
-    setSelectedIds([]);
-  }, [apiResults, selectedIds, addProspectFromCNPJ]);
+    try {
+      await addProspectsFromInternet.mutateAsync(selectedCompanies);
+      setSelectedIds([]);
+    } catch (error) {
+      console.error("Error adding to base:", error);
+    }
+  }, [apiResults, selectedIds, addProspectsFromInternet]);
 
   // CNPJ Lookup handlers
   const handleCNPJSearch = useCallback(async (cnpj: string) => {

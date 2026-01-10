@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import type { MockProspect } from "@/data/mockProspects";
 import type { CNPJLookupResult } from "@/hooks/useCNPJLookup";
+import type { CompanySearchResult } from "@/hooks/useCompanySearch";
 export interface Prospect {
   id: string;
   name: string;
@@ -397,5 +398,112 @@ export function useSendCNPJToFunnel() {
         variant: "destructive"
       });
     }
+  });
+}
+
+// Hook to add prospects from internet search (without situacaoCadastral validation)
+export function useAddProspectsFromInternet() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (companies: CompanySearchResult[]): Promise<{ added: number; duplicates: number; errors: number }> => {
+      let added = 0;
+      let duplicates = 0;
+      let errors = 0;
+
+      for (const company of companies) {
+        // Map company data to prospect format
+        const prospectData = {
+          name: company.name,
+          cnpj: company.cnpj || null,
+          segment: company.segment || null,
+          cnae_code: company.cnae_code || null,
+          cnae_description: company.cnae_description || null,
+          company_size: company.company_size || null,
+          city: company.city || null,
+          state: company.state || null,
+          neighborhood: company.neighborhood || null,
+          zip_code: company.zip_code || null,
+          has_website: company.has_website || false,
+          website_url: null,
+          has_phone: (company.phones?.length || 0) > 0,
+          has_email: (company.emails?.length || 0) > 0,
+          emails: company.emails || [],
+          phones: company.phones || [],
+          emails_count: company.emails?.length || 0,
+          phones_count: company.phones?.length || 0,
+          status: "novo",
+          tags: ["api-search"],
+          source: "casadosdados",
+          data_revealed: true,
+          revealed_at: new Date().toISOString(),
+          cnpj_situacao: (company.situacao || "ATIVA").toUpperCase(),
+        };
+
+        // Check if CNPJ already exists (if company has CNPJ)
+        if (company.cnpj) {
+          const { data: existing } = await supabase
+            .from("prospects")
+            .select("id")
+            .eq("cnpj", company.cnpj)
+            .maybeSingle();
+
+          if (existing) {
+            duplicates++;
+            continue;
+          }
+        }
+
+        const { error } = await supabase.from("prospects").insert(prospectData);
+
+        if (error) {
+          if (error.code === "23505") {
+            duplicates++;
+          } else {
+            console.error("Error adding prospect:", error);
+            errors++;
+          }
+        } else {
+          added++;
+        }
+      }
+
+      return { added, duplicates, errors };
+    },
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ["prospects"] });
+      
+      const messages: string[] = [];
+      if (result.added > 0) messages.push(`${result.added} adicionada(s)`);
+      if (result.duplicates > 0) messages.push(`${result.duplicates} já existente(s)`);
+      if (result.errors > 0) messages.push(`${result.errors} com erro`);
+      
+      if (result.added > 0) {
+        toast({
+          title: "Empresas salvas na Minha Base",
+          description: messages.join(", ") + ". Vá para a aba 'Minha Base' para visualizar.",
+        });
+      } else if (result.duplicates > 0 && result.errors === 0) {
+        toast({
+          title: "Empresas já existem",
+          description: `${result.duplicates} empresa(s) já estão na sua base.`,
+          variant: "default",
+        });
+      } else {
+        toast({
+          title: "Erro ao salvar",
+          description: "Não foi possível adicionar as empresas à base.",
+          variant: "destructive",
+        });
+      }
+    },
+    onError: (error) => {
+      console.error("Error adding prospects:", error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível adicionar as empresas à base.",
+        variant: "destructive",
+      });
+    },
   });
 }
