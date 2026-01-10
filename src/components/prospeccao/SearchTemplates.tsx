@@ -1,4 +1,4 @@
-import { Zap, Building2, ShoppingBag, Stethoscope, GraduationCap, Wrench } from "lucide-react";
+import { Zap, Building2, ShoppingBag, Stethoscope, GraduationCap, Wrench, Home, Car } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -23,6 +23,27 @@ interface SearchTemplate {
 }
 
 const templates: SearchTemplate[] = [
+  {
+    id: "imobiliarias",
+    name: "Imobiliárias",
+    description: "Corretoras e imobiliárias",
+    icon: Home,
+    filters: {
+      segments: ["Imobiliário"],
+      hasPhone: true,
+      hasEmail: true,
+    },
+  },
+  {
+    id: "lojas-carros",
+    name: "Lojas de Carros",
+    description: "Concessionárias e revendas de veículos",
+    icon: Car,
+    filters: {
+      segments: ["Veículos - Lojas de Carros"],
+      hasPhone: true,
+    },
+  },
   {
     id: "comercio-varejo",
     name: "Comércio Varejista",

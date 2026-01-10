@@ -1,4 +1,4 @@
-import { Search, X, Save } from "lucide-react";
+import { Search, X, Save, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -8,10 +8,14 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  SelectGroup,
+  SelectLabel,
+  SelectSeparator,
 } from "@/components/ui/select";
 import { Toggle } from "@/components/ui/toggle";
 import { CityCombobox } from "./CityCombobox";
 import { segments, companySizes, brazilianStates } from "@/data/mockProspects";
+import { useRecentLocations } from "@/hooks/useRecentLocations";
 import type { ProspectFilters } from "@/hooks/useProspects";
 
 interface Props {
@@ -27,6 +31,8 @@ export function DatabaseFilters({
   onClear, 
   onSaveSearch,
 }: Props) {
+  const { recentStates, recentCities, addRecentState, addRecentCity } = useRecentLocations();
+
   const updateFilter = <K extends keyof ProspectFilters>(key: K, value: ProspectFilters[K]) => {
     onFiltersChange({ ...filters, [key]: value });
   };
@@ -35,11 +41,15 @@ export function DatabaseFilters({
     if (value === "_all") {
       onFiltersChange({ ...filters, states: undefined, cities: undefined });
     } else {
+      addRecentState(value);
       onFiltersChange({ ...filters, states: [value], cities: undefined });
     }
   };
 
   const handleCityChange = (city: string | undefined) => {
+    if (city) {
+      addRecentCity(city);
+    }
     updateFilter("cities", city ? [city] : undefined);
   };
 
@@ -53,6 +63,11 @@ export function DatabaseFilters({
     filters.hasPhone === true ? 1 : 0,
     filters.hasEmail === true ? 1 : 0
   ].reduce((sum, val) => sum + val, 0);
+
+  // Filter out recent states from the alphabetical list
+  const alphabeticalStates = brazilianStates.filter(
+    state => !recentStates.includes(state.value)
+  );
 
   return (
     <div className="space-y-3">
@@ -94,11 +109,35 @@ export function DatabaseFilters({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="_all">Todos os estados</SelectItem>
-            {brazilianStates.map((state) => (
-              <SelectItem key={state.value} value={state.value}>
-                {state.label}
-              </SelectItem>
-            ))}
+            
+            {recentStates.length > 0 && (
+              <>
+                <SelectGroup>
+                  <SelectLabel className="flex items-center gap-1.5 text-xs">
+                    <Clock className="h-3 w-3" />
+                    Recentes
+                  </SelectLabel>
+                  {recentStates.map((stateValue) => {
+                    const stateData = brazilianStates.find(s => s.value === stateValue);
+                    return stateData ? (
+                      <SelectItem key={`recent-${stateValue}`} value={stateValue}>
+                        {stateData.label}
+                      </SelectItem>
+                    ) : null;
+                  })}
+                </SelectGroup>
+                <SelectSeparator />
+              </>
+            )}
+            
+            <SelectGroup>
+              <SelectLabel className="text-xs">Todos</SelectLabel>
+              {alphabeticalStates.map((state) => (
+                <SelectItem key={state.value} value={state.value}>
+                  {state.label}
+                </SelectItem>
+              ))}
+            </SelectGroup>
           </SelectContent>
         </Select>
 
@@ -107,6 +146,7 @@ export function DatabaseFilters({
           selectedCity={filters.cities?.[0]}
           onCityChange={handleCityChange}
           placeholder="Cidade"
+          recentCities={recentCities}
         />
 
         <Select
