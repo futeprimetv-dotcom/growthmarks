@@ -77,6 +77,7 @@ export default function Prospeccao() {
           onPageSizeChange={state.setPageSize}
           savedSearches={state.savedSearches}
           onLoadSavedSearch={state.handleLoadSavedSearch}
+          onDeleteSavedSearch={state.handleDeleteSavedSearch}
           onApplyTemplate={state.handleApplyTemplate}
           onApplyCachedSearch={state.handleApplyCachedSearch}
           onApplyRecentFilters={state.setFilters}
