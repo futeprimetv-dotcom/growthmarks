@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { ToastAction } from "@/components/ui/toast";
 import type { MockProspect } from "@/data/mockProspects";
 import type { CNPJLookupResult } from "@/hooks/useCNPJLookup";
 
@@ -242,7 +243,12 @@ export function useSendToLeadsBase() {
       queryClient.refetchQueries({ queryKey: ["leads"] });
       toast({
         title: "Leads criados",
-        description: `${data.count} lead(s) foram adicionados à base.`
+        description: `${data.count} lead(s) foram adicionados à base.`,
+        action: (
+          <ToastAction altText="Ir para Leads" onClick={() => window.location.href = "/leads"}>
+            Ir para Leads
+          </ToastAction>
+        )
       });
     },
     onError: () => {
