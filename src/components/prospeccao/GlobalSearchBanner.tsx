@@ -1,6 +1,7 @@
-import { Loader2, X, Maximize2, CheckCircle, AlertCircle } from "lucide-react";
+import { Loader2, X, Maximize2, CheckCircle, AlertCircle, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { Badge } from "@/components/ui/badge";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useBackgroundSearch } from "@/contexts/BackgroundSearchContext";
@@ -8,29 +9,19 @@ import { useBackgroundSearch } from "@/contexts/BackgroundSearchContext";
 export function GlobalSearchBanner() {
   const navigate = useNavigate();
   const { activeSearch, isSearching, cancelSearch, clearSearch } = useBackgroundSearch();
-  const [progress, setProgress] = useState(0);
   const [elapsedTime, setElapsedTime] = useState(0);
 
   useEffect(() => {
     if (!isSearching) {
-      setProgress(0);
       setElapsedTime(0);
       return;
     }
-
-    const progressInterval = setInterval(() => {
-      setProgress(prev => {
-        if (prev >= 95) return 95;
-        return prev + Math.random() * 2;
-      });
-    }, 500);
 
     const timeInterval = setInterval(() => {
       setElapsedTime(prev => prev + 1);
     }, 1000);
 
     return () => {
-      clearInterval(progressInterval);
       clearInterval(timeInterval);
     };
   }, [isSearching]);
@@ -50,6 +41,12 @@ export function GlobalSearchBanner() {
     filterParts.push(activeSearch.filters.states[0]);
   }
   const filterSummary = filterParts.length > 0 ? filterParts.join(" • ") : "Buscando...";
+
+  // Calculate real progress from context
+  const progress = activeSearch.progress;
+  const progressPercent = progress.total > 0 
+    ? Math.round((progress.processed / progress.total) * 100) 
+    : 0;
 
   const handleViewResults = () => {
     navigate("/prospeccao?showResults=true");
@@ -137,9 +134,17 @@ export function GlobalSearchBanner() {
         <span className="text-muted-foreground">{filterSummary}</span>
       </div>
 
-      <div className="flex-1 max-w-xs">
-        <Progress value={progress} className="h-1.5" />
+      <div className="flex-1 max-w-xs flex items-center gap-2">
+        <Progress value={progressPercent} className="h-1.5 flex-1" />
+        <span className="text-xs text-muted-foreground whitespace-nowrap">
+          {progress.processed}/{progress.total}
+        </span>
       </div>
+
+      <Badge variant="secondary" className="gap-1">
+        <CheckCircle2 className="h-3 w-3" />
+        {progress.found} encontrada(s)
+      </Badge>
 
       <span className="text-xs text-muted-foreground">{elapsedTime}s</span>
 
