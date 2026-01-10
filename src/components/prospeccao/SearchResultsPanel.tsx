@@ -582,16 +582,18 @@ function CompanyCard({
 
               {/* Action Buttons - Right aligned */}
               <div className="flex items-center gap-1.5 ml-auto">
-                {/* WhatsApp Button */}
-                {whatsappNumbers.length > 0 && (
+                {/* WhatsApp Button - Shows when we have WhatsApp numbers OR any phone */}
+                {(whatsappNumbers.length > 0 || allPhones.length > 0) && (
                   <a
                     href={`https://wa.me/${(() => {
-                      const cleaned = whatsappNumbers[0].replace(/\D/g, "");
+                      const phoneToUse = whatsappNumbers.length > 0 ? whatsappNumbers[0] : allPhones[0];
+                      const cleaned = phoneToUse.replace(/\D/g, "");
                       return cleaned.startsWith('55') ? cleaned : `55${cleaned}`;
                     })()}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-green-600 hover:bg-green-700 text-white text-xs font-medium transition-colors"
+                    title={whatsappNumbers.length > 0 ? "WhatsApp verificado" : "Tentar contato via WhatsApp"}
                   >
                     <MessageCircle className="h-3.5 w-3.5" />
                     WhatsApp
