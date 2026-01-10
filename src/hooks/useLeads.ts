@@ -15,7 +15,8 @@ export function useLeads() {
       const { data, error } = await supabase
         .from("leads")
         .select("*")
-        .eq("is_archived", false)
+        // Some older inserts may have is_archived = null, so treat null as "not archived"
+        .or("is_archived.is.null,is_archived.eq.false")
         .order("created_at", { ascending: false });
       
       if (error) throw error;
