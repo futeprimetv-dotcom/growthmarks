@@ -484,118 +484,133 @@ serve(async (req) => {
 
     const searchQueries = buildSearchQueries(filters);
     console.log("🔎 Queries otimizadas:", searchQueries);
-
-    // Collect all CNPJs from search
-    const allCNPJs: Set<string> = new Set();
-    const searchPromises = searchQueries.map(async (query, index) => {
-      try {
-        const response = await fetch("https://api.firecrawl.dev/v1/search", {
-          method: "POST",
-          headers: {
-            "Authorization": `Bearer ${FIRECRAWL_API_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            query,
-            limit: 25,
-            lang: "pt-BR",
-            country: "BR",
-            scrapeOptions: { formats: ["markdown"] },
-          }),
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          const results = data.data || [];
-          console.log(`  ✓ Query ${index + 1}: ${results.length} resultados`);
-          
-          for (const result of results) {
-            const text = `${result.markdown || ""} ${result.title || ""} ${result.description || ""}`;
-            extractCNPJs(text).forEach(c => allCNPJs.add(c));
-          }
-        }
-      } catch (e) {
-        console.error(`  ✗ Query ${index + 1} erro:`, e);
-      }
-    });
-
-    await Promise.all(searchPromises);
-    stats.totalCNPJsFound = allCNPJs.size;
-    console.log(`📊 CNPJs únicos encontrados: ${allCNPJs.size}`);
-
-    // Filter out CNPJs that already exist in prospects table (Minha Base)
-    let existingCNPJs: Set<string> = new Set();
-    if (supabase && allCNPJs.size > 0) {
-      try {
-        const cnpjList = [...allCNPJs];
-        // Query in batches of 100 to avoid query size limits
-        for (let i = 0; i < cnpjList.length; i += 100) {
-          const batch = cnpjList.slice(i, i + 100);
-          // Format CNPJs to match stored format (XX.XXX.XXX/XXXX-XX)
-          const formattedBatch = batch.map(cnpj => 
-            cnpj.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5")
-          );
-          
-          const { data: existingProspects } = await supabase
-            .from('prospects')
-            .select('cnpj')
-            .in('cnpj', formattedBatch);
-          
-          if (existingProspects) {
-            existingProspects.forEach((p: { cnpj: string }) => {
-              // Store as raw CNPJ (numbers only) for comparison
-              existingCNPJs.add(p.cnpj.replace(/\D/g, ""));
-            });
-          }
-        }
-        console.log(`🚫 CNPJs já na base (excluídos): ${existingCNPJs.size}`);
-      } catch (e) {
-        console.log("Erro ao verificar CNPJs existentes:", e);
-      }
-    }
-
-    // Remove existing CNPJs from the search results
-    const filteredCNPJs = [...allCNPJs].filter(cnpj => !existingCNPJs.has(cnpj));
-    console.log(`✅ CNPJs restantes para processar: ${filteredCNPJs.length}`);
-
-    if (filteredCNPJs.length === 0) {
-      stats.processingTimeMs = Date.now() - startTime;
-      return new Response(
-        JSON.stringify({
-          companies: [],
-          total: 0,
-          page: filters.page || 1,
-          pageSize: filters.pageSize || 10,
-          source: "firecrawl",
-          debug: { ...stats, skippedExisting: existingCNPJs.size },
-          message: existingCNPJs.size > 0 
-            ? `Todos os ${existingCNPJs.size} CNPJs encontrados já estão na sua base.`
-            : "Nenhuma empresa encontrada para esses filtros."
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
+    
     const pageSize = filters.pageSize || 10;
-    const cnpjArray = filteredCNPJs.slice(0, Math.min(pageSize * 15, 300));
 
     // ==================== STREAMING MODE ====================
     if (isStreaming) {
-      console.log("🌊 Iniciando modo streaming...");
+      console.log("🌊 Iniciando modo streaming imediato...");
       
       const encoder = new TextEncoder();
-      const cacheEntriesToSave: { cnpj: string; data: any; situacao: string; source: string }[] = [];
       
       const stream = new ReadableStream({
         async start(controller) {
+          const cacheEntriesToSave: { cnpj: string; data: any; situacao: string; source: string }[] = [];
           let companiesFound = 0;
           const seenCNPJs = new Set<string>();
           
-          // Send initial stats
+          // Send initial message immediately
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ 
+            type: "init", 
+            totalCNPJs: 0,
+            processing: 0,
+            phase: "searching",
+            message: "Buscando empresas na internet..."
+          })}\n\n`));
+          
+          // Collect all CNPJs from search - with progress updates
+          const allCNPJs: Set<string> = new Set();
+          let queriesCompleted = 0;
+          
+          for (const query of searchQueries) {
+            try {
+              const response = await fetch("https://api.firecrawl.dev/v1/search", {
+                method: "POST",
+                headers: {
+                  "Authorization": `Bearer ${FIRECRAWL_API_KEY}`,
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  query,
+                  limit: 25,
+                  lang: "pt-BR",
+                  country: "BR",
+                  scrapeOptions: { formats: ["markdown"] },
+                }),
+              });
+
+              if (response.ok) {
+                const data = await response.json();
+                const results = data.data || [];
+                console.log(`  ✓ Query ${queriesCompleted + 1}: ${results.length} resultados`);
+                
+                for (const result of results) {
+                  const text = `${result.markdown || ""} ${result.title || ""} ${result.description || ""}`;
+                  extractCNPJs(text).forEach(c => allCNPJs.add(c));
+                }
+              }
+            } catch (e) {
+              console.error(`  ✗ Query ${queriesCompleted + 1} erro:`, e);
+            }
+            
+            queriesCompleted++;
+            
+            // Send search progress
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ 
+              type: "progress", 
+              processed: queriesCompleted,
+              total: searchQueries.length,
+              found: allCNPJs.size,
+              phase: "searching"
+            })}\n\n`));
+          }
+          
+          stats.totalCNPJsFound = allCNPJs.size;
+          console.log(`📊 CNPJs únicos encontrados: ${allCNPJs.size}`);
+          
+          // Filter out existing CNPJs
+          let existingCNPJs: Set<string> = new Set();
+          if (supabase && allCNPJs.size > 0) {
+            try {
+              const cnpjList = [...allCNPJs];
+              for (let i = 0; i < cnpjList.length; i += 100) {
+                const batch = cnpjList.slice(i, i + 100);
+                const formattedBatch = batch.map(cnpj => 
+                  cnpj.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5")
+                );
+                
+                const { data: existingProspects } = await supabase
+                  .from('prospects')
+                  .select('cnpj')
+                  .in('cnpj', formattedBatch);
+                
+                if (existingProspects) {
+                  existingProspects.forEach((p: { cnpj: string }) => {
+                    existingCNPJs.add(p.cnpj.replace(/\D/g, ""));
+                  });
+                }
+              }
+              console.log(`🚫 CNPJs já na base (excluídos): ${existingCNPJs.size}`);
+            } catch (e) {
+              console.log("Erro ao verificar CNPJs existentes:", e);
+            }
+          }
+          
+          const filteredCNPJs = [...allCNPJs].filter(cnpj => !existingCNPJs.has(cnpj));
+          console.log(`✅ CNPJs restantes para processar: ${filteredCNPJs.length}`);
+          
+          if (filteredCNPJs.length === 0) {
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ 
+              type: "complete",
+              stats: { ...stats, skippedExisting: existingCNPJs.size },
+              total: 0,
+              message: existingCNPJs.size > 0 
+                ? `Todos os ${existingCNPJs.size} CNPJs encontrados já estão na sua base.`
+                : "Nenhuma empresa encontrada para esses filtros."
+            })}\n\n`));
+            controller.close();
+            return;
+          }
+          
+          const cnpjArray = filteredCNPJs.slice(0, Math.min(pageSize * 15, 300));
+          
+          // Update to processing phase
           controller.enqueue(encoder.encode(`data: ${JSON.stringify({ 
             type: "init", 
             totalCNPJs: allCNPJs.size,
-            processing: cnpjArray.length 
+            processing: cnpjArray.length,
+            phase: "processing",
+            message: "Validando empresas..."
           })}\n\n`));
           
           // Process in small batches for faster initial results
@@ -643,7 +658,8 @@ serve(async (req) => {
               type: "progress", 
               processed: stats.cnpjsProcessed,
               total: cnpjArray.length,
-              found: companiesFound
+              found: companiesFound,
+              phase: "processing"
             })}\n\n`));
           }
           
@@ -685,6 +701,96 @@ serve(async (req) => {
         },
       });
     }
+    
+    // ==================== NORMAL MODE ====================
+    // Collect all CNPJs from search
+    const allCNPJs: Set<string> = new Set();
+    const searchPromises = searchQueries.map(async (query, index) => {
+      try {
+        const response = await fetch("https://api.firecrawl.dev/v1/search", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${FIRECRAWL_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            query,
+            limit: 25,
+            lang: "pt-BR",
+            country: "BR",
+            scrapeOptions: { formats: ["markdown"] },
+          }),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const results = data.data || [];
+          console.log(`  ✓ Query ${index + 1}: ${results.length} resultados`);
+          
+          for (const result of results) {
+            const text = `${result.markdown || ""} ${result.title || ""} ${result.description || ""}`;
+            extractCNPJs(text).forEach(c => allCNPJs.add(c));
+          }
+        }
+      } catch (e) {
+        console.error(`  ✗ Query ${index + 1} erro:`, e);
+      }
+    });
+
+    await Promise.all(searchPromises);
+    stats.totalCNPJsFound = allCNPJs.size;
+    console.log(`📊 CNPJs únicos encontrados: ${allCNPJs.size}`);
+
+    // Filter out CNPJs that already exist in prospects table (Minha Base)
+    let existingCNPJs: Set<string> = new Set();
+    if (supabase && allCNPJs.size > 0) {
+      try {
+        const cnpjList = [...allCNPJs];
+        for (let i = 0; i < cnpjList.length; i += 100) {
+          const batch = cnpjList.slice(i, i + 100);
+          const formattedBatch = batch.map(cnpj => 
+            cnpj.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5")
+          );
+          
+          const { data: existingProspects } = await supabase
+            .from('prospects')
+            .select('cnpj')
+            .in('cnpj', formattedBatch);
+          
+          if (existingProspects) {
+            existingProspects.forEach((p: { cnpj: string }) => {
+              existingCNPJs.add(p.cnpj.replace(/\D/g, ""));
+            });
+          }
+        }
+        console.log(`🚫 CNPJs já na base (excluídos): ${existingCNPJs.size}`);
+      } catch (e) {
+        console.log("Erro ao verificar CNPJs existentes:", e);
+      }
+    }
+
+    const filteredCNPJs = [...allCNPJs].filter(cnpj => !existingCNPJs.has(cnpj));
+    console.log(`✅ CNPJs restantes para processar: ${filteredCNPJs.length}`);
+
+    if (filteredCNPJs.length === 0) {
+      stats.processingTimeMs = Date.now() - startTime;
+      return new Response(
+        JSON.stringify({
+          companies: [],
+          total: 0,
+          page: filters.page || 1,
+          pageSize: filters.pageSize || 10,
+          source: "firecrawl",
+          debug: { ...stats, skippedExisting: existingCNPJs.size },
+          message: existingCNPJs.size > 0 
+            ? `Todos os ${existingCNPJs.size} CNPJs encontrados já estão na sua base.`
+            : "Nenhuma empresa encontrada para esses filtros."
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const cnpjArray = filteredCNPJs.slice(0, Math.min(pageSize * 15, 300));
     
     // ==================== NORMAL MODE (unchanged) ====================
     console.log(`🔄 Processando ${cnpjArray.length} CNPJs (modo normal)...`);

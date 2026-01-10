@@ -17,6 +17,8 @@ interface BackgroundSearch {
   total?: number;
   stats?: SearchDebugStats;
   error?: string;
+  phase?: "searching" | "processing";
+  message?: string;
   progress: {
     processed: number;
     total: number;
@@ -140,9 +142,11 @@ export function BackgroundSearchProvider({ children }: { children: React.ReactNo
                 case "init":
                   setActiveSearch(prev => prev ? {
                     ...prev,
+                    phase: data.phase || "processing",
+                    message: data.message,
                     progress: {
                       ...prev.progress,
-                      total: data.processing,
+                      total: data.processing || prev.progress.total,
                     },
                   } : null);
                   break;
@@ -152,12 +156,14 @@ export function BackgroundSearchProvider({ children }: { children: React.ReactNo
                     ...prev,
                     results: [...prev.results, data.company],
                     progress: data.progress,
+                    phase: "processing",
                   } : null);
                   break;
                   
                 case "progress":
                   setActiveSearch(prev => prev ? {
                     ...prev,
+                    phase: data.phase || prev?.phase,
                     progress: {
                       processed: data.processed,
                       total: data.total,
