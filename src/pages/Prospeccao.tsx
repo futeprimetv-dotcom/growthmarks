@@ -46,9 +46,9 @@ export default function Prospeccao() {
     <div className="flex flex-col h-[calc(100vh-4rem)]">
       {/* Background Search Banner - always visible when searching */}
       <BackgroundSearchBanner
-        isVisible={state.streamingSearch.isSearching}
-        filters={state.filters}
-        progress={state.streamingSearch.progress}
+        isVisible={state.isBackgroundSearching}
+        filters={state.activeSearch?.filters || state.filters}
+        progress={state.activeSearch?.progress || { processed: 0, total: 0, found: 0 }}
         onViewResults={state.handleViewStreamingResults}
         onCancel={state.handleCancelSearch}
       />
