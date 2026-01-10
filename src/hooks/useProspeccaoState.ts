@@ -42,7 +42,8 @@ export function useProspeccaoState() {
   const [batchAdding, setBatchAdding] = useState(false);
 
   // Hooks
-  const { data: prospects = [], isLoading: dbLoading, isError, refetch } = useProspects(filters, hasSearched && searchMode === "database");
+  // For database mode, always fetch (auto-filter without search button)
+  const { data: prospects = [], isLoading: dbLoading, isError, refetch } = useProspects(filters, searchMode === "database");
   const streamingSearch = useStreamingSearch();
   const companySearch = useCompanySearch();
   const { findCached, addToCache, getRecentSearches, clearCache } = useSearchCache();

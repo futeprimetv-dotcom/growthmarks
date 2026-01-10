@@ -1,23 +1,19 @@
 import { Database } from "lucide-react";
-import { ProspeccaoFilters } from "./ProspeccaoFilters";
+import { DatabaseFilters } from "./DatabaseFilters";
 import type { ProspectFilters } from "@/hooks/useProspects";
 
 interface DatabaseSearchModeProps {
   filters: ProspectFilters;
   onFiltersChange: (filters: ProspectFilters) => void;
-  onSearch: () => void;
   onClear: () => void;
   onSaveSearch: () => void;
-  isLoading: boolean;
 }
 
 export function DatabaseSearchMode({
   filters,
   onFiltersChange,
-  onSearch,
   onClear,
   onSaveSearch,
-  isLoading,
 }: DatabaseSearchModeProps) {
   return (
     <>
@@ -28,13 +24,11 @@ export function DatabaseSearchMode({
         </span>
       </div>
 
-      <ProspeccaoFilters
+      <DatabaseFilters
         filters={filters}
         onFiltersChange={onFiltersChange}
-        onSearch={onSearch}
         onClear={onClear}
         onSaveSearch={onSaveSearch}
-        isLoading={isLoading}
       />
     </>
   );

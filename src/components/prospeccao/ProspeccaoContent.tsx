@@ -65,7 +65,8 @@ export function ProspeccaoContent({
       );
     }
 
-    if (!hasSearched) {
+    // Show empty state when no data and not loading
+    if (!isLoading && displayData.length === 0) {
       return (
         <div className="flex flex-col items-center justify-center py-20 text-center">
           <Database className="h-16 w-16 text-muted-foreground/30 mb-4" />

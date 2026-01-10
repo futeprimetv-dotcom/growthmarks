@@ -120,16 +120,14 @@ export default function Prospeccao() {
             <DatabaseSearchMode
               filters={state.filters}
               onFiltersChange={state.setFilters}
-              onSearch={state.handleSearch}
               onClear={state.handleClearFilters}
               onSaveSearch={() => state.setSaveSearchOpen(true)}
-              isLoading={state.isLoading}
             />
           )}
         </div>
 
-        {/* Results Header - Only for database mode */}
-        {state.hasSearched && state.searchMode === "database" && (
+        {/* Results Header - Only for database mode when there is data */}
+        {state.searchMode === "database" && state.displayData.length > 0 && (
           <DatabaseResultsHeader
             selectedCount={state.selectedIds.length}
             totalCount={state.displayData.length}
