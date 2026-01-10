@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   Globe,
   Instagram,
@@ -9,6 +10,8 @@ import {
   Phone,
   ChevronLeft,
   ChevronRight,
+  Sparkles,
+  Loader2,
 } from "lucide-react";
 import {
   Table,
@@ -23,6 +26,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ProspectStatusBadge } from "./ProspectStatusBadge";
+import { AIAnalysisDialog } from "./AIAnalysisDialog";
+import { useFullAnalysis, type CompanyData, type FitAnalysis, type CompanySummary } from "@/hooks/useAIProspecting";
+import { useICPSettings } from "@/hooks/useICPSettings";
 import type { MockProspect } from "@/data/mockProspects";
 
 interface Props {
@@ -35,6 +41,9 @@ interface Props {
   pageSize?: number;
 }
 
+// Cache for AI analysis results
+const aiAnalysisCache = new Map<string, { fit: FitAnalysis; summary: CompanySummary }>();
+
 export function ProspeccaoTable({
   prospects,
   isLoading,
@@ -44,8 +53,61 @@ export function ProspeccaoTable({
   onPageChange,
   pageSize = 10
 }: Props) {
+  const [analyzingIds, setAnalyzingIds] = useState<Set<string>>(new Set());
+  const [aiResults, setAiResults] = useState<Map<string, { fit: FitAnalysis; summary: CompanySummary }>>(
+    () => new Map(aiAnalysisCache)
+  );
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [selectedProspect, setSelectedProspect] = useState<MockProspect | null>(null);
+  
+  const fullAnalysis = useFullAnalysis();
+  const { data: icpConfig } = useICPSettings();
+
   const totalPages = Math.ceil(prospects.length / pageSize);
   const paginatedProspects = prospects.slice((page - 1) * pageSize, page * pageSize);
+
+  const handleAnalyze = async (prospect: MockProspect) => {
+    const cached = aiAnalysisCache.get(prospect.id);
+    if (cached) {
+      setSelectedProspect(prospect);
+      setDialogOpen(true);
+      return;
+    }
+
+    setAnalyzingIds(prev => new Set(prev).add(prospect.id));
+
+    try {
+      const companyData: CompanyData = {
+        name: prospect.name,
+        cnpj: prospect.cnpj,
+        segment: prospect.segment,
+        city: prospect.city,
+        state: prospect.state,
+        companySize: prospect.company_size,
+        cnaeCode: prospect.cnae_code,
+        cnaeDescription: prospect.cnae_description,
+        phones: prospect.phones,
+        emails: prospect.emails,
+        website: prospect.website_url,
+        instagram: prospect.social_links?.instagram ? [prospect.social_links.instagram] : undefined,
+      };
+
+      const result = await fullAnalysis.mutateAsync({ company: companyData, icpConfig });
+      
+      aiAnalysisCache.set(prospect.id, result);
+      setAiResults(prev => new Map(prev).set(prospect.id, result));
+      setSelectedProspect(prospect);
+      setDialogOpen(true);
+    } catch (error) {
+      console.error("AI analysis error:", error);
+    } finally {
+      setAnalyzingIds(prev => {
+        const next = new Set(prev);
+        next.delete(prospect.id);
+        return next;
+      });
+    }
+  };
 
   const toggleSelect = (id: string) => {
     if (selectedIds.includes(id)) {
@@ -104,6 +166,7 @@ export function ProspeccaoTable({
               <TableHead>Localização</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Tags</TableHead>
+              <TableHead className="w-[140px]">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -231,6 +294,31 @@ export function ProspeccaoTable({
                     )}
                   </div>
                 </TableCell>
+                <TableCell>
+                  <Button
+                    variant={aiResults.has(prospect.id) ? "outline" : "default"}
+                    size="sm"
+                    onClick={() => handleAnalyze(prospect)}
+                    disabled={analyzingIds.has(prospect.id)}
+                  >
+                    {analyzingIds.has(prospect.id) ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                        <span className="sr-only">Analisando</span>
+                      </>
+                    ) : aiResults.has(prospect.id) ? (
+                      <>
+                        <Sparkles className="h-4 w-4 mr-1" />
+                        Ver Análise
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="h-4 w-4 mr-1" />
+                        Analisar IA
+                      </>
+                    )}
+                  </Button>
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>
@@ -265,6 +353,31 @@ export function ProspeccaoTable({
             </Button>
           </div>
         </div>
+      )}
+
+      {/* AI Analysis Dialog */}
+      {selectedProspect && (
+        <AIAnalysisDialog
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+          company={{
+            name: selectedProspect.name,
+            cnpj: selectedProspect.cnpj,
+            segment: selectedProspect.segment,
+            city: selectedProspect.city,
+            state: selectedProspect.state,
+            companySize: selectedProspect.company_size,
+            cnaeCode: selectedProspect.cnae_code,
+            cnaeDescription: selectedProspect.cnae_description,
+            phones: selectedProspect.phones,
+            emails: selectedProspect.emails,
+            website: selectedProspect.website_url,
+            instagram: selectedProspect.social_links?.instagram ? [selectedProspect.social_links.instagram] : undefined,
+          }}
+          fitAnalysis={aiResults.get(selectedProspect.id)?.fit}
+          summary={aiResults.get(selectedProspect.id)?.summary}
+          isLoading={analyzingIds.has(selectedProspect.id)}
+        />
       )}
     </div>
   );
