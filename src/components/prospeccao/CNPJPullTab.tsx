@@ -385,8 +385,8 @@ export function CNPJPullTab() {
         </Button>
       </div>
 
-      {/* Progress */}
-      {isSearching && (
+      {/* Progress - hide when moved to background */}
+      {isSearching && !activeSearch?.isBackground && (
         <Card className="border-primary/20 bg-primary/5">
           <CardContent className="pt-4">
             <div className="space-y-3">
