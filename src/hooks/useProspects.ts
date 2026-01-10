@@ -402,6 +402,7 @@ export function useSendCNPJToFunnel() {
 }
 
 // Hook to add prospects from internet search (without situacaoCadastral validation)
+// This hook handles batch insertion with duplicate detection
 export function useAddProspectsFromInternet() {
   const queryClient = useQueryClient();
 
