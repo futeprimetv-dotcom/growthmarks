@@ -7,7 +7,7 @@ import { InternetResultsView } from "@/components/prospeccao/InternetResultsView
 import { DatabaseResultsHeader } from "@/components/prospeccao/DatabaseResultsHeader";
 import { ProspeccaoContent } from "@/components/prospeccao/ProspeccaoContent";
 import { CNPJPullTab } from "@/components/prospeccao/CNPJPullTab";
-import { BackgroundSearchBanner } from "@/components/prospeccao/BackgroundSearchBanner";
+
 import { SaveSearchDialog } from "@/components/prospeccao/SaveSearchDialog";
 import { SendToFunnelDialog } from "@/components/prospeccao/SendToFunnelDialog";
 import { CNPJBatchDialog } from "@/components/prospeccao/CNPJBatchDialog";
@@ -44,15 +44,6 @@ export default function Prospeccao() {
   // Default view with filters
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)]">
-      {/* Background Search Banner - always visible when searching */}
-      <BackgroundSearchBanner
-        isVisible={state.isBackgroundSearching}
-        filters={state.activeSearch?.filters || state.filters}
-        progress={state.activeSearch?.progress || { processed: 0, total: 0, found: 0 }}
-        onViewResults={state.handleViewStreamingResults}
-        onCancel={state.handleCancelSearch}
-      />
-        
         {/* Header with tabs and actions */}
         <ProspeccaoHeader
           searchMode={state.searchMode}
