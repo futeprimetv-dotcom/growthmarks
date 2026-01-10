@@ -1,5 +1,5 @@
-import { useState, useRef, useCallback } from "react";
-import { Search, Download, Loader2, FileText, CheckCircle, XCircle, StopCircle, Clock, Send, UserPlus } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Search, Download, Loader2, FileText, CheckCircle, XCircle, StopCircle, Clock, Send, UserPlus, MinusCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -14,72 +14,51 @@ import {
 } from "@/components/ui/select";
 import { CityCombobox } from "./CityCombobox";
 import { SendToFunnelDialog } from "./SendToFunnelDialog";
+import { CNPJLeaveDialog } from "./CNPJLeaveDialog";
 import { segments, companySizes, brazilianStates } from "@/data/mockProspects";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-
-interface CNPJResult {
-  cnpj: string;
-  razao_social?: string;
-  nome_fantasia?: string;
-  porte?: string;
-  situacao?: string;
-  municipio?: string;
-  uf?: string;
-  cnae_fiscal_descricao?: string;
-}
-
-interface SearchProgress {
-  status: "idle" | "searching" | "processing" | "completed" | "error";
-  statusMessage?: string;
-  totalFound: number;
-  processed: number;
-  activeCount: number;
-  inactiveCount: number;
-  cacheHits: number;
-  queriesCompleted: number;
-  totalQueries: number;
-}
-
-function formatTimeRemaining(seconds: number): string {
-  if (seconds < 0 || !isFinite(seconds)) return "--";
-  if (seconds < 60) return `${Math.ceil(seconds)}s`;
-  if (seconds < 3600) {
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.ceil(seconds % 60);
-    return `${mins}m ${secs}s`;
-  }
-  const hours = Math.floor(seconds / 3600);
-  const mins = Math.ceil((seconds % 3600) / 60);
-  return `${hours}h ${mins}m`;
-}
+import { useCNPJPull, type CNPJResult } from "@/contexts/CNPJPullContext";
+import { useLocation } from "react-router-dom";
 
 export function CNPJPullTab() {
-  const [segment, setSegment] = useState<string | undefined>();
-  const [state, setState] = useState<string | undefined>();
-  const [city, setCity] = useState<string | undefined>();
-  const [companySize, setCompanySize] = useState<string | undefined>();
-  const [limit, setLimit] = useState(100);
-  
-  const [results, setResults] = useState<CNPJResult[]>([]);
-  const [selectedCNPJs, setSelectedCNPJs] = useState<string[]>([]);
-  const [progress, setProgress] = useState<SearchProgress>({
-    status: "idle",
-    totalFound: 0,
-    processed: 0,
-    activeCount: 0,
-    inactiveCount: 0,
-    cacheHits: 0,
-    queriesCompleted: 0,
-    totalQueries: 0,
-  });
+  const location = useLocation();
+  const {
+    activeSearch,
+    isSearching,
+    results,
+    progress,
+    startSearch,
+    cancelSearch,
+    moveToBackground,
+    clearSearch,
+    estimatedTimeRemaining,
+  } = useCNPJPull();
 
-  const [processingStartTime, setProcessingStartTime] = useState<number | null>(null);
-  const [estimatedTimeRemaining, setEstimatedTimeRemaining] = useState<string | null>(null);
+  const [segment, setSegment] = useState<string | undefined>(activeSearch?.filters.segment);
+  const [state, setState] = useState<string | undefined>(activeSearch?.filters.state);
+  const [city, setCity] = useState<string | undefined>(activeSearch?.filters.city);
+  const [companySize, setCompanySize] = useState<string | undefined>(activeSearch?.filters.companySize);
+  const [limit, setLimit] = useState(activeSearch?.filters.limit || 100);
+  
+  const [selectedCNPJs, setSelectedCNPJs] = useState<string[]>([]);
   const [sendToFunnelOpen, setSendToFunnelOpen] = useState(false);
   const [isSendingToLeads, setIsSendingToLeads] = useState(false);
+  const [showLeaveDialog, setShowLeaveDialog] = useState(false);
 
-  const abortControllerRef = useRef<AbortController | null>(null);
+  // Track if user is trying to leave the page
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isSearching) {
+        e.preventDefault();
+        e.returnValue = "Você tem uma busca em andamento. Deseja continuar em segundo plano?";
+        return e.returnValue;
+      }
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [isSearching]);
 
   // Toggle selection for a single CNPJ
   const toggleSelect = (cnpj: string) => {
@@ -183,7 +162,7 @@ export function CNPJPullTab() {
       }));
   };
 
-  const handleSearch = useCallback(async () => {
+  const handleSearch = async () => {
     if (!segment || !state) {
       toast({
         title: "Filtros obrigatórios",
@@ -193,223 +172,48 @@ export function CNPJPullTab() {
       return;
     }
 
-    // Cancel any ongoing search
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
-    abortControllerRef.current = new AbortController();
-
-    setResults([]);
-    setProcessingStartTime(null);
-    setEstimatedTimeRemaining(null);
-    setProgress({
-      status: "searching",
-      statusMessage: "Iniciando busca...",
-      totalFound: 0,
-      processed: 0,
-      activeCount: 0,
-      inactiveCount: 0,
-      cacheHits: 0,
-      queriesCompleted: 0,
-      totalQueries: 0,
-    });
-
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-
-      const response = await fetch(`${supabaseUrl}/functions/v1/pull-cnpjs`, {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${session?.access_token || supabaseKey}`,
-          "apikey": supabaseKey,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          segments: [segment],
-          states: [state],
-          cities: city ? [city] : undefined,
-          companySizes: companySize ? [companySize] : undefined,
-          limit,
-          streaming: true,
-        }),
-        signal: abortControllerRef.current.signal,
+      await startSearch({
+        segment,
+        state,
+        city,
+        companySize,
+        limit,
       });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const reader = response.body?.getReader();
-      if (!reader) {
-        throw new Error("No response body");
-      }
-
-      const decoder = new TextDecoder();
-      let buffer = "";
-
-      while (true) {
-        const { done, value } = await reader.read();
-        
-        if (done) break;
-        
-        buffer += decoder.decode(value, { stream: true });
-        
-        // Process complete SSE messages
-        const lines = buffer.split("\n\n");
-        buffer = lines.pop() || "";
-        
-        for (const line of lines) {
-          if (line.startsWith("data: ")) {
-            try {
-              const data = JSON.parse(line.slice(6));
-              
-              switch (data.type) {
-                case "status":
-                  setProgress(prev => ({
-                    ...prev,
-                    statusMessage: data.message,
-                  }));
-                  break;
-
-                case "search_progress":
-                  setProgress(prev => ({
-                    ...prev,
-                    status: "searching",
-                    queriesCompleted: data.queriesCompleted,
-                    totalQueries: data.totalQueries,
-                    totalFound: data.cnpjsFound,
-                  }));
-                  break;
-
-                case "search_complete":
-                  setProcessingStartTime(Date.now());
-                  setProgress(prev => ({
-                    ...prev,
-                    status: "processing",
-                    statusMessage: "Validando CNPJs...",
-                    totalFound: data.totalCNPJsFound,
-                  }));
-                  break;
-
-                case "cnpj":
-                  setResults(prev => [...prev, data.cnpj]);
-                  setProgress(prev => ({
-                    ...prev,
-                    processed: data.progress.processed,
-                    activeCount: data.progress.found,
-                    inactiveCount: data.progress.inactiveCount,
-                  }));
-                  break;
-                  
-                case "progress": {
-                  // Calculate estimated time remaining
-                  const now = Date.now();
-                  setProgress(prev => {
-                    return {
-                      ...prev,
-                      processed: data.processed,
-                      activeCount: data.found,
-                      inactiveCount: data.inactiveCount,
-                      cacheHits: data.cacheHits || 0,
-                    };
-                  });
-                  
-                  // Update time estimate outside of setProgress to access processingStartTime
-                  if (data.processed > 0 && data.total > data.processed) {
-                    setProcessingStartTime(prevStart => {
-                      if (prevStart) {
-                        const elapsedMs = now - prevStart;
-                        const rate = data.processed / (elapsedMs / 1000);
-                        const remaining = data.total - data.processed;
-                        const estimatedSeconds = remaining / rate;
-                        setEstimatedTimeRemaining(formatTimeRemaining(estimatedSeconds));
-                      }
-                      return prevStart;
-                    });
-                  } else if (data.processed >= data.total) {
-                    setEstimatedTimeRemaining(null);
-                  }
-                  break;
-                }
-                  
-                case "complete":
-                  setProgress(prev => ({
-                    ...prev,
-                    status: "completed",
-                    statusMessage: undefined,
-                  }));
-                  toast({
-                    title: "Busca concluída",
-                    description: `${data.stats?.activeCount || 0} CNPJs ativos encontrados.`,
-                  });
-                  break;
-
-                case "error":
-                  setProgress(prev => ({
-                    ...prev,
-                    status: "error",
-                    statusMessage: data.message,
-                  }));
-                  toast({
-                    title: "Erro na busca",
-                    description: data.message,
-                    variant: "destructive",
-                  });
-                  break;
-              }
-            } catch (e) {
-              console.error("Error parsing SSE message:", e, line);
-            }
-          }
-        }
-      }
     } catch (error) {
-      if ((error as Error).name === "AbortError") {
-        setProgress(prev => ({
-          ...prev,
-          status: "completed",
-          statusMessage: "Busca cancelada",
-        }));
-        return;
-      }
-
-      console.error("Error pulling CNPJs:", error);
-      setProgress(prev => ({ ...prev, status: "error" }));
       toast({
         title: "Erro na busca",
         description: error instanceof Error ? error.message : "Erro ao buscar CNPJs",
         variant: "destructive",
       });
     }
-  }, [segment, state, city, companySize, limit]);
+  };
 
-  const handleCancel = useCallback(() => {
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
-    setProgress(prev => ({
-      ...prev,
-      status: "completed",
-      statusMessage: "Busca cancelada",
-    }));
-  }, []);
+  const handleCancel = () => {
+    cancelSearch();
+    toast({
+      title: "Busca cancelada",
+      description: "A busca foi interrompida.",
+    });
+  };
+
+  const handleMoveToBackground = () => {
+    moveToBackground();
+    toast({
+      title: "Busca em segundo plano",
+      description: "A busca continuará em segundo plano. Você receberá uma notificação quando concluir.",
+    });
+  };
 
   const handleExportCSV = () => {
     if (results.length === 0) return;
 
-    const headers = ["CNPJ", "Razão Social", "Nome Fantasia", "Porte", "Situação", "Cidade", "UF", "Atividade"];
+    const headers = ["CNPJ", "Empresa", "Cidade", "UF"];
     const rows = results.map(r => [
       r.cnpj,
-      r.razao_social || "",
-      r.nome_fantasia || "",
-      r.porte || "",
-      r.situacao || "",
+      r.nome_fantasia || r.razao_social || "",
       r.municipio || "",
       r.uf || "",
-      r.cnae_fiscal_descricao || "",
     ]);
 
     const csv = [headers.join(";"), ...rows.map(r => r.map(cell => `"${cell}"`).join(";"))].join("\n");
@@ -430,7 +234,11 @@ export function CNPJPullTab() {
   const handleExportTXT = () => {
     if (results.length === 0) return;
 
-    const txt = results.map(r => r.cnpj).join("\n");
+    // Export with CNPJ | Empresa | Cidade format
+    const txt = results.map(r => 
+      `${r.cnpj} | ${r.nome_fantasia || r.razao_social || "-"} | ${r.municipio || "-"}/${r.uf || "-"}`
+    ).join("\n");
+    
     const blob = new Blob([txt], { type: "text/plain;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -441,31 +249,18 @@ export function CNPJPullTab() {
 
     toast({
       title: "Exportação concluída",
-      description: `${results.length} CNPJs exportados para TXT (apenas números).`,
+      description: `${results.length} CNPJs exportados para TXT.`,
     });
   };
 
   const handleClear = () => {
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
+    clearSearch();
     setSegment(undefined);
     setState(undefined);
     setCity(undefined);
     setCompanySize(undefined);
     setLimit(100);
-    setResults([]);
     setSelectedCNPJs([]);
-    setProgress({
-      status: "idle",
-      totalFound: 0,
-      processed: 0,
-      activeCount: 0,
-      inactiveCount: 0,
-      cacheHits: 0,
-      queriesCompleted: 0,
-      totalQueries: 0,
-    });
   };
 
   const limitOptions = [
@@ -473,11 +268,10 @@ export function CNPJPullTab() {
     { value: 25, label: "25 CNPJs" },
     { value: 50, label: "50 CNPJs" },
     { value: 100, label: "100 CNPJs" },
+    { value: 250, label: "250 CNPJs" },
     { value: 500, label: "500 CNPJs" },
-    { value: 1000, label: "1000 CNPJs" },
   ];
 
-  const isSearching = progress.status === "searching" || progress.status === "processing";
   const progressPercent = progress.totalFound > 0 
     ? Math.round((progress.processed / progress.totalFound) * 100) 
     : 0;
@@ -494,7 +288,7 @@ export function CNPJPullTab() {
       <div className="flex flex-wrap items-end gap-3">
         <div className="space-y-1">
           <label className="text-xs text-muted-foreground">Segmento *</label>
-          <Select value={segment || ""} onValueChange={(v) => setSegment(v || undefined)}>
+          <Select value={segment || ""} onValueChange={(v) => setSegment(v || undefined)} disabled={isSearching}>
             <SelectTrigger className="w-[200px]">
               <SelectValue placeholder="Selecione o segmento" />
             </SelectTrigger>
@@ -510,7 +304,7 @@ export function CNPJPullTab() {
 
         <div className="space-y-1">
           <label className="text-xs text-muted-foreground">Estado *</label>
-          <Select value={state || ""} onValueChange={(v) => { setState(v || undefined); setCity(undefined); }}>
+          <Select value={state || ""} onValueChange={(v) => { setState(v || undefined); setCity(undefined); }} disabled={isSearching}>
             <SelectTrigger className="w-[140px]">
               <SelectValue placeholder="UF" />
             </SelectTrigger>
@@ -531,12 +325,13 @@ export function CNPJPullTab() {
             selectedCity={city}
             onCityChange={(c) => setCity(c)}
             placeholder="Todas"
+            disabled={isSearching}
           />
         </div>
 
         <div className="space-y-1">
           <label className="text-xs text-muted-foreground">Porte (opcional)</label>
-          <Select value={companySize || "_all"} onValueChange={(v) => setCompanySize(v === "_all" ? undefined : v)}>
+          <Select value={companySize || "_all"} onValueChange={(v) => setCompanySize(v === "_all" ? undefined : v)} disabled={isSearching}>
             <SelectTrigger className="w-[180px]">
               <SelectValue placeholder="Todos os portes" />
             </SelectTrigger>
@@ -553,7 +348,7 @@ export function CNPJPullTab() {
 
         <div className="space-y-1">
           <label className="text-xs text-muted-foreground">Limite</label>
-          <Select value={String(limit)} onValueChange={(v) => setLimit(Number(v))}>
+          <Select value={String(limit)} onValueChange={(v) => setLimit(Number(v))} disabled={isSearching}>
             <SelectTrigger className="w-[140px]">
               <SelectValue placeholder="Limite" />
             </SelectTrigger>
@@ -568,10 +363,16 @@ export function CNPJPullTab() {
         </div>
 
         {isSearching ? (
-          <Button variant="destructive" onClick={handleCancel}>
-            <StopCircle className="h-4 w-4 mr-2" />
-            Cancelar
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="destructive" onClick={handleCancel}>
+              <StopCircle className="h-4 w-4 mr-2" />
+              Cancelar
+            </Button>
+            <Button variant="outline" onClick={handleMoveToBackground}>
+              <MinusCircle className="h-4 w-4 mr-2" />
+              Segundo plano
+            </Button>
+          </div>
         ) : (
           <Button onClick={handleSearch}>
             <Search className="h-4 w-4 mr-2" />
@@ -618,11 +419,7 @@ export function CNPJPullTab() {
                 <Progress value={progressPercent} className="h-2" />
               )}
 
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-center">
-                <div>
-                  <p className="text-2xl font-bold">{progress.totalFound}</p>
-                  <p className="text-xs text-muted-foreground">CNPJs encontrados</p>
-                </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
                 <div>
                   <p className="text-2xl font-bold">{progress.processed}</p>
                   <p className="text-xs text-muted-foreground">Processados</p>
@@ -641,7 +438,7 @@ export function CNPJPullTab() {
                 </div>
               </div>
 
-              {/* Live results preview during search */}
+              {/* Live results preview during search - Only show ACTIVE results */}
               {results.length > 0 && (
                 <div className="border rounded-lg max-h-[200px] overflow-y-auto bg-background">
                   <table className="w-full text-sm">
@@ -668,7 +465,7 @@ export function CNPJPullTab() {
                   </table>
                   {results.length > 10 && (
                     <div className="text-center py-1 text-xs text-muted-foreground bg-muted">
-                      Mostrando últimos 10 de {results.length}
+                      Mostrando últimos 10 de {results.length} ativos
                     </div>
                   )}
                 </div>
@@ -753,7 +550,6 @@ export function CNPJPullTab() {
                         </th>
                         <th className="px-3 py-2 text-left font-medium">CNPJ</th>
                         <th className="px-3 py-2 text-left font-medium">Empresa</th>
-                        <th className="px-3 py-2 text-left font-medium">Porte</th>
                         <th className="px-3 py-2 text-left font-medium">Cidade/UF</th>
                         <th className="px-3 py-2 text-left font-medium">Status</th>
                       </tr>
@@ -772,7 +568,6 @@ export function CNPJPullTab() {
                           </td>
                           <td className="px-3 py-2 font-mono text-xs">{r.cnpj}</td>
                           <td className="px-3 py-2">{r.nome_fantasia || r.razao_social || "-"}</td>
-                          <td className="px-3 py-2">{r.porte || "-"}</td>
                           <td className="px-3 py-2">{r.municipio && r.uf ? `${r.municipio}/${r.uf}` : "-"}</td>
                           <td className="px-3 py-2">
                             <Badge variant="default" className="bg-green-600">Ativo</Badge>
@@ -807,6 +602,23 @@ export function CNPJPullTab() {
             description: `${selectedCNPJs.length} empresa(s) enviada(s) para o funil.`,
           });
         }}
+      />
+
+      {/* Leave Dialog */}
+      <CNPJLeaveDialog
+        open={showLeaveDialog}
+        onOpenChange={setShowLeaveDialog}
+        onContinueBackground={() => {
+          moveToBackground();
+          setShowLeaveDialog(false);
+        }}
+        onCancel={() => {
+          cancelSearch();
+          setShowLeaveDialog(false);
+        }}
+        activeCount={progress.activeCount}
+        processed={progress.processed}
+        total={progress.totalFound}
       />
     </div>
   );

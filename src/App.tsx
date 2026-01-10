@@ -7,6 +7,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { AppearanceProvider } from "@/contexts/AppearanceContext";
 import { NotificationProvider } from "@/contexts/NotificationContext";
 import { BackgroundSearchProvider } from "@/contexts/BackgroundSearchContext";
+import { CNPJPullProvider } from "@/contexts/CNPJPullContext";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { MainLayout } from "@/components/layout/MainLayout";
 import Dashboard from "./pages/Dashboard";
@@ -38,6 +39,7 @@ const App = () => (
       <AppearanceProvider>
       <NotificationProvider>
       <BackgroundSearchProvider>
+      <CNPJPullProvider>
       <TooltipProvider>
         <Toaster />
         <Sonner />
@@ -76,6 +78,7 @@ const App = () => (
           </Routes>
         </BrowserRouter>
       </TooltipProvider>
+      </CNPJPullProvider>
       </BackgroundSearchProvider>
       </NotificationProvider>
       </AppearanceProvider>

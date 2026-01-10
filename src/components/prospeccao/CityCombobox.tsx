@@ -22,13 +22,15 @@ interface Props {
   selectedCity?: string;
   onCityChange: (city: string | undefined) => void;
   placeholder?: string;
+  disabled?: boolean;
 }
 
 export function CityCombobox({ 
   selectedState, 
   selectedCity, 
   onCityChange,
-  placeholder = "Buscar cidade..." 
+  placeholder = "Buscar cidade...",
+  disabled = false,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [searchValue, setSearchValue] = useState("");
@@ -68,6 +70,7 @@ export function CityCombobox({
           role="combobox"
           aria-expanded={open}
           className="w-[180px] justify-between font-normal"
+          disabled={disabled}
         >
           <div className="flex items-center gap-2 truncate">
             <MapPin className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
