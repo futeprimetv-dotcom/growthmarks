@@ -33,40 +33,76 @@ const stateAbbreviations: Record<string, string> = {
 
 // Segment synonyms for better search coverage
 const segmentSynonyms: Record<string, string[]> = {
+  // === NICHOS PRINCIPAIS - EDUCAÇÃO ===
+  "Educação - Escolas e Colégios": [
+    "escola particular", "colégio particular", "escola privada", "colégio privado",
+    "escola infantil", "escola fundamental", "escola ensino médio", "colégio ensino médio",
+    "escola bilíngue", "colégio bilíngue", "escola integral", "educação básica",
+    "escola de educação infantil", "creche particular", "berçário", "maternal"
+  ],
+  "Educação - Cursos Profissionalizantes": [
+    "curso profissionalizante", "curso técnico", "escola técnica", "centro de formação",
+    "curso de capacitação", "treinamento profissional", "qualificação profissional",
+    "curso de enfermagem", "curso de informática", "curso de administração",
+    "curso de auxiliar", "formação técnica", "educação profissional"
+  ],
+  "Educação - Idiomas": [
+    "escola de idiomas", "curso de inglês", "curso de espanhol", "escola de línguas",
+    "curso de idiomas", "aulas de inglês", "centro de idiomas", "english school",
+    "curso de francês", "escola de inglês", "instituto de idiomas"
+  ],
+  
+  // === NICHOS PRINCIPAIS - VEÍCULOS ===
+  "Veículos - Lojas de Carros": [
+    "loja de carros", "revenda de veículos", "loja de veículos", "seminovos",
+    "carros usados", "multimarcas", "veículos usados", "automóveis", "car shop",
+    "revenda de carros", "loja de automóveis", "venda de carros", "carros seminovos"
+  ],
+  "Veículos - Concessionárias": [
+    "concessionária", "concessionária autorizada", "revendedora autorizada",
+    "concessionária de veículos", "dealer", "agência de veículos",
+    "loja autorizada", "representante autorizado"
+  ],
+  "Veículos - Barcos e Lanchas": [
+    "loja de barcos", "venda de lanchas", "náutica", "marina", "jet ski",
+    "embarcações", "loja náutica", "revenda de barcos", "lanchas à venda",
+    "barcos usados", "lanchas usadas", "comercio nautico", "yachts"
+  ],
+  "Veículos - Motorhomes e Trailers": [
+    "motorhome", "trailer", "camper", "casa sobre rodas", "veículo recreativo",
+    "rv", "food truck", "motor home", "reboque", "carreta", "van adaptada"
+  ],
+  
+  // === NICHO PRINCIPAL - IMOBILIÁRIAS ===
+  "Imobiliárias": [
+    "imobiliária", "corretor de imóveis", "imóveis", "venda de imóveis",
+    "aluguel de imóveis", "locação de imóveis", "corretora de imóveis",
+    "administradora de imóveis", "construtora", "incorporadora",
+    "empreendimentos imobiliários", "lançamentos imobiliários", "real estate"
+  ],
+  
+  // === OUTROS SEGMENTOS ===
   "Comércio Automotivo": [
     "loja de carros", "revenda de veículos", "concessionária", "revendedora de automóveis",
-    "venda de carros", "seminovos", "carros usados", "multimarcas", "veículos usados",
-    "loja de veículos", "comércio de veículos", "auto comercial", "car shop"
+    "venda de carros", "seminovos", "carros usados", "multimarcas", "veículos usados"
   ],
   "Restaurantes": [
     "restaurante", "pizzaria", "hamburgueria", "lanchonete", "bar e restaurante",
-    "churrascaria", "self service", "buffet", "cantina", "bistrô", "food"
+    "churrascaria", "self service", "buffet", "cantina", "bistrô"
   ],
-  "Clínicas e Saúde": [
+  "Clínicas e Consultórios": [
     "clínica médica", "consultório", "clínica odontológica", "dentista", "laboratório",
     "fisioterapia", "psicologia", "nutricionista", "clínica estética", "hospital"
   ],
-  "Academias": [
+  "Academias e Fitness": [
     "academia", "crossfit", "pilates", "musculação", "fitness", "personal trainer",
     "estúdio fitness", "box de crossfit", "centro de treinamento"
-  ],
-  "Educação": [
-    "escola", "colégio", "curso", "faculdade", "universidade", "ensino",
-    "centro educacional", "escola de idiomas", "curso técnico", "treinamento"
-  ],
-  "Varejo": [
-    "loja", "comércio", "mercado", "supermercado", "atacado", "distribuidora",
-    "shopping", "outlet", "magazine", "boutique"
-  ],
-  "Imobiliárias": [
-    "imobiliária", "corretor", "imóveis", "construtora", "incorporadora",
-    "administradora de imóveis", "locação", "aluguel", "venda de imóveis"
   ],
   "Salões de Beleza": [
     "salão de beleza", "cabeleireiro", "barbearia", "manicure", "estética",
     "studio de beleza", "espaço de beleza", "hair", "beauty"
   ],
-  "Contabilidade": [
+  "Serviços Contábeis": [
     "escritório contábil", "contabilidade", "contador", "assessoria contábil",
     "serviços contábeis", "consultoria fiscal", "departamento pessoal"
   ],
