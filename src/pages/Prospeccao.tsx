@@ -37,6 +37,7 @@ export default function Prospeccao() {
         isAddingToBase={state.addProspectFromCNPJ.isPending}
         isSendingToBase={state.sendToLeadsBase.isPending}
         displayData={state.displayData}
+        onClearStats={state.handleClearStats}
       />
     );
   }
