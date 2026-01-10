@@ -7,7 +7,6 @@ import { InternetResultsView } from "@/components/prospeccao/InternetResultsView
 import { DatabaseResultsHeader } from "@/components/prospeccao/DatabaseResultsHeader";
 import { ProspeccaoContent } from "@/components/prospeccao/ProspeccaoContent";
 import { CNPJPullTab } from "@/components/prospeccao/CNPJPullTab";
-import { StreamingSearchOverlay } from "@/components/prospeccao/StreamingSearchOverlay";
 import { BackgroundSearchBanner } from "@/components/prospeccao/BackgroundSearchBanner";
 import { SaveSearchDialog } from "@/components/prospeccao/SaveSearchDialog";
 import { SendToFunnelDialog } from "@/components/prospeccao/SendToFunnelDialog";
@@ -28,12 +27,7 @@ export default function Prospeccao() {
         onSelectChange={state.setSelectedIds}
         pageSize={state.pageSize}
         onPageSizeChange={state.setPageSize}
-        filters={state.filters}
         isLoading={state.companySearch.isPending}
-        isSearchMinimized={state.isSearchMinimized}
-        onRestoreSearch={() => state.setIsSearchMinimized(false)}
-        onCancelSearch={state.handleCancelSearch}
-        onMinimizeSearch={state.handleMinimizeToBackground}
         onBack={state.handleBackFromResults}
         onAddToMyBase={state.handleAddToMyBase}
         onSendToLeadsBase={state.handleSendToLeadsBase}
@@ -49,25 +43,15 @@ export default function Prospeccao() {
 
   // Default view with filters
   return (
-    <>
-      <StreamingSearchOverlay 
-        isVisible={state.streamingSearch.isSearching && !state.isSearchMinimized} 
+    <div className="flex flex-col h-[calc(100vh-4rem)]">
+      {/* Background Search Banner - always visible when searching */}
+      <BackgroundSearchBanner
+        isVisible={state.streamingSearch.isSearching}
         filters={state.filters}
-        companies={state.streamingSearch.companies}
         progress={state.streamingSearch.progress}
-        onCancel={state.handleCancelSearch}
-        onMinimize={state.handleMinimizeToBackground}
         onViewResults={state.handleViewStreamingResults}
+        onCancel={state.handleCancelSearch}
       />
-      
-      <div className="flex flex-col h-[calc(100vh-4rem)]">
-        {/* Background Search Banner */}
-        <BackgroundSearchBanner
-          isVisible={state.streamingSearch.isSearching && state.isSearchMinimized}
-          filters={state.filters}
-          onRestore={() => state.setIsSearchMinimized(false)}
-          onCancel={state.handleCancelSearch}
-        />
         
         {/* Header with tabs and actions */}
         <ProspeccaoHeader
@@ -200,7 +184,6 @@ export default function Prospeccao() {
           onSendToLeads={state.handleBatchSendToLeads}
           isAdding={state.batchAdding}
         />
-      </div>
-    </>
+    </div>
   );
 }
