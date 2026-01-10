@@ -25,20 +25,7 @@ export function useProspeccaoState() {
   const [batchDialogOpen, setBatchDialogOpen] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   const [showResultsPanel, setShowResultsPanel] = useState(false);
-  const [searchMode, setSearchModeInternal] = useState<SearchMode>("internet");
-
-  // Wrapper to clear segment filter when switching to database mode
-  // (internet search segments don't match database CNAE descriptions)
-  const setSearchMode = useCallback((mode: SearchMode) => {
-    if (mode === "database") {
-      // Clear segment filter since internet segments don't match DB segments
-      setFilters(prev => ({
-        ...prev,
-        segments: undefined
-      }));
-    }
-    setSearchModeInternal(mode);
-  }, []);
+  const [searchModeInternal, setSearchModeInternal] = useState<SearchMode>("internet");
   
   // API Search results
   const [apiResults, setApiResults] = useState<CompanySearchResult[]>([]);
@@ -53,7 +40,7 @@ export function useProspeccaoState() {
 
   // Hooks
   // For database mode, always fetch (auto-filter without search button)
-  const { data: prospects = [], isLoading: dbLoading, isError, refetch } = useProspects(filters, searchMode === "database");
+  const { data: prospects = [], isLoading: dbLoading, isError, refetch } = useProspects(filters, searchModeInternal === "database");
   const companySearch = useCompanySearch();
   const { findCached, addToCache, getRecentSearches, clearCache } = useSearchCache();
   const { activeSearch, isSearching: isBackgroundSearching, startBackgroundSearch, cancelSearch: cancelBackgroundSearch, clearSearch } = useBackgroundSearch();
@@ -63,6 +50,22 @@ export function useProspeccaoState() {
   const addProspectFromCNPJ = useAddProspectFromCNPJ();
   const addProspectsFromInternet = useAddProspectsFromInternet();
   const { lookup } = useCNPJLookupManual();
+
+  // Wrapper to clear segment filter when switching to database mode
+  // (internet search segments don't match database CNAE descriptions)
+  const setSearchMode = useCallback((mode: SearchMode) => {
+    if (mode === "database") {
+      // Clear segment filter since internet segments don't match DB segments
+      setFilters(prev => ({
+        ...prev,
+        segments: undefined
+      }));
+    }
+    setSearchModeInternal(mode);
+  }, []);
+
+  // Alias for external use
+  const searchMode = searchModeInternal;
 
   const handleDeleteSavedSearch = useCallback((searchId: string) => {
     deleteSavedSearch.mutate(searchId);
