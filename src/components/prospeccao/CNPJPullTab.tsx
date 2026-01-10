@@ -1,9 +1,10 @@
 import { useState, useRef, useCallback } from "react";
-import { Search, Download, Loader2, FileText, CheckCircle, XCircle, StopCircle, Clock } from "lucide-react";
+import { Search, Download, Loader2, FileText, CheckCircle, XCircle, StopCircle, Clock, Send, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Card, CardContent } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -12,6 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { CityCombobox } from "./CityCombobox";
+import { SendToFunnelDialog } from "./SendToFunnelDialog";
 import { segments, companySizes, brazilianStates } from "@/data/mockProspects";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
@@ -60,6 +62,7 @@ export function CNPJPullTab() {
   const [limit, setLimit] = useState(100);
   
   const [results, setResults] = useState<CNPJResult[]>([]);
+  const [selectedCNPJs, setSelectedCNPJs] = useState<string[]>([]);
   const [progress, setProgress] = useState<SearchProgress>({
     status: "idle",
     totalFound: 0,
@@ -73,8 +76,112 @@ export function CNPJPullTab() {
 
   const [processingStartTime, setProcessingStartTime] = useState<number | null>(null);
   const [estimatedTimeRemaining, setEstimatedTimeRemaining] = useState<string | null>(null);
+  const [sendToFunnelOpen, setSendToFunnelOpen] = useState(false);
+  const [isSendingToLeads, setIsSendingToLeads] = useState(false);
 
   const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Toggle selection for a single CNPJ
+  const toggleSelect = (cnpj: string) => {
+    setSelectedCNPJs(prev => 
+      prev.includes(cnpj) 
+        ? prev.filter(c => c !== cnpj)
+        : [...prev, cnpj]
+    );
+  };
+
+  // Toggle select all
+  const toggleSelectAll = () => {
+    if (selectedCNPJs.length === results.length) {
+      setSelectedCNPJs([]);
+    } else {
+      setSelectedCNPJs(results.map(r => r.cnpj));
+    }
+  };
+
+  // Send selected CNPJs to leads base
+  const handleSendToLeads = async () => {
+    const selectedResults = results.filter(r => selectedCNPJs.includes(r.cnpj));
+    if (selectedResults.length === 0) return;
+
+    setIsSendingToLeads(true);
+    let successCount = 0;
+    let duplicateCount = 0;
+
+    for (const company of selectedResults) {
+      try {
+        // Check if lead already exists with this company name
+        const { data: existing } = await supabase
+          .from("leads")
+          .select("id")
+          .or(`company.ilike.%${company.nome_fantasia || company.razao_social}%,name.ilike.%${company.nome_fantasia || company.razao_social}%`)
+          .limit(1);
+
+        if (existing && existing.length > 0) {
+          duplicateCount++;
+          continue;
+        }
+
+        const { error } = await supabase.from("leads").insert({
+          name: company.nome_fantasia || company.razao_social || "Sem nome",
+          company: company.razao_social,
+          city: company.municipio,
+          state: company.uf,
+          segment: company.cnae_fiscal_descricao || segment,
+          status: "novo",
+          temperature: "cold",
+          origin: "prospeccao-cnpj",
+          tags: ["cnpj-pull"],
+        });
+
+        if (!error) {
+          successCount++;
+        }
+      } catch (error) {
+        console.error("Error sending to leads:", error);
+      }
+    }
+
+    setIsSendingToLeads(false);
+    setSelectedCNPJs([]);
+
+    const message = duplicateCount > 0 
+      ? `${successCount} lead(s) criados. ${duplicateCount} já existiam na base.`
+      : `${successCount} lead(s) criados com sucesso.`;
+
+    toast({
+      title: "Leads criados",
+      description: message,
+    });
+  };
+
+  // Get prospects for funnel dialog
+  const getSelectedProspects = () => {
+    return results
+      .filter(r => selectedCNPJs.includes(r.cnpj))
+      .map(r => ({
+        id: r.cnpj,
+        name: r.nome_fantasia || r.razao_social || "Sem nome",
+        cnpj: r.cnpj,
+        segment: r.cnae_fiscal_descricao || segment || "",
+        cnae_code: "",
+        cnae_description: r.cnae_fiscal_descricao || "",
+        company_size: r.porte || "",
+        city: r.municipio || "",
+        state: r.uf || "",
+        emails: [] as string[],
+        phones: [] as string[],
+        tags: ["cnpj-pull"],
+        status: "novo" as const,
+        has_website: false,
+        has_phone: false,
+        has_email: false,
+        emails_count: 0,
+        phones_count: 0,
+        data_revealed: false,
+        source: "cnpj-pull",
+      }));
+  };
 
   const handleSearch = useCallback(async () => {
     if (!segment || !state) {
@@ -348,6 +455,7 @@ export function CNPJPullTab() {
     setCompanySize(undefined);
     setLimit(100);
     setResults([]);
+    setSelectedCNPJs([]);
     setProgress({
       status: "idle",
       totalFound: 0,
@@ -575,9 +683,14 @@ export function CNPJPullTab() {
         <Card>
           <CardContent className="pt-4">
             <div className="space-y-4">
-              {/* Stats */}
+              {/* Stats + Actions */}
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <div className="flex items-center gap-4 flex-wrap">
+                  {selectedCNPJs.length > 0 && (
+                    <span className="font-medium text-primary">
+                      {selectedCNPJs.length} selecionado(s)
+                    </span>
+                  )}
                   <div className="flex items-center gap-2">
                     <CheckCircle className="h-5 w-5 text-green-600" />
                     <span className="font-medium">{results.length} CNPJs ativos</span>
@@ -593,24 +706,51 @@ export function CNPJPullTab() {
                   )}
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => setSendToFunnelOpen(true)} 
+                    disabled={selectedCNPJs.length === 0}
+                  >
+                    <Send className="h-4 w-4 mr-2" />
+                    Enviar para Funil
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    onClick={handleSendToLeads} 
+                    disabled={selectedCNPJs.length === 0 || isSendingToLeads}
+                  >
+                    {isSendingToLeads ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <UserPlus className="h-4 w-4 mr-2" />
+                    )}
+                    Enviar para Leads
+                  </Button>
                   <Button variant="outline" size="sm" onClick={handleExportCSV} disabled={results.length === 0}>
                     <Download className="h-4 w-4 mr-2" />
-                    Exportar CSV
+                    CSV
                   </Button>
                   <Button variant="outline" size="sm" onClick={handleExportTXT} disabled={results.length === 0}>
                     <FileText className="h-4 w-4 mr-2" />
-                    Apenas CNPJs (TXT)
+                    TXT
                   </Button>
                 </div>
               </div>
 
-              {/* CNPJ List Preview */}
+              {/* CNPJ List with Selection */}
               {results.length > 0 && (
                 <div className="border rounded-lg max-h-[400px] overflow-y-auto">
                   <table className="w-full text-sm">
                     <thead className="bg-muted sticky top-0">
                       <tr>
+                        <th className="px-3 py-2 w-10">
+                          <Checkbox
+                            checked={selectedCNPJs.length === results.length && results.length > 0}
+                            onCheckedChange={toggleSelectAll}
+                          />
+                        </th>
                         <th className="px-3 py-2 text-left font-medium">CNPJ</th>
                         <th className="px-3 py-2 text-left font-medium">Empresa</th>
                         <th className="px-3 py-2 text-left font-medium">Porte</th>
@@ -620,7 +760,16 @@ export function CNPJPullTab() {
                     </thead>
                     <tbody>
                       {results.map((r, i) => (
-                        <tr key={r.cnpj} className={i % 2 === 0 ? "bg-background" : "bg-muted/30"}>
+                        <tr 
+                          key={r.cnpj} 
+                          className={`${i % 2 === 0 ? "bg-background" : "bg-muted/30"} ${selectedCNPJs.includes(r.cnpj) ? "ring-1 ring-primary/50 bg-primary/5" : ""}`}
+                        >
+                          <td className="px-3 py-2">
+                            <Checkbox
+                              checked={selectedCNPJs.includes(r.cnpj)}
+                              onCheckedChange={() => toggleSelect(r.cnpj)}
+                            />
+                          </td>
                           <td className="px-3 py-2 font-mono text-xs">{r.cnpj}</td>
                           <td className="px-3 py-2">{r.nome_fantasia || r.razao_social || "-"}</td>
                           <td className="px-3 py-2">{r.porte || "-"}</td>
@@ -644,6 +793,21 @@ export function CNPJPullTab() {
           </CardContent>
         </Card>
       )}
+
+      {/* Send to Funnel Dialog */}
+      <SendToFunnelDialog
+        open={sendToFunnelOpen}
+        onOpenChange={setSendToFunnelOpen}
+        selectedProspects={selectedCNPJs}
+        prospects={getSelectedProspects()}
+        onSuccess={() => {
+          setSelectedCNPJs([]);
+          toast({
+            title: "Enviado para funil",
+            description: `${selectedCNPJs.length} empresa(s) enviada(s) para o funil.`,
+          });
+        }}
+      />
     </div>
   );
 }
