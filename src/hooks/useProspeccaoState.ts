@@ -151,7 +151,7 @@ export function useProspeccaoState() {
       }
       
       if (streamingSearch.companies.length > 0) {
-        addToCache(filters, streamingSearch.companies, streamingSearch.stats?.totalCNPJsFound || streamingSearch.companies.length);
+        addToCache(filters, streamingSearch.companies, streamingSearch.stats?.totalCNPJsFound || streamingSearch.companies.length, pageSize);
       }
       
       const timeInfo = streamingSearch.stats?.processingTimeMs 
@@ -189,7 +189,8 @@ export function useProspeccaoState() {
     setIsSearchMinimized(false);
     
     if (searchMode === "internet") {
-      const cached = findCached(filters);
+      // Only use cache if same filters AND same pageSize
+      const cached = findCached(filters, pageSize);
       if (cached) {
         setApiResults(cached.results);
         setApiTotal(cached.total);

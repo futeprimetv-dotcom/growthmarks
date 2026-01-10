@@ -5,6 +5,7 @@ import type { CompanySearchResult } from "./useCompanySearch";
 export interface CachedSearch {
   id: string;
   filters: ProspectFilters;
+  pageSize: number;
   results: CompanySearchResult[];
   total: number;
   timestamp: number;
@@ -15,7 +16,7 @@ const CACHE_KEY = "prospeccao_search_cache";
 const CACHE_EXPIRY = 30 * 60 * 1000; // 30 minutes
 const MAX_CACHED_SEARCHES = 5;
 
-function getFiltersHash(filters: ProspectFilters): string {
+function getFiltersHash(filters: ProspectFilters, pageSize?: number): string {
   return JSON.stringify({
     segments: filters.segments?.sort() || [],
     states: filters.states?.sort() || [],
@@ -24,6 +25,7 @@ function getFiltersHash(filters: ProspectFilters): string {
     hasEmail: filters.hasEmail || false,
     hasPhone: filters.hasPhone || false,
     hasWebsite: filters.hasWebsite || false,
+    pageSize: pageSize || 10,
   });
 }
 
@@ -59,25 +61,26 @@ export function useSearchCache() {
     setCache(loadCache());
   }, []);
 
-  // Find cached results for filters
-  const findCached = (filters: ProspectFilters): CachedSearch | null => {
-    const hash = getFiltersHash(filters);
+  // Find cached results for filters (includes pageSize in the hash)
+  const findCached = (filters: ProspectFilters, pageSize?: number): CachedSearch | null => {
+    const hash = getFiltersHash(filters, pageSize);
     const now = Date.now();
     
-    return cache.find(c => getFiltersHash(c.filters) === hash && c.expiresAt > now) || null;
+    return cache.find(c => getFiltersHash(c.filters, c.pageSize) === hash && c.expiresAt > now) || null;
   };
 
-  // Add new search to cache
-  const addToCache = (filters: ProspectFilters, results: CompanySearchResult[], total: number) => {
+  // Add new search to cache (includes pageSize)
+  const addToCache = (filters: ProspectFilters, results: CompanySearchResult[], total: number, pageSize: number = 10) => {
     const now = Date.now();
-    const hash = getFiltersHash(filters);
+    const hash = getFiltersHash(filters, pageSize);
     
-    // Remove existing entry with same hash
-    const filtered = cache.filter(c => getFiltersHash(c.filters) !== hash);
+    // Remove existing entry with same hash (same filters AND same pageSize)
+    const filtered = cache.filter(c => getFiltersHash(c.filters, c.pageSize) !== hash);
     
     const newEntry: CachedSearch = {
       id: `cache_${now}`,
       filters,
+      pageSize,
       results,
       total,
       timestamp: now,
