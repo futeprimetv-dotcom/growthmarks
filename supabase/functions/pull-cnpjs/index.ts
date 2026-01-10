@@ -473,12 +473,16 @@ serve(async (req) => {
               return;
             }
 
-            // Process CNPJs - OPTIMIZED batch size for speed
+            // Process CNPJs - OPTIMIZED batch size for speed with CPU timeout protection
             const cnpjArray = Array.from(allCNPJs);
-            const batchSize = 10; // Larger batches for parallel processing
+            const batchSize = 5; // Smaller batches to prevent CPU timeout
             const maxResults = filters.limit || 100;
+            const maxCNPJsToProcess = Math.min(cnpjArray.length, maxResults * 5); // Process at most 5x the limit
 
-            for (let i = 0; i < cnpjArray.length && stats.activeCount < maxResults; i += batchSize) {
+            console.log(`🌊 Iniciando modo streaming...`);
+            console.log(`   Processando até ${maxCNPJsToProcess} CNPJs para encontrar ${maxResults} ativos`);
+
+            for (let i = 0; i < maxCNPJsToProcess && stats.activeCount < maxResults; i += batchSize) {
               const batch = cnpjArray.slice(i, i + batchSize);
               
               await processBatch(batch, supabase, filters, stats, (result) => {
@@ -487,7 +491,7 @@ serve(async (req) => {
                   cnpj: result,
                   progress: {
                     processed: stats.cnpjsProcessed,
-                    total: allCNPJs.size,
+                    total: maxCNPJsToProcess,
                     found: stats.activeCount,
                     inactiveCount: stats.skippedInactive,
                   }
@@ -498,7 +502,7 @@ serve(async (req) => {
               send({
                 type: "progress",
                 processed: stats.cnpjsProcessed,
-                total: allCNPJs.size,
+                total: maxCNPJsToProcess,
                 found: stats.activeCount,
                 inactiveCount: stats.skippedInactive,
                 cacheHits: stats.cacheHits,
@@ -600,13 +604,16 @@ serve(async (req) => {
       );
     }
 
-    // Process CNPJs
+    // Process CNPJs - Limited to prevent CPU timeout
     const activeCNPJs: any[] = [];
     const cnpjArray = Array.from(allCNPJs);
-    const batchSize = 10;
+    const batchSize = 5;
     const maxResults = filters.limit || 100;
+    const maxCNPJsToProcess = Math.min(cnpjArray.length, maxResults * 5);
 
-    for (let i = 0; i < cnpjArray.length && activeCNPJs.length < maxResults; i += batchSize) {
+    console.log(`🔄 Processando ${maxCNPJsToProcess} CNPJs (modo normal)...`);
+
+    for (let i = 0; i < maxCNPJsToProcess && activeCNPJs.length < maxResults; i += batchSize) {
       const batch = cnpjArray.slice(i, i + batchSize);
       
       await processBatch(batch, supabase, filters, stats, (result) => {
