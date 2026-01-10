@@ -13,6 +13,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useLeads, Lead, useDeleteLead } from "@/hooks/useLeads";
+import { useProspects } from "@/hooks/useProspects";
 import { useTeamMembers } from "@/hooks/useTeamMembers";
 import { LeadFormDialog } from "./LeadFormDialog";
 import { LeadHistoryDialog } from "./LeadHistoryDialog";
@@ -81,7 +82,10 @@ export function LeadsList() {
   const { data: leads, isLoading } = useLeads();
   const { data: teamMembers } = useTeamMembers();
   const { data: funnels = [] } = useSalesFunnels();
+  const { data: prospects = [] } = useProspects();
   const deleteLead = useDeleteLead();
+
+  const availableProspectsCount = prospects.filter(p => p.data_revealed).length;
 
   const filteredLeads = (leads || []).filter(lead => {
     if ((lead as any).is_archived) return false;
@@ -155,6 +159,11 @@ export function LeadsList() {
             <Button variant="outline" onClick={() => setPullOpen(true)}>
               <Database className="h-4 w-4 mr-2" />
               Puxar Lead
+              {availableProspectsCount > 0 && (
+                <Badge variant="secondary" className="ml-2 h-5 px-1.5 text-xs">
+                  {availableProspectsCount}
+                </Badge>
+              )}
             </Button>
             <Button variant="outline" onClick={() => setImportOpen(true)}>
               <Upload className="h-4 w-4 mr-2" />
