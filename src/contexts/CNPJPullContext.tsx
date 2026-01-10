@@ -89,6 +89,7 @@ export function CNPJPullProvider({ children }: { children: React.ReactNode }) {
   const [progress, setProgress] = useState<CNPJSearchProgress>(defaultProgress);
   const [estimatedTimeRemaining, setEstimatedTimeRemaining] = useState<string | null>(null);
   const [processingStartTime, setProcessingStartTime] = useState<number | null>(null);
+  const [hasNotified, setHasNotified] = useState(false);
   
   const abortControllerRef = useRef<AbortController | null>(null);
   const { permission, requestPermission, sendNotification } = useBrowserNotification();
@@ -120,6 +121,7 @@ export function CNPJPullProvider({ children }: { children: React.ReactNode }) {
     setResults([]);
     setProcessingStartTime(null);
     setEstimatedTimeRemaining(null);
+    setHasNotified(false);
     setProgress({
       status: "searching",
       statusMessage: "Iniciando busca...",
@@ -274,23 +276,28 @@ export function CNPJPullProvider({ children }: { children: React.ReactNode }) {
                     progress: { ...current.progress, status: "completed" },
                   } : null);
 
-                  // Play sound and send notifications
-                  playSuccessSound();
-                  
-                  sendNotification("🔍 Busca de CNPJs concluída!", {
-                    body: `${data.stats?.activeCount || 0} CNPJs ativos encontrados. Clique para ver os resultados.`,
-                    tag: "cnpj-pull-complete",
-                    requireInteraction: true,
-                    onClick: () => {
-                      window.focus();
-                    },
-                  });
+                  // Play sound and send notifications - only once
+                  setHasNotified(prev => {
+                    if (!prev) {
+                      playSuccessSound();
+                      
+                      sendNotification("🔍 Busca de CNPJs concluída!", {
+                        body: `${data.stats?.activeCount || 0} CNPJs ativos encontrados. Clique para ver os resultados.`,
+                        tag: "cnpj-pull-complete",
+                        requireInteraction: true,
+                        onClick: () => {
+                          window.focus();
+                        },
+                      });
 
-                  addNotification({
-                    type: "search",
-                    title: "Busca de CNPJs concluída",
-                    message: `${data.stats?.activeCount || 0} CNPJs ativos encontrados. Clique para ver os resultados.`,
-                    link: "/prospeccao",
+                      addNotification({
+                        type: "search",
+                        title: "Busca de CNPJs concluída",
+                        message: `${data.stats?.activeCount || 0} CNPJs ativos encontrados. Clique para ver os resultados.`,
+                        link: "/prospeccao",
+                      });
+                    }
+                    return true;
                   });
                   break;
 
@@ -347,6 +354,7 @@ export function CNPJPullProvider({ children }: { children: React.ReactNode }) {
     setProgress(defaultProgress);
     setEstimatedTimeRemaining(null);
     setProcessingStartTime(null);
+    setHasNotified(false);
   }, []);
 
   return (
