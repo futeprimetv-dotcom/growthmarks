@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { AppearanceProvider } from "@/contexts/AppearanceContext";
 import { NotificationProvider } from "@/contexts/NotificationContext";
+import { GlobalSearchLockProvider } from "@/contexts/GlobalSearchLock";
 import { BackgroundSearchProvider } from "@/contexts/BackgroundSearchContext";
 import { CNPJPullProvider } from "@/contexts/CNPJPullContext";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
@@ -38,6 +39,7 @@ const App = () => (
     <AuthProvider>
       <AppearanceProvider>
       <NotificationProvider>
+      <GlobalSearchLockProvider>
       <BackgroundSearchProvider>
       <CNPJPullProvider>
       <TooltipProvider>
@@ -80,6 +82,7 @@ const App = () => (
       </TooltipProvider>
       </CNPJPullProvider>
       </BackgroundSearchProvider>
+      </GlobalSearchLockProvider>
       </NotificationProvider>
       </AppearanceProvider>
     </AuthProvider>
