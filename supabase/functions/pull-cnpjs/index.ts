@@ -27,15 +27,53 @@ const stateAbbreviations: Record<string, string> = {
 
 // Segment synonyms for better search coverage
 const segmentSynonyms: Record<string, string[]> = {
+  // === NICHOS PRINCIPAIS - EDUCAÇÃO ===
+  "Educação - Escolas e Colégios": [
+    "escola particular", "colégio particular", "escola privada", "colégio privado",
+    "escola infantil", "educação infantil", "escola fundamental", "colégio ensino médio",
+    "escola bilíngue", "colégio bilíngue", "escola integral", "creche particular"
+  ],
+  "Educação - Cursos Profissionalizantes": [
+    "curso profissionalizante", "curso técnico", "escola técnica", "centro de formação",
+    "curso de capacitação", "treinamento profissional", "formação técnica"
+  ],
+  "Educação - Idiomas": [
+    "escola de idiomas", "curso de inglês", "curso de espanhol", "escola de línguas",
+    "curso de idiomas", "centro de idiomas", "english school", "instituto de idiomas"
+  ],
+  
+  // === NICHOS PRINCIPAIS - VEÍCULOS ===
+  "Veículos - Lojas de Carros": [
+    "loja de carros", "revenda de veículos", "seminovos", "carros usados", "multimarcas",
+    "veículos usados", "revenda de carros", "loja de automóveis", "carros seminovos"
+  ],
+  "Veículos - Concessionárias": [
+    "concessionária", "concessionária autorizada", "revendedora autorizada",
+    "concessionária de veículos", "agência de veículos", "dealer"
+  ],
+  "Veículos - Barcos e Lanchas": [
+    "loja de barcos", "venda de lanchas", "náutica", "marina", "jet ski",
+    "embarcações", "loja náutica", "revenda de barcos", "yachts"
+  ],
+  "Veículos - Motorhomes e Trailers": [
+    "motorhome", "trailer", "camper", "veículo recreativo", "motor home",
+    "food truck", "reboque", "carreta"
+  ],
+  
+  // === NICHO PRINCIPAL - IMOBILIÁRIAS ===
+  "Imobiliárias": [
+    "imobiliária", "corretor de imóveis", "imóveis", "venda de imóveis",
+    "aluguel de imóveis", "corretora de imóveis", "administradora de imóveis",
+    "construtora", "incorporadora", "empreendimentos imobiliários"
+  ],
+  
+  // === OUTROS SEGMENTOS ===
   "Comércio Automotivo": ["concessionária", "revenda veículos", "loja carros", "seminovos", "multimarcas"],
   "Restaurantes": ["restaurante", "pizzaria", "hamburgueria", "lanchonete", "churrascaria"],
-  "Clínicas e Saúde": ["clínica médica", "consultório", "dentista", "laboratório", "fisioterapia"],
-  "Academias": ["academia", "crossfit", "pilates", "fitness", "musculação"],
-  "Educação": ["escola", "colégio", "curso", "faculdade", "centro educacional"],
-  "Varejo": ["loja", "comércio", "mercado", "supermercado", "boutique"],
-  "Imobiliárias": ["imobiliária", "corretor", "imóveis", "construtora"],
+  "Clínicas e Consultórios": ["clínica médica", "consultório", "dentista", "laboratório", "fisioterapia"],
+  "Academias e Fitness": ["academia", "crossfit", "pilates", "fitness", "musculação"],
   "Salões de Beleza": ["salão beleza", "cabeleireiro", "barbearia", "estética"],
-  "Contabilidade": ["escritório contábil", "contabilidade", "contador"],
+  "Serviços Contábeis": ["escritório contábil", "contabilidade", "contador"],
   "Advocacia": ["escritório advocacia", "advogado", "jurídico"],
   "Tecnologia": ["software", "TI", "informática", "startup", "sistemas"],
   "Construção Civil": ["construtora", "empreiteira", "engenharia", "obras"],
