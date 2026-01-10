@@ -4,10 +4,7 @@ import { useProspects, useSendToLeadsBase, useAddProspectFromCNPJ, type Prospect
 import { useSavedSearches, useDeleteSavedSearch } from "@/hooks/useSavedSearches";
 import { useCNPJLookupManual, type CNPJLookupResult } from "@/hooks/useCNPJLookup";
 import { useCompanySearch, type CompanySearchResult } from "@/hooks/useCompanySearch";
-import { useStreamingSearch } from "@/hooks/useStreamingSearch";
 import { useSearchCache } from "@/hooks/useSearchCache";
-import { useBrowserNotification } from "@/hooks/useBrowserNotification";
-import { useNotifications } from "@/contexts/NotificationContext";
 import { useBackgroundSearch } from "@/contexts/BackgroundSearchContext";
 import { toast } from "@/hooks/use-toast";
 import { saveRecentProspeccaoFilters } from "@/components/prospeccao/RecentFiltersSelect";
@@ -27,7 +24,6 @@ export function useProspeccaoState() {
   const [batchDialogOpen, setBatchDialogOpen] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   const [showResultsPanel, setShowResultsPanel] = useState(false);
-  const [isSearchMinimized, setIsSearchMinimized] = useState(false);
   const [searchMode, setSearchMode] = useState<SearchMode>("internet");
   
   // API Search results
@@ -44,11 +40,8 @@ export function useProspeccaoState() {
   // Hooks
   // For database mode, always fetch (auto-filter without search button)
   const { data: prospects = [], isLoading: dbLoading, isError, refetch } = useProspects(filters, searchMode === "database");
-  const streamingSearch = useStreamingSearch();
   const companySearch = useCompanySearch();
   const { findCached, addToCache, getRecentSearches, clearCache } = useSearchCache();
-  const { permission, requestPermission, sendNotification } = useBrowserNotification();
-  const { addNotification } = useNotifications();
   const { activeSearch, isSearching: isBackgroundSearching, startBackgroundSearch, cancelSearch: cancelBackgroundSearch, clearSearch } = useBackgroundSearch();
   const { data: savedSearches = [] } = useSavedSearches();
   const deleteSavedSearch = useDeleteSavedSearch();
@@ -139,46 +132,33 @@ export function useProspeccaoState() {
     setSelectedIds([]);
   }, [filters, setSearchParams]);
 
-  // Watch streaming search for completion
+  // Watch background search for completion
   useEffect(() => {
-    if (!streamingSearch.isSearching && streamingSearch.companies.length > 0) {
-      setApiResults(streamingSearch.companies);
-      setApiTotal(streamingSearch.stats?.totalCNPJsFound || streamingSearch.companies.length);
+    if (activeSearch?.status === "completed" && activeSearch.results.length > 0) {
+      setApiResults(activeSearch.results);
+      setApiTotal(activeSearch.results.length);
       setShowResultsPanel(true);
       
-      if (streamingSearch.stats) {
-        setSearchStats(streamingSearch.stats);
+      if (activeSearch.stats) {
+        setSearchStats(activeSearch.stats);
       }
       
-      if (streamingSearch.companies.length > 0) {
-        addToCache(filters, streamingSearch.companies, streamingSearch.stats?.totalCNPJsFound || streamingSearch.companies.length, pageSize);
-      }
+      addToCache(filters, activeSearch.results, activeSearch.results.length, pageSize);
       
-      const timeInfo = streamingSearch.stats?.processingTimeMs 
-        ? ` em ${(streamingSearch.stats.processingTimeMs / 1000).toFixed(1)}s`
+      const timeInfo = activeSearch.stats?.processingTimeMs 
+        ? ` em ${(activeSearch.stats.processingTimeMs / 1000).toFixed(1)}s`
         : "";
       
       toast({
         title: "Busca concluída",
-        description: `${streamingSearch.companies.length} empresa(s) encontrada(s)${timeInfo}.`,
+        description: `${activeSearch.results.length} empresa(s) encontrada(s)${timeInfo}.`,
       });
+      
+      clearSearch();
     }
-  }, [streamingSearch.isSearching, streamingSearch.companies, streamingSearch.stats, addToCache, filters]);
+  }, [activeSearch?.status, activeSearch?.results, activeSearch?.stats, addToCache, filters, pageSize, clearSearch]);
 
-  // Handlers
-  const handleMinimizeToBackground = useCallback(async () => {
-    companySearch.cancel();
-    
-    try {
-      await startBackgroundSearch(filters, pageSize);
-      toast({
-        title: "Busca em segundo plano",
-        description: "A busca continuará mesmo se você navegar para outras páginas.",
-      });
-    } catch (error) {
-      // Error handled by context
-    }
-  }, [companySearch, startBackgroundSearch, filters, pageSize]);
+  // Handlers - removed handleMinimizeToBackground as search always runs in background
 
   const handleSearch = useCallback(async () => {
     saveRecentProspeccaoFilters(filters);
@@ -186,7 +166,6 @@ export function useProspeccaoState() {
     setApiResults([]);
     setApiTotal(0);
     setSearchStats(null);
-    setIsSearchMinimized(false);
     
     if (searchMode === "internet") {
       // Only use cache if same filters AND same pageSize
@@ -202,17 +181,24 @@ export function useProspeccaoState() {
         return;
       }
 
-      streamingSearch.startSearch(filters, pageSize);
+      // Start background search - persists across navigation
+      try {
+        await startBackgroundSearch(filters, pageSize);
+      } catch (error) {
+        // Error handled by context
+      }
     } else {
       refetch();
     }
-  }, [filters, searchMode, findCached, streamingSearch, pageSize, refetch]);
+  }, [filters, searchMode, findCached, pageSize, refetch, startBackgroundSearch]);
 
   const handleViewStreamingResults = useCallback(() => {
-    setApiResults(streamingSearch.companies);
-    setApiTotal(streamingSearch.progress.total);
-    setShowResultsPanel(true);
-  }, [streamingSearch.companies, streamingSearch.progress.total]);
+    if (activeSearch) {
+      setApiResults(activeSearch.results);
+      setApiTotal(activeSearch.results.length);
+      setShowResultsPanel(true);
+    }
+  }, [activeSearch]);
 
   const handleApplyCachedSearch = useCallback((cachedFilters: ProspectFilters, results: CompanySearchResult[], total: number) => {
     setFilters(cachedFilters);
@@ -235,13 +221,13 @@ export function useProspeccaoState() {
   }, []);
 
   const handleCancelSearch = useCallback(() => {
-    streamingSearch.cancelSearch();
+    cancelBackgroundSearch();
     companySearch.cancel();
     toast({
       title: "Busca cancelada",
       description: "A busca foi interrompida.",
     });
-  }, [streamingSearch, companySearch]);
+  }, [cancelBackgroundSearch, companySearch]);
 
   const handleClearFilters = useCallback(() => {
     setFilters({});
@@ -537,8 +523,6 @@ export function useProspeccaoState() {
     setBatchDialogOpen,
     hasSearched,
     showResultsPanel,
-    isSearchMinimized,
-    setIsSearchMinimized,
     searchMode,
     setSearchMode,
     apiResults,
@@ -556,8 +540,9 @@ export function useProspeccaoState() {
     isLoading,
     isError,
     
-    // Search state
-    streamingSearch,
+    // Search state - expose background search for banner
+    activeSearch,
+    isBackgroundSearching,
     companySearch,
     
     // Cache
@@ -569,7 +554,6 @@ export function useProspeccaoState() {
     addProspectFromCNPJ,
     
     // Handlers
-    handleMinimizeToBackground,
     handleSearch,
     handleViewStreamingResults,
     handleApplyCachedSearch,

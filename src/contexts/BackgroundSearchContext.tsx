@@ -5,7 +5,7 @@ import { useNotifications } from "@/contexts/NotificationContext";
 import { useNotificationSound } from "@/hooks/useNotificationSound";
 import { useGlobalSearchLock } from "@/contexts/GlobalSearchLock";
 import type { ProspectFilters } from "@/hooks/useProspects";
-import type { CompanySearchResult, CompanySearchResponse, SearchDebugStats } from "@/hooks/useCompanySearch";
+import type { CompanySearchResult, SearchDebugStats } from "@/hooks/useCompanySearch";
 
 interface BackgroundSearch {
   id: string;
@@ -13,18 +13,22 @@ interface BackgroundSearch {
   status: "pending" | "running" | "completed" | "cancelled" | "error";
   startedAt: Date;
   completedAt?: Date;
-  results?: CompanySearchResult[];
+  results: CompanySearchResult[];
   total?: number;
   stats?: SearchDebugStats;
   error?: string;
+  progress: {
+    processed: number;
+    total: number;
+    found: number;
+  };
 }
 
 interface BackgroundSearchContextType {
   activeSearch: BackgroundSearch | null;
   isSearching: boolean;
   startBackgroundSearch: (filters: ProspectFilters, pageSize?: number) => Promise<string>;
-  cancelSearch: (searchId: string) => void;
-  getSearchResults: (searchId: string) => BackgroundSearch | null;
+  cancelSearch: () => void;
   clearSearch: () => void;
   acknowledgeSearch: () => void;
 }
@@ -69,79 +73,145 @@ export function BackgroundSearchProvider({ children }: { children: React.ReactNo
       filters,
       status: "running",
       startedAt: new Date(),
+      results: [],
+      progress: { processed: 0, total: 0, found: 0 },
     };
 
     setActiveSearch(newSearch);
     abortControllerRef.current = new AbortController();
 
     try {
-      const { data, error } = await supabase.functions.invoke<CompanySearchResponse>(
-        "search-companies",
-        {
-          body: {
-            states: filters.states,
-            cities: filters.cities,
-            segments: filters.segments,
-            cnae: filters.cnae,
-            companySizes: filters.companySizes,
-            hasEmail: filters.hasEmail,
-            hasPhone: filters.hasPhone,
-            hasWebsite: filters.hasWebsite,
-            page: 1,
-            pageSize,
-          },
-        }
-      );
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      
+      const response = await fetch(`${supabaseUrl}/functions/v1/search-companies`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${session?.access_token || supabaseKey}`,
+          "apikey": supabaseKey,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          states: filters.states,
+          cities: filters.cities,
+          segments: filters.segments,
+          cnae: filters.cnae,
+          companySizes: filters.companySizes,
+          hasEmail: filters.hasEmail,
+          hasPhone: filters.hasPhone,
+          hasWebsite: filters.hasWebsite,
+          pageSize,
+          streaming: true,
+        }),
+        signal: abortControllerRef.current.signal,
+      });
 
-      if (error) {
-        throw new Error(error.message || "Erro ao buscar empresas");
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const completedSearch: BackgroundSearch = {
-        ...newSearch,
-        status: "completed",
-        completedAt: new Date(),
-        results: data?.companies || [],
-        total: data?.total || 0,
-        stats: data?.debug,
-      };
+      const reader = response.body?.getReader();
+      if (!reader) {
+        throw new Error("No response body");
+      }
 
-      setActiveSearch(completedSearch);
-      
-      // Release global lock on completion
-      releaseLock("internet");
+      const decoder = new TextDecoder();
+      let buffer = "";
 
-      const timeInfo = data?.debug?.processingTimeMs
-        ? ` em ${(data.debug.processingTimeMs / 1000).toFixed(1)}s`
-        : "";
+      while (true) {
+        const { done, value } = await reader.read();
+        
+        if (done) break;
+        
+        buffer += decoder.decode(value, { stream: true });
+        
+        // Process complete SSE messages
+        const lines = buffer.split("\n\n");
+        buffer = lines.pop() || "";
+        
+        for (const line of lines) {
+          if (line.startsWith("data: ")) {
+            try {
+              const data = JSON.parse(line.slice(6));
+              
+              switch (data.type) {
+                case "init":
+                  setActiveSearch(prev => prev ? {
+                    ...prev,
+                    progress: {
+                      ...prev.progress,
+                      total: data.processing,
+                    },
+                  } : null);
+                  break;
+                  
+                case "company":
+                  setActiveSearch(prev => prev ? {
+                    ...prev,
+                    results: [...prev.results, data.company],
+                    progress: data.progress,
+                  } : null);
+                  break;
+                  
+                case "progress":
+                  setActiveSearch(prev => prev ? {
+                    ...prev,
+                    progress: {
+                      processed: data.processed,
+                      total: data.total,
+                      found: data.found,
+                    },
+                  } : null);
+                  break;
+                  
+                case "complete":
+                  setActiveSearch(prev => prev ? {
+                    ...prev,
+                    status: "completed",
+                    completedAt: new Date(),
+                    stats: data.stats,
+                    total: prev.results.length,
+                  } : null);
+                  
+                  releaseLock("internet");
+                  
+                  const timeInfo = data.stats?.processingTimeMs
+                    ? ` em ${(data.stats.processingTimeMs / 1000).toFixed(1)}s`
+                    : "";
 
-      // Play success sound
-      playSuccessSound();
+                  playSuccessSound();
 
-      // Send browser notification
-      sendNotification("🔍 Busca concluída!", {
-        body: `${data?.companies?.length || 0} empresa(s) encontrada(s)${timeInfo}. Clique para ver os resultados.`,
-        tag: "background-search-complete",
-        requireInteraction: true,
-        onClick: () => {
-          window.focus();
-        },
-      });
+                  sendNotification("🔍 Busca concluída!", {
+                    body: `${data.stats?.companiesFound || 0} empresa(s) encontrada(s)${timeInfo}. Clique para ver os resultados.`,
+                    tag: "background-search-complete",
+                    requireInteraction: true,
+                    onClick: () => {
+                      window.focus();
+                    },
+                  });
 
-      // Add app notification with link
-      addNotification({
-        type: "search",
-        title: "Busca concluída",
-        message: `${data?.companies?.length || 0} empresa(s) encontrada(s)${timeInfo}. Clique para ver os resultados.`,
-        link: "/prospeccao",
-      });
+                  addNotification({
+                    type: "search",
+                    title: "Busca concluída",
+                    message: `Empresas encontradas${timeInfo}. Clique para ver os resultados.`,
+                    link: "/prospeccao",
+                  });
+                  break;
+              }
+            } catch (e) {
+              console.error("Error parsing SSE message:", e, line);
+            }
+          }
+        }
+      }
 
       return searchId;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Erro desconhecido";
       
-      if (errorMessage !== "AbortError") {
-        // Release lock on error
+      if ((error as Error).name !== "AbortError") {
         releaseLock("internet");
         
         setActiveSearch(prev => prev ? {
@@ -151,10 +221,8 @@ export function BackgroundSearchProvider({ children }: { children: React.ReactNo
           completedAt: new Date(),
         } : null);
 
-        // Play error sound
         playErrorSound();
 
-        // Notify about error
         addNotification({
           type: "error",
           title: "Erro na busca",
@@ -167,24 +235,17 @@ export function BackgroundSearchProvider({ children }: { children: React.ReactNo
     }
   }, [sendNotification, addNotification, playSuccessSound, playErrorSound, acquireLock, releaseLock, getActiveSearchMessage]);
 
-  const cancelSearch = useCallback((searchId: string) => {
-    if (activeSearch?.id === searchId && abortControllerRef.current) {
+  const cancelSearch = useCallback(() => {
+    if (abortControllerRef.current) {
       abortControllerRef.current.abort();
-      releaseLock("internet");
-      setActiveSearch(prev => prev ? {
-        ...prev,
-        status: "cancelled",
-        completedAt: new Date(),
-      } : null);
     }
-  }, [activeSearch, releaseLock]);
-
-  const getSearchResults = useCallback((searchId: string): BackgroundSearch | null => {
-    if (activeSearch?.id === searchId) {
-      return activeSearch;
-    }
-    return null;
-  }, [activeSearch]);
+    releaseLock("internet");
+    setActiveSearch(prev => prev ? {
+      ...prev,
+      status: "cancelled",
+      completedAt: new Date(),
+    } : null);
+  }, [releaseLock]);
 
   const clearSearch = useCallback(() => {
     if (abortControllerRef.current) {
@@ -195,8 +256,7 @@ export function BackgroundSearchProvider({ children }: { children: React.ReactNo
   }, [releaseLock]);
 
   const acknowledgeSearch = useCallback(() => {
-    // Mark search as acknowledged (user has seen the results)
-    // We keep the results available but can track that user has seen them
+    // Mark search as acknowledged
   }, []);
 
   return (
@@ -206,7 +266,6 @@ export function BackgroundSearchProvider({ children }: { children: React.ReactNo
         isSearching,
         startBackgroundSearch,
         cancelSearch,
-        getSearchResults,
         clearSearch,
         acknowledgeSearch,
       }}

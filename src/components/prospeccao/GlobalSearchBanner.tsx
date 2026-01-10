@@ -57,9 +57,7 @@ export function GlobalSearchBanner() {
   };
 
   const handleCancel = () => {
-    if (activeSearch) {
-      cancelSearch(activeSearch.id);
-    }
+    cancelSearch();
   };
 
   const handleDismiss = () => {
