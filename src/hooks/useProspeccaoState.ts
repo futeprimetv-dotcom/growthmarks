@@ -21,6 +21,7 @@ export function useProspeccaoState() {
   const [saveSearchOpen, setSaveSearchOpen] = useState(false);
   const [sendToFunnelOpen, setSendToFunnelOpen] = useState(false);
   const [sendCNPJToFunnelOpen, setSendCNPJToFunnelOpen] = useState(false);
+  const [sendToLeadsConfirmOpen, setSendToLeadsConfirmOpen] = useState(false);
   const [batchDialogOpen, setBatchDialogOpen] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   const [showResultsPanel, setShowResultsPanel] = useState(false);
@@ -302,54 +303,65 @@ export function useProspeccaoState() {
     });
   }, [searchMode, apiResults, prospects, selectedIds]);
 
-  const handleSendToLeadsBase = useCallback(async () => {
-    if (searchMode === "internet") {
-      const selectedCompanies = apiResults.filter(c => selectedIds.includes(c.id || c.cnpj));
-      
-      for (const company of selectedCompanies) {
-        try {
-          const prospectData = {
-            id: company.cnpj,
-            name: company.name,
-            cnpj: company.cnpj,
-            segment: company.segment,
-            cnae_code: company.cnae_code,
-            cnae_description: company.cnae_description,
-            company_size: company.company_size,
-            city: company.city,
-            state: company.state,
-            neighborhood: company.neighborhood,
-            has_website: company.has_website,
-            website_url: undefined,
-            has_phone: company.has_phone,
-            has_email: company.has_email,
-            emails_count: company.emails.length,
-            phones_count: company.phones.length,
-            data_revealed: true,
-            emails: company.emails,
-            phones: company.phones,
-            social_links: undefined,
-            status: "novo" as const,
-            tags: ["api-search"],
-            source: "casadosdados",
-          };
-          
-          await sendToLeadsBase.mutateAsync([prospectData as any]);
-        } catch (error) {
-          console.error("Error sending to leads:", error);
-        }
-      }
-      
-      setSelectedIds([]);
-    } else {
-      const selectedProspects = prospects.filter(p => selectedIds.includes(p.id));
-      sendToLeadsBase.mutate(selectedProspects, {
-        onSuccess: () => {
-          setSelectedIds([]);
-        }
+  // Open confirmation dialog before sending to leads
+  const handleOpenSendToLeadsConfirm = useCallback(() => {
+    if (selectedIds.length === 0) {
+      toast({
+        title: "Nenhum prospect selecionado",
+        description: "Selecione ao menos um prospect para enviar.",
+        variant: "destructive",
       });
+      return;
     }
-  }, [searchMode, apiResults, prospects, selectedIds, sendToLeadsBase]);
+    setSendToLeadsConfirmOpen(true);
+  }, [selectedIds.length]);
+
+  // Get selected prospects for confirmation dialog
+  const getSelectedProspectsForLeads = useCallback(() => {
+    if (searchMode === "internet") {
+      return apiResults.filter(c => selectedIds.includes(c.id || c.cnpj)).map(c => ({
+        id: c.id || c.cnpj,
+        name: c.name,
+        cnpj: c.cnpj,
+        segment: c.segment,
+        cnae_code: c.cnae_code,
+        cnae_description: c.cnae_description,
+        company_size: c.company_size,
+        city: c.city,
+        state: c.state,
+        neighborhood: c.neighborhood,
+        has_website: c.has_website,
+        website_url: undefined,
+        has_phone: c.has_phone,
+        has_email: c.has_email,
+        emails_count: c.emails.length,
+        phones_count: c.phones.length,
+        data_revealed: true,
+        emails: c.emails,
+        phones: c.phones,
+        social_links: undefined,
+        status: "novo" as const,
+        tags: ["api-search"],
+        source: "casadosdados",
+      })) as any[];
+    } else {
+      return prospects.filter(p => selectedIds.includes(p.id));
+    }
+  }, [searchMode, apiResults, prospects, selectedIds]);
+
+  const handleSendToLeadsBase = useCallback(async () => {
+    const selectedProspects = getSelectedProspectsForLeads();
+    
+    if (selectedProspects.length === 0) return;
+    
+    try {
+      await sendToLeadsBase.mutateAsync(selectedProspects);
+      setSelectedIds([]);
+      setSendToLeadsConfirmOpen(false);
+    } catch (error) {
+      console.error("Error sending to leads:", error);
+    }
+  }, [getSelectedProspectsForLeads, sendToLeadsBase]);
 
   const handleAddToMyBase = useCallback(async () => {
     const selectedCompanies = apiResults.filter(c => selectedIds.includes(c.id || c.cnpj));
@@ -514,6 +526,8 @@ export function useProspeccaoState() {
     setSendToFunnelOpen,
     sendCNPJToFunnelOpen,
     setSendCNPJToFunnelOpen,
+    sendToLeadsConfirmOpen,
+    setSendToLeadsConfirmOpen,
     batchDialogOpen,
     setBatchDialogOpen,
     hasSearched,
@@ -560,7 +574,9 @@ export function useProspeccaoState() {
     handleLoadSavedSearch,
     handleDeleteSavedSearch,
     handleExport,
+    handleOpenSendToLeadsConfirm,
     handleSendToLeadsBase,
+    getSelectedProspectsForLeads,
     handleAddToMyBase,
     handleCNPJSearch,
     handleCNPJClear,
