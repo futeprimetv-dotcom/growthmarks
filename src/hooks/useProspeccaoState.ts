@@ -25,7 +25,20 @@ export function useProspeccaoState() {
   const [batchDialogOpen, setBatchDialogOpen] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   const [showResultsPanel, setShowResultsPanel] = useState(false);
-  const [searchMode, setSearchMode] = useState<SearchMode>("internet");
+  const [searchMode, setSearchModeInternal] = useState<SearchMode>("internet");
+
+  // Wrapper to clear segment filter when switching to database mode
+  // (internet search segments don't match database CNAE descriptions)
+  const setSearchMode = useCallback((mode: SearchMode) => {
+    if (mode === "database") {
+      // Clear segment filter since internet segments don't match DB segments
+      setFilters(prev => ({
+        ...prev,
+        segments: undefined
+      }));
+    }
+    setSearchModeInternal(mode);
+  }, []);
   
   // API Search results
   const [apiResults, setApiResults] = useState<CompanySearchResult[]>([]);
