@@ -10,6 +10,7 @@ import { CNPJPullTab } from "@/components/prospeccao/CNPJPullTab";
 
 import { SaveSearchDialog } from "@/components/prospeccao/SaveSearchDialog";
 import { SendToFunnelDialog } from "@/components/prospeccao/SendToFunnelDialog";
+import { SendToLeadsConfirmDialog } from "@/components/prospeccao/SendToLeadsConfirmDialog";
 import { CNPJBatchDialog } from "@/components/prospeccao/CNPJBatchDialog";
 import { toast } from "@/hooks/use-toast";
 
@@ -30,7 +31,7 @@ export default function Prospeccao() {
         isLoading={state.companySearch.isPending}
         onBack={state.handleBackFromResults}
         onAddToMyBase={state.handleAddToMyBase}
-        onSendToLeadsBase={state.handleSendToLeadsBase}
+        onSendToLeadsBase={state.handleOpenSendToLeadsConfirm}
         onExport={state.handleExport}
         sendToFunnelOpen={state.sendToFunnelOpen}
         onSendToFunnelOpenChange={state.setSendToFunnelOpen}
@@ -111,7 +112,7 @@ export default function Prospeccao() {
             pageSize={state.pageSize}
             onPageSizeChange={state.setPageSize}
             onSendToFunnel={() => state.setSendToFunnelOpen(true)}
-            onSendToLeadsBase={state.handleSendToLeadsBase}
+            onSendToLeadsBase={state.handleOpenSendToLeadsConfirm}
             onExport={state.handleExport}
             isSendingToBase={state.sendToLeadsBase.isPending}
           />
@@ -175,6 +176,15 @@ export default function Prospeccao() {
           onAddToProspects={state.handleBatchAddToProspects}
           onSendToLeads={state.handleBatchSendToLeads}
           isAdding={state.batchAdding}
+        />
+
+        {/* Send to Leads Confirmation Dialog */}
+        <SendToLeadsConfirmDialog
+          open={state.sendToLeadsConfirmOpen}
+          onOpenChange={state.setSendToLeadsConfirmOpen}
+          prospects={state.getSelectedProspectsForLeads()}
+          onConfirm={state.handleSendToLeadsBase}
+          isPending={state.sendToLeadsBase.isPending}
         />
     </div>
   );
