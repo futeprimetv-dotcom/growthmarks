@@ -56,7 +56,7 @@ export function ProspeccaoHeader({
 }: ProspeccaoHeaderProps) {
   return (
     <div className="p-6 border-b shrink-0">
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-start justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
             <Search className="h-6 w-6" />
@@ -67,68 +67,89 @@ export function ProspeccaoHeader({
           </p>
         </div>
         
-        <div className="flex items-center gap-2 flex-wrap">
-          <ICPIndicator />
+        {/* Actions - reorganized in logical groups */}
+        <div className="flex items-center gap-3">
+          {/* ICP Group */}
+          <div className="flex items-center gap-2 bg-muted/30 rounded-lg p-1.5">
+            <ICPIndicator />
+            {searchMode === "internet" && <ICPSettingsDialog />}
+          </div>
 
+          {/* Search Tools (only for internet mode) */}
           {searchMode === "internet" && (
-            <>
+            <div className="flex items-center gap-2 bg-muted/30 rounded-lg p-1.5">
               <SearchLimitSelector 
                 value={pageSize} 
                 onChange={onPageSizeChange} 
               />
+              <div className="w-px h-6 bg-border" />
               <SearchTemplates onApply={onApplyTemplate} />
               <SearchHistory 
                 recentSearches={getRecentSearches()}
                 onApply={onApplyCachedSearch}
                 onClearHistory={clearCache}
               />
-              <ICPSettingsDialog />
-            </>
+            </div>
           )}
 
-          <RecentFiltersSelect
-            onApply={(recent) => {
-              onApplyRecentFilters(recent);
-              toast({
-                title: "Filtros recentes aplicados",
-                description: "Clique em Buscar para ver os resultados.",
-              });
-            }}
-          />
+          {/* Saved Searches & Recent Filters */}
+          <div className="flex items-center gap-2">
+            <RecentFiltersSelect
+              onApply={(recent) => {
+                onApplyRecentFilters(recent);
+                toast({
+                  title: "Filtros recentes aplicados",
+                  description: "Clique em Buscar para ver os resultados.",
+                });
+              }}
+            />
 
-          {savedSearches.length > 0 && (
-            <Select onValueChange={onLoadSavedSearch}>
-              <SelectTrigger className="w-[180px]">
-                <BookmarkCheck className="h-4 w-4 mr-2" />
-                <SelectValue placeholder="Pesquisas salvas" />
-              </SelectTrigger>
-              <SelectContent>
-                {savedSearches.map((search) => (
-                  <SelectItem key={search.id} value={search.id}>
-                    {search.name} ({search.results_count})
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
+            {savedSearches.length > 0 && (
+              <Select onValueChange={onLoadSavedSearch}>
+                <SelectTrigger className="w-[180px]">
+                  <BookmarkCheck className="h-4 w-4 mr-2" />
+                  <SelectValue placeholder="Pesquisas salvas" />
+                </SelectTrigger>
+                <SelectContent>
+                  {savedSearches.map((search) => (
+                    <SelectItem key={search.id} value={search.id}>
+                      {search.name} ({search.results_count})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
         </div>
       </div>
 
-      <Tabs value={searchMode} onValueChange={(v) => onSearchModeChange(v as SearchMode)} className="mb-4">
-        <TabsList className="grid w-full grid-cols-4 max-w-2xl">
-          <TabsTrigger value="internet" className="flex items-center gap-2">
+      <Tabs value={searchMode} onValueChange={(v) => onSearchModeChange(v as SearchMode)}>
+        <TabsList className="inline-flex h-10 p-1 bg-muted/50 rounded-lg">
+          <TabsTrigger 
+            value="internet" 
+            className="flex items-center gap-2 px-4 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md"
+          >
             <Globe className="h-4 w-4" />
             <span className="hidden sm:inline">Buscar na</span> Internet
           </TabsTrigger>
-          <TabsTrigger value="cnpj" className="flex items-center gap-2">
+          <TabsTrigger 
+            value="cnpj" 
+            className="flex items-center gap-2 px-4 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md"
+          >
             <Search className="h-4 w-4" />
             Consulta CNPJ
           </TabsTrigger>
-          <TabsTrigger value="pull-cnpjs" className="flex items-center gap-2">
+          <TabsTrigger 
+            value="pull-cnpjs" 
+            className="flex items-center gap-2 px-4 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md"
+          >
             <FileText className="h-4 w-4" />
             Puxar CNPJs
           </TabsTrigger>
-          <TabsTrigger value="database" className="flex items-center gap-2">
+          <TabsTrigger 
+            value="database" 
+            className="flex items-center gap-2 px-4 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md"
+          >
             <Database className="h-4 w-4" />
             Minha Base
           </TabsTrigger>
