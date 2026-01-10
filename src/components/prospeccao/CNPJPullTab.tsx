@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback } from "react";
-import { Search, Download, Loader2, FileText, CheckCircle, XCircle, StopCircle } from "lucide-react";
+import { Search, Download, Loader2, FileText, CheckCircle, XCircle, StopCircle, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -39,6 +39,19 @@ interface SearchProgress {
   totalQueries: number;
 }
 
+function formatTimeRemaining(seconds: number): string {
+  if (seconds < 0 || !isFinite(seconds)) return "--";
+  if (seconds < 60) return `${Math.ceil(seconds)}s`;
+  if (seconds < 3600) {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.ceil(seconds % 60);
+    return `${mins}m ${secs}s`;
+  }
+  const hours = Math.floor(seconds / 3600);
+  const mins = Math.ceil((seconds % 3600) / 60);
+  return `${hours}h ${mins}m`;
+}
+
 export function CNPJPullTab() {
   const [segment, setSegment] = useState<string | undefined>();
   const [state, setState] = useState<string | undefined>();
@@ -57,6 +70,9 @@ export function CNPJPullTab() {
     queriesCompleted: 0,
     totalQueries: 0,
   });
+
+  const [processingStartTime, setProcessingStartTime] = useState<number | null>(null);
+  const [estimatedTimeRemaining, setEstimatedTimeRemaining] = useState<string | null>(null);
 
   const abortControllerRef = useRef<AbortController | null>(null);
 
@@ -77,6 +93,8 @@ export function CNPJPullTab() {
     abortControllerRef.current = new AbortController();
 
     setResults([]);
+    setProcessingStartTime(null);
+    setEstimatedTimeRemaining(null);
     setProgress({
       status: "searching",
       statusMessage: "Iniciando busca...",
@@ -160,6 +178,7 @@ export function CNPJPullTab() {
                   break;
 
                 case "search_complete":
+                  setProcessingStartTime(Date.now());
                   setProgress(prev => ({
                     ...prev,
                     status: "processing",
@@ -178,15 +197,36 @@ export function CNPJPullTab() {
                   }));
                   break;
                   
-                case "progress":
-                  setProgress(prev => ({
-                    ...prev,
-                    processed: data.processed,
-                    activeCount: data.found,
-                    inactiveCount: data.inactiveCount,
-                    cacheHits: data.cacheHits || 0,
-                  }));
+                case "progress": {
+                  // Calculate estimated time remaining
+                  const now = Date.now();
+                  setProgress(prev => {
+                    return {
+                      ...prev,
+                      processed: data.processed,
+                      activeCount: data.found,
+                      inactiveCount: data.inactiveCount,
+                      cacheHits: data.cacheHits || 0,
+                    };
+                  });
+                  
+                  // Update time estimate outside of setProgress to access processingStartTime
+                  if (data.processed > 0 && data.total > data.processed) {
+                    setProcessingStartTime(prevStart => {
+                      if (prevStart) {
+                        const elapsedMs = now - prevStart;
+                        const rate = data.processed / (elapsedMs / 1000);
+                        const remaining = data.total - data.processed;
+                        const estimatedSeconds = remaining / rate;
+                        setEstimatedTimeRemaining(formatTimeRemaining(estimatedSeconds));
+                      }
+                      return prevStart;
+                    });
+                  } else if (data.processed >= data.total) {
+                    setEstimatedTimeRemaining(null);
+                  }
                   break;
+                }
                   
                 case "complete":
                   setProgress(prev => ({
@@ -443,11 +483,19 @@ export function CNPJPullTab() {
             <div className="space-y-3">
               <div className="flex items-center justify-between text-sm">
                 <span className="font-medium">{progress.statusMessage || "Processando..."}</span>
-                <div className="flex items-center gap-2">
-                  <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                  {progress.status === "processing" && (
-                    <span className="text-muted-foreground">{progressPercent}%</span>
+                <div className="flex items-center gap-3">
+                  {progress.status === "processing" && estimatedTimeRemaining && (
+                    <span className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Clock className="h-3 w-3" />
+                      ~{estimatedTimeRemaining} restantes
+                    </span>
                   )}
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                    {progress.status === "processing" && (
+                      <span className="text-muted-foreground">{progressPercent}%</span>
+                    )}
+                  </div>
                 </div>
               </div>
               
