@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useBrowserNotification } from "@/hooks/useBrowserNotification";
 import { useNotifications } from "@/contexts/NotificationContext";
 import { useNotificationSound } from "@/hooks/useNotificationSound";
+import { useGlobalSearchLock } from "@/contexts/GlobalSearchLock";
 
 export interface CNPJResult {
   cnpj: string;
@@ -95,6 +96,7 @@ export function CNPJPullProvider({ children }: { children: React.ReactNode }) {
   const { permission, requestPermission, sendNotification } = useBrowserNotification();
   const { addNotification } = useNotifications();
   const { playSuccessSound, playErrorSound } = useNotificationSound();
+  const { acquireLock, releaseLock, getActiveSearchMessage } = useGlobalSearchLock();
 
   const isSearching = progress.status === "searching" || progress.status === "processing";
 
@@ -108,6 +110,12 @@ export function CNPJPullProvider({ children }: { children: React.ReactNode }) {
   const startSearch = useCallback(async (filters: CNPJSearchFilters) => {
     if (!filters.segment || !filters.state) {
       throw new Error("Selecione pelo menos o segmento e o estado.");
+    }
+
+    // Try to acquire global search lock
+    if (!acquireLock("cnpj")) {
+      const message = getActiveSearchMessage();
+      throw new Error(message || "Outra busca está em andamento. Aguarde para iniciar uma nova.");
     }
 
     // Cancel any existing search
@@ -265,6 +273,9 @@ export function CNPJPullProvider({ children }: { children: React.ReactNode }) {
                 }
                   
                 case "complete":
+                  // Release the global lock when search completes
+                  releaseLock("cnpj");
+                  
                   setProgress(prev => ({
                     ...prev,
                     status: "completed",
@@ -327,19 +338,20 @@ export function CNPJPullProvider({ children }: { children: React.ReactNode }) {
       playErrorSound();
       throw error;
     }
-  }, [sendNotification, addNotification, playSuccessSound, playErrorSound]);
+  }, [sendNotification, addNotification, playSuccessSound, playErrorSound, acquireLock, getActiveSearchMessage, releaseLock]);
 
   const cancelSearch = useCallback(() => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
+    releaseLock("cnpj");
     setProgress(prev => ({
       ...prev,
       status: "cancelled",
       statusMessage: "Busca cancelada",
     }));
     setActiveSearch(null);
-  }, []);
+  }, [releaseLock]);
 
   const moveToBackground = useCallback(() => {
     setActiveSearch(current => current ? { ...current, isBackground: true } : null);
@@ -349,13 +361,14 @@ export function CNPJPullProvider({ children }: { children: React.ReactNode }) {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
+    releaseLock("cnpj");
     setActiveSearch(null);
     setResults([]);
     setProgress(defaultProgress);
     setEstimatedTimeRemaining(null);
     setProcessingStartTime(null);
     setHasNotified(false);
-  }, []);
+  }, [releaseLock]);
 
   return (
     <CNPJPullContext.Provider

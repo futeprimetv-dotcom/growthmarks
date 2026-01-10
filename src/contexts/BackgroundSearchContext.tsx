@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useBrowserNotification } from "@/hooks/useBrowserNotification";
 import { useNotifications } from "@/contexts/NotificationContext";
 import { useNotificationSound } from "@/hooks/useNotificationSound";
+import { useGlobalSearchLock } from "@/contexts/GlobalSearchLock";
 import type { ProspectFilters } from "@/hooks/useProspects";
 import type { CompanySearchResult, CompanySearchResponse, SearchDebugStats } from "@/hooks/useCompanySearch";
 
@@ -36,6 +37,7 @@ export function BackgroundSearchProvider({ children }: { children: React.ReactNo
   const { permission, requestPermission, sendNotification } = useBrowserNotification();
   const { addNotification } = useNotifications();
   const { playSuccessSound, playErrorSound } = useNotificationSound();
+  const { acquireLock, releaseLock, getActiveSearchMessage } = useGlobalSearchLock();
 
   const isSearching = activeSearch?.status === "running" || activeSearch?.status === "pending";
 
@@ -50,6 +52,12 @@ export function BackgroundSearchProvider({ children }: { children: React.ReactNo
     filters: ProspectFilters,
     pageSize: number = 50
   ): Promise<string> => {
+    // Try to acquire global search lock
+    if (!acquireLock("internet")) {
+      const message = getActiveSearchMessage();
+      throw new Error(message || "Outra busca está em andamento. Aguarde para iniciar uma nova.");
+    }
+
     // Cancel any existing search
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
@@ -99,6 +107,9 @@ export function BackgroundSearchProvider({ children }: { children: React.ReactNo
       };
 
       setActiveSearch(completedSearch);
+      
+      // Release global lock on completion
+      releaseLock("internet");
 
       const timeInfo = data?.debug?.processingTimeMs
         ? ` em ${(data.debug.processingTimeMs / 1000).toFixed(1)}s`
@@ -130,6 +141,9 @@ export function BackgroundSearchProvider({ children }: { children: React.ReactNo
       const errorMessage = error instanceof Error ? error.message : "Erro desconhecido";
       
       if (errorMessage !== "AbortError") {
+        // Release lock on error
+        releaseLock("internet");
+        
         setActiveSearch(prev => prev ? {
           ...prev,
           status: "error",
@@ -151,18 +165,19 @@ export function BackgroundSearchProvider({ children }: { children: React.ReactNo
 
       throw error;
     }
-  }, [sendNotification, addNotification, playSuccessSound, playErrorSound]);
+  }, [sendNotification, addNotification, playSuccessSound, playErrorSound, acquireLock, releaseLock, getActiveSearchMessage]);
 
   const cancelSearch = useCallback((searchId: string) => {
     if (activeSearch?.id === searchId && abortControllerRef.current) {
       abortControllerRef.current.abort();
+      releaseLock("internet");
       setActiveSearch(prev => prev ? {
         ...prev,
         status: "cancelled",
         completedAt: new Date(),
       } : null);
     }
-  }, [activeSearch]);
+  }, [activeSearch, releaseLock]);
 
   const getSearchResults = useCallback((searchId: string): BackgroundSearch | null => {
     if (activeSearch?.id === searchId) {
@@ -175,8 +190,9 @@ export function BackgroundSearchProvider({ children }: { children: React.ReactNo
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
+    releaseLock("internet");
     setActiveSearch(null);
-  }, []);
+  }, [releaseLock]);
 
   const acknowledgeSearch = useCallback(() => {
     // Mark search as acknowledged (user has seen the results)
