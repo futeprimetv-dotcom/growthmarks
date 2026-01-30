@@ -27,6 +27,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ProspectStatusBadge } from "./ProspectStatusBadge";
 import { AIAnalysisDialog } from "./AIAnalysisDialog";
+import { AIFitBadge } from "./AIFitBadge";
 import { useFullAnalysis, type CompanyData, type FitAnalysis, type CompanySummary } from "@/hooks/useAIProspecting";
 import { useICPSettings } from "@/hooks/useICPSettings";
 import type { MockProspect } from "@/data/mockProspects";
@@ -184,7 +185,16 @@ export function ProspeccaoTable({
                       <Building2 className="h-5 w-5 text-muted-foreground" />
                     </div>
                     <div className="min-w-0">
-                      <div className="font-medium truncate">{prospect.name}</div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-medium truncate">{prospect.name}</span>
+                        {aiResults.has(prospect.id) && aiResults.get(prospect.id)?.fit && (
+                          <AIFitBadge
+                            score={aiResults.get(prospect.id)!.fit.score}
+                            recommendation={aiResults.get(prospect.id)!.fit.recommendation}
+                            justification={aiResults.get(prospect.id)!.fit.justification}
+                          />
+                        )}
+                      </div>
                       <div className="flex items-center gap-2 mt-1">
                         {prospect.has_website && prospect.website_url && (
                           <a
